@@ -5000,8 +5000,7 @@ initDarkMode();
 <div class="container">
 
   <div class="tab-switch">
-    <button id="tab-asignado-btn" onclick="switchTab('asignado')">📋 Trabajo<span class="dot-badge" id="badge-asignado"></span></button>
-    <button id="tab-nuevo-btn" class="active" onclick="switchTab('nuevo')">📝 Registro</button>
+    <button id="tab-asignado-btn" class="active" onclick="switchTab('asignado')">📋 Trabajo<span class="dot-badge" id="badge-asignado"></span></button>
     <button id="tab-terminar-btn" onclick="switchTab('terminar')">✅ Terminar<span class="dot-badge" id="badge-terminar"></span></button>
     <button id="tab-cola-btn" onclick="switchTab('cola')">📤 Cola</button>
   </div>
@@ -5011,7 +5010,7 @@ initDarkMode();
     <div id="sin-trabajo" class="card" style="text-align:center;padding:30px;color:#888">
       <div style="font-size:40px;margin-bottom:10px">📭</div>
       <div style="font-weight:600;margin-bottom:6px">No hay trabajo asignado</div>
-      <div style="font-size:12px">Cuando el jefe envíe los detalles desde la app principal, aparecerán aquí.</div>
+      <div style="font-size:12px">Cuando la administración asigne un trabajo, aparecerá aquí.</div>
       <button class="btn btn-primary" style="margin-top:16px" onclick="cargarTrabajoCampo()">🔄 Verificar ahora</button>
     </div>
     <div id="campo-lista-trabajos" style="display:none">
@@ -5036,9 +5035,26 @@ initDarkMode();
         <div id="campo-notas-wrap" style="display:none;margin-bottom:8px"><span style="font-weight:700;color:#143F74">📝 Notas:</span><div id="campo-notas" style="background:#f5f5f5;border-radius:8px;padding:8px;margin-top:4px;font-size:13px;white-space:pre-wrap"></div></div>
       </div>
       <div id="campo-fotos-card" class="card" style="display:none">
-        <div class="card-title">📸 Fotos del inventario</div>
+        <div class="card-title">📸 Fotos del inventario enviadas</div>
         <div id="campo-fotos-grid" style="display:flex;flex-wrap:wrap;gap:8px"></div>
       </div>
+
+      <!-- Fotos del trabajo — se toman aquí mismo sin salir del trabajo -->
+      <div class="card">
+        <div class="card-title">📸 Fotos del trabajo (evidencia)</div>
+        <div class="notice notice-amber" style="font-size:11px;margin-bottom:10px">⚠️ Toma fotos de muebles YA DAÑADOS <strong>antes</strong> de tocarlos — son tu protección si el cliente reclama.</div>
+        <div style="font-size:12px;font-weight:700;color:#143F74;margin-bottom:6px">📷 Fotos del trabajo</div>
+        <div class="photo-grid" id="grid-trabajo-inline">
+          <div class="photo-slot" onclick="tomarFoto('trabajo')">📷</div>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#E24B4A;margin:10px 0 6px">⚠️ Muebles ya dañados (antes de moverlos)</div>
+        <div class="photo-grid" id="grid-danado-inline">
+          <div class="photo-slot" onclick="tomarFoto('danado')">📷</div>
+        </div>
+        <div id="guardar-fotos-status" style="display:none;padding:10px;border-radius:8px;font-size:12px;margin-top:8px"></div>
+        <button class="btn btn-primary" style="margin-top:10px" onclick="guardarFotosDelTrabajo()">☁️ Subir fotos al sistema</button>
+      </div>
+
       <button class="btn btn-primary" onclick="switchTab('terminar')" style="margin-top:4px">✅ Ir a terminar este trabajo</button>
       <div style="font-size:11px;color:#aaa;text-align:center;margin-top:8px" id="campo-enviado"></div>
     </div>
@@ -5048,7 +5064,7 @@ initDarkMode();
   <div id="tab-nuevo">
 
     <div class="notice notice-green">
-      ✅ <strong>Sin login requerido.</strong> Las fotos y datos van directamente al Drive del jefe.
+      ✅ <strong>Sin login requerido.</strong> Las fotos y datos se sincronizan automáticamente.
     </div>
 
     <div class="card">
@@ -5087,7 +5103,7 @@ initDarkMode();
 
     <div id="guardar-status" style="display:none;padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:12px;line-height:1.5"></div>
     <button class="btn btn-primary" id="btn-guardar" onclick="guardarYSubir()">
-      ☁️ Guardar y subir al jefe
+      ☁️ Guardar y subir al sistema
     </button>
     <button class="btn btn-secondary" onclick="limpiarFormMovil()">🗑️ Limpiar formulario</button>
 
@@ -5101,7 +5117,7 @@ initDarkMode();
       📋 FASE 1 — Cobro al cliente
     </div>
     <div class="notice notice-green" style="margin-bottom:12px;font-size:12px">
-      ✅ Aquí cobras al cliente y generas su recibo. El jefe completa los costos internos (ayudante, camión) después desde la computadora.
+      ✅ Aquí cobras al cliente y generas su recibo. La administración completa los costos internos después.
     </div>
 
     <!-- Cronómetro -->
@@ -5211,12 +5227,12 @@ initDarkMode();
 
     <div id="terminar-status" style="display:none;padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:12px;line-height:1.5"></div>
 
-    <div style="font-size:13px;font-weight:700;color:#1F5EA8;margin-bottom:8px;text-align:center">📤 PASO 2 — Cuando el cliente acepte, envía al jefe</div>
+    <div style="font-size:13px;font-weight:700;color:#1F5EA8;margin-bottom:8px;text-align:center">📤 PASO 2 — Cuando el cliente acepte, envía y finaliza</div>
     <button class="btn btn-primary" style="width:100%;padding:16px;font-size:16px;font-weight:700;border-radius:12px;border:none;margin-bottom:10px" id="btn-terminar" onclick="enviarTerminado()">
-      ✅ Enviar terminado al jefe
+      ✅ Enviar y finalizar ✅
     </button>
     <div class="notice notice-blue" style="font-size:11px;margin-top:4px">
-      El jefe completa el costo del ayudante y camión rentado desde la computadora. Eso no lo necesitas tú para el recibo del cliente.
+      La administración completa los costos internos desde la computadora.
     </div>
   </div>
 
@@ -5274,7 +5290,8 @@ let firmaIsDrawing = false;
 // ===================== TABS =====================
 function switchTab(t) {
   ['asignado','nuevo','terminar','cola'].forEach(x => {
-    document.getElementById('tab-'+x).classList.toggle('hidden', x !== t);
+    const el = document.getElementById('tab-'+x);
+    if(el) el.classList.toggle('hidden', x !== t);
     const btn = document.getElementById('tab-'+x+'-btn');
     if(btn) btn.classList.toggle('active', x === t);
   });
@@ -5282,7 +5299,6 @@ function switchTab(t) {
   if(t === 'asignado') cargarTrabajoCampo();
   if(t === 'terminar') {
     initFirma();
-    // Pre-llenar cotID, monto y display si hay trabajo activo
     if(trabajoActivo && trabajoActivo.cotId) {
       document.getElementById('t-cotid').value = trabajoActivo.cotId;
       document.getElementById('t-monto').value = trabajoActivo.monto || 0;
@@ -5333,12 +5349,47 @@ function comprimirImagen(file, maxAncho, calidad) {
 }
 
 function renderFotos() {
-  document.getElementById('grid-trabajo').innerHTML =
-    fotosTrabajo.map((f,i) => `<div class="photo-slot"><img src="${f}"><button class="remove-btn" onclick="quitarFoto('trabajo',${i})">✕</button></div>`).join('') +
-    '<div class="photo-slot" onclick="tomarFoto(\'trabajo\')">📷</div>';
-  document.getElementById('grid-danado').innerHTML =
-    fotosDanado.map((f,i) => `<div class="photo-slot"><img src="${f}"><button class="remove-btn" onclick="quitarFoto('danado',${i})">✕</button></div>`).join('') +
-    '<div class="photo-slot" onclick="tomarFoto(\'danado\')">📷</div>';
+  // Grids del tab Registro (tab-nuevo, ahora oculto pero JS sigue usándolo)
+  const gt = document.getElementById('grid-trabajo');
+  const gd = document.getElementById('grid-danado');
+  if(gt) gt.innerHTML = fotosTrabajo.map((f,i) => `<div class="photo-slot"><img src="${f}"><button class="remove-btn" onclick="quitarFoto('trabajo',${i})">✕</button></div>`).join('') + '<div class="photo-slot" onclick="tomarFoto(\'trabajo\')">📷</div>';
+  if(gd) gd.innerHTML = fotosDanado.map((f,i) => `<div class="photo-slot"><img src="${f}"><button class="remove-btn" onclick="quitarFoto('danado',${i})">✕</button></div>`).join('') + '<div class="photo-slot" onclick="tomarFoto(\'danado\')">📷</div>';
+  // Grids inline dentro del trabajo activo
+  const gti = document.getElementById('grid-trabajo-inline');
+  const gdi = document.getElementById('grid-danado-inline');
+  if(gti) gti.innerHTML = fotosTrabajo.map((f,i) => `<div class="photo-slot"><img src="${f}"><button class="remove-btn" onclick="quitarFoto('trabajo',${i})">✕</button></div>`).join('') + '<div class="photo-slot" onclick="tomarFoto(\'trabajo\')">📷</div>';
+  if(gdi) gdi.innerHTML = fotosDanado.map((f,i) => `<div class="photo-slot"><img src="${f}"><button class="remove-btn" onclick="quitarFoto('danado',${i})">✕</button></div>`).join('') + '<div class="photo-slot" onclick="tomarFoto(\'danado\')">📷</div>';
+}
+
+async function guardarFotosDelTrabajo() {
+  const cotId = trabajoActivo ? trabajoActivo.cotId : '';
+  const nombre = trabajoActivo ? trabajoActivo.nombre : '';
+  if(!fotosTrabajo.length && !fotosDanado.length) {
+    mostrarEstado('guardar-fotos-status', '⚠️ No hay fotos para subir todavía.', 'error'); return;
+  }
+  const registro = {
+    id: 'CAMPO-' + Date.now(),
+    fecha: new Date().toISOString(),
+    nombre: nombre || 'Sin nombre',
+    tel: trabajoActivo ? trabajoActivo.tel : '',
+    cotId: cotId,
+    direccion: trabajoActivo ? trabajoActivo.origen : '',
+    notas: '',
+    fotosTrabajo: [...fotosTrabajo],
+    fotosDanado: [...fotosDanado],
+    estado: 'pendiente'
+  };
+  try {
+    const q = getQueue(); q.push(registro); saveQueue(q);
+  } catch(e) { mostrarEstado('guardar-fotos-status', '❌ Sin espacio en el celular.', 'error'); return; }
+  mostrarEstado('guardar-fotos-status', '✅ Guardado. Subiendo...', 'info');
+  const ok = await subirRegistroAlScript(registro.id);
+  if(ok) {
+    mostrarEstado('guardar-fotos-status', '✅ ¡Fotos subidas al sistema! ✓', 'ok');
+    fotosTrabajo = []; fotosDanado = []; renderFotos();
+  } else {
+    mostrarEstado('guardar-fotos-status', '⚠️ Guardado en el celular. Ve a "Cola" para reintentar.', 'error');
+  }
 }
 
 function quitarFoto(tipo, idx) {
@@ -5449,7 +5500,7 @@ async function guardarYSubir() {
     return;
   }
 
-  mostrarEstado('guardar-status', '✅ Guardado. Subiendo al jefe...', 'info');
+  mostrarEstado('guardar-status', '✅ Guardado. Subiendo al sistema...', 'info');
   document.getElementById('btn-guardar').disabled = true;
   limpiarCamposSilencioso();
 
@@ -5457,7 +5508,7 @@ async function guardarYSubir() {
   document.getElementById('btn-guardar').disabled = false;
 
   if(ok) {
-    mostrarEstado('guardar-status', '✅ ¡Subido! El jefe ya puede verlo desde su app.', 'ok');
+    mostrarEstado('guardar-status', '✅ ¡Subido al sistema! ✓', 'ok');
   } else {
     mostrarEstado('guardar-status', '⚠️ Guardado en este celular. No se pudo subir ahora (sin internet o URL no configurada). Ve a "Cola" para reintentar.', 'error');
   }
@@ -5551,7 +5602,7 @@ function limpiarSubidos() {
   const q = getQueue();
   const subidos = q.filter(r => r.estado === 'subido').length;
   if(!subidos) { alert('No hay registros ya subidos para borrar.'); return; }
-  if(!confirm(`Borra de este celular los ${subidos} registro(s) ya subidos al jefe. ¿Continuar?`)) return;
+  if(!confirm(`Borra de este celular los ${subidos} registro(s) ya subidos al sistema. ¿Continuar?`)) return;
   saveQueue(q.filter(r => r.estado !== 'subido'));
   renderCola();
   alert('✅ Listo, se liberó espacio.');
@@ -5573,18 +5624,24 @@ async function verificarTrabajoSilencioso() {
   try {
     const res = await fetch(CAMPO_APPS_URL + '?action=obtenerTrabajoCampo&ayudanteId=' + CAMPO_AYUDANTE_ID);
     const data = await res.json();
-    const trabajos = (data.ok && data.trabajos) ? data.trabajos : [];
+    const trabajosRaw = (data.ok && data.trabajos) ? data.trabajos : [];
+    // Filtrar los ya terminados localmente
+    const trabajos = trabajosRaw.filter(t => !trabajoYaTerminado(t.cotId));
     if(trabajos.length > 0) {
       trabajosCola = trabajos;
       trabajoActivo = trabajos[0];
       localStorage.setItem('trabajoActivoCampo', JSON.stringify(trabajos[0]));
-      // Si está viendo la pestaña de "trabajo asignado", actualizar la vista al instante
       if(!document.getElementById('tab-asignado').classList.contains('hidden')) {
         if(trabajos.length > 1) renderListaTrabajos(trabajos);
         else mostrarTrabajo(trabajos[0], 0);
       } else {
         document.getElementById('badge-asignado').style.display = '';
       }
+    } else {
+      // No hay trabajos pendientes — limpiar si había algo viejo
+      trabajosCola = [];
+      trabajoActivo = null;
+      localStorage.removeItem('trabajoActivoCampo');
     }
   } catch(e) { /* sin conexión, se reintenta en el siguiente ciclo */ }
 }
@@ -5643,7 +5700,7 @@ async function cargarTrabajoCampo() {
       document.getElementById('sin-trabajo').innerHTML = `
         <div style="font-size:40px;margin-bottom:10px">📭</div>
         <div style="font-weight:600;margin-bottom:6px">No hay trabajo asignado</div>
-        <div style="font-size:12px">Cuando el jefe envíe los detalles desde la app principal, aparecerán aquí.</div>
+        <div style="font-size:12px">Cuando la administración asigne un trabajo, aparecerá aquí.</div>
         <button class="btn btn-primary" style="margin-top:16px" onclick="cargarTrabajoCampo()">🔄 Verificar ahora</button>`;
     }
   } catch(e) {
@@ -5887,7 +5944,7 @@ async function enviarTerminado() {
   }
 
   document.getElementById('btn-terminar').disabled = true;
-  mostrarEstado('terminar-status', '⏳ Enviando al jefe...', 'info');
+  mostrarEstado('terminar-status', '⏳ Enviando...', 'info');
 
   // Recoger 2da forma de pago si aplica
   const pago2Activo = document.getElementById('t-pago2-activo') && document.getElementById('t-pago2-activo').checked;
@@ -5960,7 +6017,7 @@ async function enviarTerminado() {
     // Volver a la pestaña de trabajo asignado y revisar si ya hay uno nuevo
     setTimeout(() => { switchTab('asignado'); }, 1200);
   } else {
-    mostrarEstado('terminar-status', '⚠️ Guardado en el celular pero no se pudo enviar. El jefe puede sincronizar manualmente.', 'error');
+    mostrarEstado('terminar-status', '⚠️ Guardado en el celular. Sin conexión — ve a Cola para reintentar.', 'error');
   }
 }
 
@@ -6142,8 +6199,14 @@ function imprimirRecibo(idioma) {
 window.addEventListener('load', () => {
   renderFotos();
   renderCola();
+  // Arrancar en pestaña "Trabajo" (asignado) por defecto
+  ['asignado','nuevo','terminar','cola'].forEach(x => {
+    const el = document.getElementById('tab-'+x);
+    if(el) el.classList.toggle('hidden', x !== 'asignado');
+    const btn = document.getElementById('tab-'+x+'-btn');
+    if(btn) btn.classList.toggle('active', x === 'asignado');
+  });
   // Check trabajo activo en localStorage (fallback sin internet)
-  // BUG 3 FIX: Don't show if already terminated in main app
   try {
     const raw = localStorage.getItem('trabajoActivoCampo');
     if(raw) {
