@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -382,6 +381,38 @@ table.data-table tr:hover td{background:#1A2A42!important}
         <select id="c-pago"><option>Efectivo</option><option>Zelle</option><option>Tarjeta de crédito/débito</option><option>Cheque</option><option>Efectivo o Zelle</option></select>
       </div>
     </div>
+
+    <!-- ══ FUENTE / CANAL DE ORIGEN DEL CLIENTE ══ -->
+    <div class="form-row" style="margin-bottom:4px">
+      <div>
+        <label>📣 ¿De dónde vino este cliente? <span style="color:#888;font-weight:400">(para comparar campañas)</span></label>
+        <select id="c-canal" onchange="toggleCanalNombre()">
+          <option value="">— Sin especificar —</option>
+          <optgroup label="📘 Facebook Ads (campañas pagadas)">
+            <option value="fb_zonas_premium">FB Ads · Zonas Premium Bilingüe (ago 2025)</option>
+            <option value="fb_otra_campana">FB Ads · Otra campaña</option>
+          </optgroup>
+          <optgroup label="💬 WhatsApp">
+            <option value="wa_organico">WhatsApp orgánico (te escribió directo, sin anuncio)</option>
+            <option value="wa_ads">WhatsApp desde anuncio de Meta</option>
+          </optgroup>
+          <optgroup label="🌐 Otros canales">
+            <option value="referido">Referido (cliente o conocido recomendó)</option>
+            <option value="google">Google / búsqueda</option>
+            <option value="web">Formulario web</option>
+            <option value="llamada">Llamada telefónica directa</option>
+            <option value="otro">Otro</option>
+          </optgroup>
+        </select>
+      </div>
+      <div id="c-canal-nombre-wrap" style="display:none">
+        <label>Nombre de campaña / detalle adicional</label>
+        <input type="text" id="c-canal-nombre" placeholder="Ej: nombre exacto del anuncio, quién refirió...">
+      </div>
+    </div>
+    <div class="notice notice-blue" style="font-size:11.5px;margin-bottom:12px;padding:8px 12px">
+      💡 Llenar esto te permite ver en Terminados cuánto generó cada campaña vs lo que gastaste en ella.
+    </div>
     <hr class="divider">
     <div class="total-row"><span>Tarifa base del servicio</span><span id="t-base" style="font-weight:600">$0.00</span></div>
     <div class="total-row"><span>Costo de viaje (millas)</span><span id="t-millas" style="font-weight:600">$0.00</span></div>
@@ -514,6 +545,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
     <div id="term-total" style="font-size:14px;font-weight:700;color:#1D9E75"></div>
   </div>
   <div class="search-box-wrap"><span class="search-icon">🔍</span><input type="text" id="buscar-terminados" placeholder="Buscar por folio REC, número COT o nombre del cliente..." oninput="buscarTerminadosCambio()"></div>
+  <div id="term-resumen-canal"></div>
   <div id="lista-terminados">
     <div class="empty-state"><div class="icon">✅</div><p>Aún no hay trabajos terminados</p></div>
   </div>
@@ -911,6 +943,24 @@ table.data-table tr:hover td{background:#1A2A42!important}
   </div>
 </div>
 
+<!-- MODAL: Cambiar fecha/hora de trabajo agendado o en proceso -->
+<div class="modal-overlay" id="m-cambiar-fecha">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">📅 Cambiar fecha y hora del trabajo</div>
+    <div class="notice notice-blue" style="font-size:12px">Solo cambia la fecha, hora y notas del trabajo. No afecta el monto ni los demás datos.</div>
+    <div class="form-row">
+      <div><label>Nueva fecha *</label><input type="date" id="cf-fecha"></div>
+      <div><label>Nueva hora de inicio *</label><input type="time" id="cf-hora"></div>
+    </div>
+    <div class="form-row full"><div><label>Notas / instrucciones especiales</label><textarea id="cf-notas" placeholder="Instrucciones especiales, acceso al edificio, estacionamiento..." style="min-height:70px"></textarea></div></div>
+    <input type="hidden" id="cf-id">
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="guardarCambioFecha()">💾 Guardar nueva fecha</button>
+      <button class="btn" onclick="cerrar('m-cambiar-fecha')">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="m-terminar">
   <div class="modal">
     <div class="modal-title">✅ Registrar trabajo terminado</div>
@@ -922,13 +972,10 @@ table.data-table tr:hover td{background:#1A2A42!important}
     <div class="notice notice-blue" style="font-size:12px">Esta es la fecha que se guarda como "Fecha Terminado" en tus reportes. Ajústala si estás capturando un trabajo de días anteriores.</div>
 
     <div class="card" style="background:var(--bg3);margin-bottom:16px">
-      <div class="card-title">⏱️ Cronómetro del trabajo</div>
-      <div class="notice notice-blue" style="font-size:12px">Base incluida: 3 horas. Cada hora extra se cobra a $35/hr al cliente. El ayudante se paga a $20/hr real + bono de $15 si hubo escaleras o muebles pesados.</div>
-      <div style="display:flex;align-items:center;gap:14px;margin:10px 0;flex-wrap:wrap">
-        <button type="button" class="btn btn-primary btn-sm" onclick="cronoIniciar()">▶️ Inicio</button>
-        <button type="button" class="btn btn-sm" onclick="cronoDetener()">⏹️ Fin</button>
-        <button type="button" class="btn btn-sm" onclick="cronoReset()">↺ Reiniciar</button>
-        <div id="crono-display" style="font-size:22px;font-weight:800;color:#1F5EA8">00:00:00</div>
+      <div class="card-title">⏱️ Horas trabajadas</div>
+      <div class="notice notice-blue" style="font-size:12px">Base incluida: 3 horas. Cada hora extra se cobra a $35/hr al cliente. El ayudante se paga a $20/hr real + bono de $15 si hubo escaleras o muebles pesados. Usa el cronómetro en la app de campo (modo Ayudante).</div>
+      <div style="display:none">
+        <div id="crono-display">00:00:00</div>
       </div>
       <div class="form-row">
         <div><label>Horas trabajadas (auto o manual)</label><input type="number" id="crono-horas" placeholder="3.0" step="0.1" min="0" oninput="calcResumenTerminar()"></div>
@@ -1318,6 +1365,9 @@ function limpiarForm(silencioso) {
   document.getElementById('c-fecha-pref').value = '';
   document.getElementById('c-hora').value = '';
   document.getElementById('c-pago').value = 'Efectivo';
+  const canalEl = document.getElementById('c-canal'); if(canalEl) canalEl.value = '';
+  const canalNEl = document.getElementById('c-canal-nombre'); if(canalNEl) canalNEl.value = '';
+  const canalWrap = document.getElementById('c-canal-nombre-wrap'); if(canalWrap) canalWrap.style.display = 'none';
   document.getElementById('c-terminos').value = '';
   ['s-escaleras','s-ayudante','s-armar','s-embalaje','s-piano','s-storage'].forEach(id => { document.getElementById(id).checked = false; });
   document.getElementById('p-escaleras').value = 20;
@@ -1467,6 +1517,8 @@ function guardarCotizacion() {
     base, horas: parseFloat(document.getElementById('c-horas').value)||3,
     descuento: desc, descuentoFrecuentePct: descuentoFrecuente,
     pago: document.getElementById('c-pago').value,
+    canal: document.getElementById('c-canal').value || '',
+    canalNombre: document.getElementById('c-canal-nombre').value.trim() || '',
     notas: document.getElementById('c-notas').value,
     terminos: document.getElementById('c-terminos').value,
     total
@@ -1531,6 +1583,9 @@ function editarCot(id) {
   document.getElementById('c-horas').value = cot.horas || 3;
   document.getElementById('c-descuento').value = cot.descuento || 0;
   document.getElementById('c-pago').value = cot.pago || 'Efectivo';
+  const cEd = document.getElementById('c-canal'); if(cEd) cEd.value = cot.canal || '';
+  const cnEd = document.getElementById('c-canal-nombre'); if(cnEd) cnEd.value = cot.canalNombre || '';
+  toggleCanalNombre();
   document.getElementById('c-notas').value = cot.notas || '';
   document.getElementById('c-terminos').value = cot.terminos || '';
   document.getElementById('s-escaleras').checked = !!cot.servicios.escaleras;
@@ -1556,6 +1611,28 @@ function editarCot(id) {
 }
 
 
+
+function toggleCanalNombre() {
+  const v = document.getElementById('c-canal').value;
+  const wrap = document.getElementById('c-canal-nombre-wrap');
+  if(wrap) wrap.style.display = (v === 'fb_otra_campana' || v === 'otro' || v === 'referido') ? '' : 'none';
+}
+
+// Etiqueta legible para mostrar en listas
+const CANAL_LABELS = {
+  'fb_zonas_premium': '📘 FB Ads Zonas Premium',
+  'fb_otra_campana':  '📘 FB Ads',
+  'wa_organico':      '💬 WhatsApp orgánico',
+  'wa_ads':           '💬 WhatsApp Ads',
+  'referido':         '🤝 Referido',
+  'google':           '🔍 Google',
+  'web':              '🌐 Web',
+  'llamada':          '📞 Llamada directa',
+  'otro':             '❓ Otro',
+};
+function canalLabel(c) {
+  return c ? (CANAL_LABELS[c] || c) : '';
+}
 
 function previewCotizacion() {
   const nombre = document.getElementById('c-nombre').value.trim() || 'Cliente';
@@ -1670,6 +1747,7 @@ function renderCots() {
           <div class="list-item-detail">📍 ${c.origen||'—'} → ${c.destino||'—'}</div>
           <div class="list-item-detail">📅 ${new Date(c.fecha).toLocaleDateString('es-US')} &nbsp;|&nbsp; 📱 ${c.cliente.tel}</div>
           ${c.cliente.fechaPref?'<div class="list-item-detail">📆 Fecha preferida: '+c.cliente.fechaPref+'</div>':''}
+          ${c.canal?'<div class="list-item-detail"><span style="background:#EDF3FB;color:#143F74;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700">'+canalLabel(c.canal)+(c.canalNombre?' · '+c.canalNombre:'')+'</span></div>':''}
         </div>
         <div style="text-align:right">
           <span class="badge badge-amber">📋 Cotización</span>
@@ -1863,7 +1941,8 @@ function renderAgenda() {
       </div>
       <div class="btn-row">
         <button class="btn btn-primary btn-sm" onclick="iniciarTrabajo('${c.id}')">🚛 Iniciar trabajo</button>
-        <button class="btn btn-sm" onclick="editarCot('${c.id}')">✏️ Editar</button>
+        <button class="btn btn-orange btn-sm" onclick="abrirCambiarFecha('${c.id}')">📅 Cambiar fecha/hora</button>
+        <button class="btn btn-sm" onclick="editarCot('${c.id}')">✏️ Editar datos</button>
         <button class="btn btn-sm" onclick="waCliente('${c.id}')">💬 Notificar cliente (WhatsApp)</button>
         <button class="btn btn-sm" onclick="generarPDF('${c.id}')">🖨️ Imprimir / PDF</button>
         <button class="btn btn-danger btn-sm" onclick="cancelarCot('${c.id}')">✕ Cancelar</button>
@@ -1882,11 +1961,13 @@ function renderTrabajos() {
     const vehs = d.vehiculos||[];
     const veh = vehs.find(v => v.id === c.vehiculoId);
     const enviado = c.enviadoCampo ? '<span class="badge badge-green" style="margin-left:6px">📲 Enviado a campo</span>' : '';
+    const campoListo = c.datosCampoRecibidos ? '<span class="badge" style="margin-left:6px;background:#d4edda;color:#155724;border:1px solid #1D9E75">✅ Fase 1 completada — listo para cerrar</span>' : '';
+    const borderColor = c.datosCampoRecibidos ? '#1D9E75' : '#EF9F27';
     return `
-    <div class="list-item" style="border-left:4px solid #EF9F27">
+    <div class="list-item" style="border-left:4px solid ${borderColor}">
       <div class="list-item-header">
         <div>
-          <div class="list-item-title">${c.id} — ${c.cliente.nombre} ${enviado}</div>
+          <div class="list-item-title">${c.id} — ${c.cliente.nombre} ${enviado}${campoListo}</div>
           <div class="list-item-detail">📍 ${c.origen||'—'} → ${c.destino||'—'}</div>
           <div class="list-item-detail">📅 ${c.fechaAgendada} &nbsp;⏰ ${c.horaAgendada} &nbsp;|&nbsp; 📱 ${c.cliente.tel}</div>
           ${veh ? '<div class="list-item-detail">🚛 Vehículo: <strong>'+veh.nombre+'</strong></div>' : ''}
@@ -1903,7 +1984,8 @@ function renderTrabajos() {
       <div class="btn-row">
         <button class="btn btn-primary btn-sm" onclick="abrirTerminar('${c.id}')">✅ Marcar como TERMINADO</button>
         <button class="btn btn-blue btn-sm" onclick="enviarTrabajoCampoDesdeTrabajos('${c.id}')">📲 Enviar a app de campo</button>
-        <button class="btn btn-sm" onclick="editarCot('${c.id}')">✏️ Editar</button>
+        <button class="btn btn-orange btn-sm" onclick="abrirCambiarFecha('${c.id}')">📅 Cambiar fecha/hora</button>
+        <button class="btn btn-sm" onclick="editarCot('${c.id}')">✏️ Editar datos</button>
         <button class="btn btn-sm" onclick="waCliente('${c.id}')">💬 WhatsApp cliente</button>
         <button class="btn btn-sm" onclick="verFotosCampo('${c.id}')">📸 Fotos de campo${registrosCampoDe(c.id).length ? ' ('+registrosCampoDe(c.id).length+')' : ''}</button>
         <button class="btn btn-danger btn-sm" onclick="cancelarTrabajo('${c.id}')">✕ Cancelar trabajo</button>
@@ -1960,6 +2042,30 @@ function renderTerminados() {
   const el = document.getElementById('lista-terminados');
   const totalIngresos = listaCompleta.reduce((a,c) => a + (c.montoFinal||c.total||0) + (c.propina||0), 0);
   document.getElementById('term-total').textContent = listaCompleta.length + ' trabajos · Total: $' + totalIngresos.toFixed(2);
+
+  // ── Resumen por canal (arriba de la lista) ──
+  const resumenCanal = {};
+  listaCompleta.forEach(c => {
+    const k = c.canal || 'sin_canal';
+    if(!resumenCanal[k]) resumenCanal[k] = { count:0, total:0, label: k==='sin_canal'?'❓ Sin canal':canalLabel(k) };
+    resumenCanal[k].count++;
+    resumenCanal[k].total += (c.montoFinal||c.total||0) + (c.propina||0);
+  });
+  const canales = Object.values(resumenCanal).sort((a,b) => b.total - a.total);
+  const resumenHTML = canales.length > 1 ? `
+    <div class="card" style="margin-bottom:14px;border-left:4px solid #1F5EA8">
+      <div class="card-title">📣 Ingresos por canal de origen</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+        ${canales.map(c => `
+          <div style="background:#F6F9FD;border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:12px;font-weight:700;color:#143F74;margin-bottom:4px">${c.label}</div>
+            <div style="font-size:20px;font-weight:800;color:#1D9E75">$${c.total.toFixed(0)}</div>
+            <div style="font-size:11px;color:#888;margin-top:2px">${c.count} trabajo${c.count!==1?'s':''}</div>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+  document.getElementById('term-resumen-canal').innerHTML = resumenHTML;
+
   if(!lista.length) { el.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>' + (listaCompleta.length ? 'Sin resultados para tu búsqueda' : 'Aún no hay trabajos terminados') + '</p></div>'; return; }
   const paraMostrar = lista.slice(0, terminadosMostrar);
   const restantes = lista.length - paraMostrar.length;
@@ -1970,11 +2076,12 @@ function renderTerminados() {
     const totalCobrado = (c.montoFinal||c.total||0) + propina;
     const ganancia = totalCobrado - pagoAy - rentaCosto;
     const tieneDescuentos = pagoAy > 0 || rentaCosto > 0;
+    const canalBadge = c.canal ? `<span style="background:#EDF3FB;color:#143F74;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;margin-left:6px">${canalLabel(c.canal)}${c.canalNombre?' · '+c.canalNombre:''}</span>` : '';
     return `
     <div class="list-item" style="border-left:4px solid #1D9E75">
       <div class="list-item-header">
         <div>
-          <div class="list-item-title">${c.folioTerminado||c.id} — ${c.cliente.nombre}</div>
+          <div class="list-item-title">${c.folioTerminado||c.id} — ${c.cliente.nombre} ${canalBadge}</div>
           ${c.folioTerminado?'<div class="list-item-detail" style="color:#888">📋 Cotización: '+c.id+'</div>':''}
           <div class="list-item-detail">📅 Terminado: ${c.fechaTerminado||c.fechaAgendada} &nbsp;|&nbsp; 💳 ${c.pagoFinal||'Efectivo'}</div>
           <div class="list-item-detail">📍 ${c.origen||'—'} → ${c.destino||'—'}</div>
@@ -2261,9 +2368,12 @@ let currentAction = null;
 
 function abrirAgendar(id) {
   currentId = id;
-  document.getElementById('ag-fecha').value = new Date().toISOString().split('T')[0];
-  document.getElementById('ag-hora').value = '08:00';
-  document.getElementById('ag-notas').value = '';
+  const d = getData();
+  const cot = d.cots.find(c => c.id === id);
+  // BUG 1 FIX: Si el trabajo ya tiene fecha agendada, mostrarla en el modal para editarla
+  document.getElementById('ag-fecha').value = (cot && cot.fechaAgendada) ? cot.fechaAgendada : new Date().toISOString().split('T')[0];
+  document.getElementById('ag-hora').value = (cot && cot.horaAgendada) ? cot.horaAgendada : '08:00';
+  document.getElementById('ag-notas').value = (cot && cot.notasAgenda) ? cot.notasAgenda : '';
   abrir('m-agendar');
 }
 
@@ -2278,6 +2388,40 @@ function confirmarAgendar() {
   cerrar('m-agendar');
   alert('✅ Trabajo agendado para el ' + fecha + ' a las ' + hora + '\n\nVe a la pestaña Agenda para notificar al cliente por WhatsApp.');
   showTab('agenda');
+}
+
+// ===================== CAMBIAR FECHA/HORA (Bug 1 Fix) =====================
+// Modal dedicado que SOLO modifica fechaAgendada/horaAgendada/notasAgenda
+// sin pasar por guardarCotizacion() que sobreescribiría esos campos
+function abrirCambiarFecha(id) {
+  const d = getData();
+  const cot = d.cots.find(c => c.id === id);
+  if(!cot) return;
+  document.getElementById('cf-id').value = id;
+  document.getElementById('cf-fecha').value = cot.fechaAgendada || '';
+  document.getElementById('cf-hora').value = cot.horaAgendada || '08:00';
+  document.getElementById('cf-notas').value = cot.notasAgenda || '';
+  abrir('m-cambiar-fecha');
+}
+
+function guardarCambioFecha() {
+  const id = document.getElementById('cf-id').value;
+  const fecha = document.getElementById('cf-fecha').value;
+  const hora = document.getElementById('cf-hora').value;
+  if(!fecha) { alert('⚠️ Selecciona la nueva fecha.'); return; }
+  const d = getData();
+  const cot = d.cots.find(c => c.id === id);
+  if(!cot) { alert('⚠️ No se encontró el trabajo.'); return; }
+  cot.fechaAgendada = fecha;
+  cot.horaAgendada = hora;
+  cot.notasAgenda = document.getElementById('cf-notas').value;
+  saveData(d);
+  cerrar('m-cambiar-fecha');
+  renderAgenda();
+  renderTrabajos();
+  if(typeof renderCalendarioAgenda === 'function') renderCalendarioAgenda();
+  updateBadges();
+  alert('✅ Fecha actualizada: ' + fecha + (hora ? ' a las ' + hora : ''));
 }
 
 function iniciarTrabajo(id) {
@@ -2295,16 +2439,73 @@ function abrirTerminar(id) {
   currentId = id;
   const d = getData();
   const cot = d.cots.find(c=>c.id===id);
-  if(cot) document.getElementById('tm-monto').value = cot.total.toFixed(2);
-  document.getElementById('tm-ref').value = '';
-  document.getElementById('tm-obs').value = '';
-  // Precargar la fecha real del servicio: usa la fecha agendada si existe, si no, hoy
+  if(!cot) return;
+
+  const dc = cot.datosCampo; // datos que mandó el ayudante desde campo (Fase 1)
+  const tieneCampo = !!dc;
+
+  // ── Fecha real del servicio ──
   const fechaRealEl = document.getElementById('tm-fecha-real');
-  if (fechaRealEl) fechaRealEl.value = (cot && cot.fechaAgendada) ? cot.fechaAgendada : new Date().toISOString().split('T')[0];
-  // Populate vehicle dropdown
+  if(fechaRealEl) {
+    const fechaBase = dc ? new Date(dc.fechaTerminado).toISOString().split('T')[0] : (cot.fechaAgendada || new Date().toISOString().split('T')[0]);
+    fechaRealEl.value = fechaBase;
+    fechaRealEl.disabled = false; // fecha siempre editable por el jefe
+  }
+
+  // ── Horas trabajadas (del campo si vinieron) ──
+  const horasEl = document.getElementById('crono-horas');
+  if(horasEl) { horasEl.value = dc && dc.horasTrabajadas ? dc.horasTrabajadas.toFixed(2) : ''; horasEl.disabled = false; }
+  const dificilEl = document.getElementById('crono-dificil');
+  if(dificilEl) { dificilEl.checked = dc ? !!dc.huboDificultad : false; dificilEl.disabled = false; }
+
+  // ── Monto y propina — PRE-LLENAR Y BLOQUEAR si vienen de campo ──
+  const montoEl = document.getElementById('tm-monto');
+  const propinaEl = document.getElementById('tm-propina');
+  if(montoEl) { montoEl.value = dc ? dc.montoFinal.toFixed(2) : cot.total.toFixed(2); montoEl.disabled = tieneCampo; montoEl.style.background = tieneCampo ? '#f0f7f0' : ''; }
+  if(propinaEl) { propinaEl.value = dc ? (dc.propina||0).toFixed(2) : ''; propinaEl.disabled = tieneCampo; propinaEl.style.background = tieneCampo ? '#f0f7f0' : ''; }
+
+  // ── Forma de pago y referencia — PRE-LLENAR Y BLOQUEAR ──
+  const pagoEl = document.getElementById('tm-pago');
+  const refEl = document.getElementById('tm-ref');
+  if(pagoEl) {
+    // Si hubo pago doble, mostrar "Efectivo + Zelle" como texto
+    const pagoTexto = dc ? (dc.formaPago || 'Efectivo') : 'Efectivo';
+    // Buscar opción que coincida o usar la primera
+    const opciones = Array.from(pagoEl.options).map(o=>o.value);
+    pagoEl.value = opciones.includes(pagoTexto) ? pagoTexto : (dc && dc.formaPago1 ? dc.formaPago1 : 'Efectivo');
+    pagoEl.disabled = tieneCampo;
+    pagoEl.style.background = tieneCampo ? '#f0f7f0' : '';
+  }
+  if(refEl) { refEl.value = dc ? (dc.refPago||'') : ''; refEl.disabled = tieneCampo; refEl.style.background = tieneCampo ? '#f0f7f0' : ''; }
+
+  // ── Observaciones — pre-llenar pero editable ──
+  const obsEl = document.getElementById('tm-obs');
+  if(obsEl) { obsEl.value = dc ? (dc.observaciones||'') : ''; obsEl.disabled = false; }
+
+  // ── Banner explicativo si viene de campo ──
+  const modalTitle = document.querySelector('#m-terminar .modal-title');
+  const bannerExistente = document.getElementById('tm-campo-banner');
+  if(bannerExistente) bannerExistente.remove();
+  if(tieneCampo && modalTitle) {
+    const banner = document.createElement('div');
+    banner.id = 'tm-campo-banner';
+    banner.className = 'notice notice-green';
+    banner.style.marginBottom = '14px';
+    const pago2txt = dc.formaPago2 ? (' + ' + dc.formaPago2 + (dc.montoPago2 ? ' $'+dc.montoPago2.toFixed(2) : '')) : '';
+    const refTxt = dc.refPago ? (' · Ref: '+dc.refPago) : '';
+    const ref2Txt = dc.refPago2 ? (' · Ref2: '+dc.refPago2) : '';
+    banner.innerHTML = `📲 <strong>Fase 1 completada por el ayudante.</strong> Datos bloqueados:<br>
+      💵 $${dc.montoFinal.toFixed(2)}${dc.propina > 0 ? ' + propina $'+dc.propina.toFixed(2) : ''} · 
+      ${dc.formaPago1||dc.formaPago}${dc.montoPago1?(' $'+dc.montoPago1.toFixed(2)):''}${refTxt}${pago2txt}${ref2Txt}<br>
+      <strong>Solo completa:</strong> Vehículo, Ayudante, Camión rentado y fecha.`;
+    modalTitle.insertAdjacentElement('afterend', banner);
+  }
+
+  // ── Vehículo dropdown ──
   const vehs = getData().vehiculos||[];
   const vsel = document.getElementById('tm-vehiculo');
   if(vsel) { vsel.innerHTML = '<option value="">— Sin asignar —</option>' + vehs.map(v=>'<option value="'+v.id+'">'+v.nombre+' ('+v.tipo+')</option>').join(''); }
+
   cronoReset();
   abrir('m-terminar');
 }
@@ -2431,56 +2632,73 @@ function calcResumenTerminar() {
 }
 
 function confirmarTerminar() {
-  const monto = parseFloat(document.getElementById('tm-monto').value) || 0;
-  const pago = document.getElementById('tm-pago').value;
-  if(!monto) { alert('Ingresa el monto cobrado'); return; }
-  if(pago === 'Zelle' && !document.getElementById('tm-ref').value.trim()) {
-    if(!confirm('⚠️ No ingresaste la referencia de Zelle. Sin este número es difícil disputar un fraude. ¿Continuar sin referencia?')) return;
-  }
-  const propina = parseFloat(document.getElementById('tm-propina').value)||0;
-  const usaAyudante = document.getElementById('tm-ayudante').value;
-  const pagoAyudante = usaAyudante==='si' ? (parseFloat(document.getElementById('tm-ayudante-monto').value)||0) : 0;
-  const nombreAyudante = usaAyudante==='si' ? (document.getElementById('tm-ayudante-nombre').value.trim()) : '';
-  const vehiculoId = document.getElementById('tm-vehiculo').value;
-  const rentoVehiculo = document.getElementById('tm-rento-vehiculo').value;
-  const rentaTipo = rentoVehiculo==='si' ? document.getElementById('tm-renta-tipo').value.trim() : '';
-  const rentaCosto = rentoVehiculo==='si' ? (parseFloat(document.getElementById('tm-renta-costo').value)||0) : 0;
-  const horasTrabajadas = parseFloat(document.getElementById('crono-horas').value) || 0;
-  const huboDificultad = document.getElementById('crono-dificil') ? document.getElementById('crono-dificil').checked : false;
-  const horasExtra = Math.max(0, horasTrabajadas - CRONO_HORAS_BASE);
-  const cargoExtraHoras = horasExtra * CRONO_TARIFA_EXTRA_CLIENTE;
   const d = getData();
   const cot = d.cots.find(c=>c.id===currentId);
-  if(cot) {
-    cot.estatus = 'terminado';
-    asignarFolioTerminado(d, cot); // Genera el folio de recibo (REC-XXX)
-    cot.montoFinal = monto;
-    cot.propina = propina;
-    cot.pagoFinal = pago;
-    cot.refPago = document.getElementById('tm-ref').value;
-    cot.obsFinales = document.getElementById('tm-obs').value;
-    cot.usaAyudante = usaAyudante;
-    cot.pagoAyudante = pagoAyudante;
-    cot.nombreAyudante = nombreAyudante;
-    cot.vehiculoId = vehiculoId;
-    cot.rentoVehiculo = rentoVehiculo;
-    cot.rentaTipo = rentaTipo;
-    cot.rentaCosto = rentaCosto;
-    cot.horasTrabajadas = horasTrabajadas;
-    cot.huboDificultad = huboDificultad;
-    cot.horasExtra = horasExtra;
-    cot.cargoExtraHoras = cargoExtraHoras;
-    cot.gananciaReal = monto + propina - pagoAyudante - rentaCosto;
-    const fechaRealVal = document.getElementById('tm-fecha-real') ? document.getElementById('tm-fecha-real').value : '';
-    cot.fechaTerminado = fechaRealVal ? new Date(fechaRealVal + 'T12:00:00').toLocaleDateString('es-US') : new Date().toLocaleDateString('es-US');
-    cot.fechaTerminadoISO = fechaRealVal || new Date().toISOString().split('T')[0];
-    // Auto-register renta as gasto
-    if(rentaCosto > 0) {
-      if(!d.gg) d.gg = [];
-      d.gg.push({ id:'GG-'+Date.now(), fecha:new Date().toISOString().split('T')[0], categoria:'Renta de camión', desc:rentaTipo||'Uhaul', monto:rentaCosto, trabajo:cot.id });
-    }
+  if(!cot) return;
+
+  // Si el ayudante ya completó Fase 1, usar esos datos bloqueados en vez de los inputs
+  const dc = cot.datosCampo;
+
+  const monto   = dc ? dc.montoFinal : (parseFloat(document.getElementById('tm-monto').value) || 0);
+  const propina = dc ? (dc.propina||0) : (parseFloat(document.getElementById('tm-propina').value)||0);
+  const pago    = dc ? (dc.formaPago||'Efectivo') : document.getElementById('tm-pago').value;
+  const ref     = dc ? (dc.refPago||'') : document.getElementById('tm-ref').value;
+
+  if(!monto) { alert('Ingresa el monto cobrado'); return; }
+  if(!dc && pago === 'Zelle' && !ref.trim()) {
+    if(!confirm('⚠️ No ingresaste la referencia de Zelle. ¿Continuar sin referencia?')) return;
+  }
+
+  // Fase 2 — datos que solo el jefe puede completar
+  const usaAyudante   = document.getElementById('tm-ayudante').value;
+  const pagoAyudante  = usaAyudante==='si' ? (parseFloat(document.getElementById('tm-ayudante-monto').value)||0) : 0;
+  const nombreAyudante= usaAyudante==='si' ? (document.getElementById('tm-ayudante-nombre').value.trim()) : '';
+  const vehiculoId    = document.getElementById('tm-vehiculo').value;
+  const rentoVehiculo = document.getElementById('tm-rento-vehiculo').value;
+  const rentaTipo     = rentoVehiculo==='si' ? document.getElementById('tm-renta-tipo').value.trim() : '';
+  const rentaCosto    = rentoVehiculo==='si' ? (parseFloat(document.getElementById('tm-renta-costo').value)||0) : 0;
+  const horasTrabajadas = dc ? (dc.horasTrabajadas||0) : (parseFloat(document.getElementById('crono-horas').value)||0);
+  const huboDificultad  = dc ? (dc.huboDificultad||false) : (document.getElementById('crono-dificil') ? document.getElementById('crono-dificil').checked : false);
+  const horasExtra     = Math.max(0, horasTrabajadas - CRONO_HORAS_BASE);
+  const cargoExtraHoras = horasExtra * CRONO_TARIFA_EXTRA_CLIENTE;
+
+  // Terminar
+  cot.estatus = 'terminado';
+  asignarFolioTerminado(d, cot);
+  cot.montoFinal    = monto;
+  cot.propina       = propina;
+  cot.pagoFinal     = pago;
+  cot.refPago       = ref;
+  cot.obsFinales    = document.getElementById('tm-obs').value || (dc ? dc.observaciones : '');
+  cot.firmaCliente  = dc ? (dc.firmaCliente||'') : (cot.firmaCliente||'');
+  cot.usaAyudante   = usaAyudante;
+  cot.pagoAyudante  = pagoAyudante;
+  cot.nombreAyudante= nombreAyudante;
+  cot.vehiculoId    = vehiculoId;
+  cot.rentoVehiculo = rentoVehiculo;
+  cot.rentaTipo     = rentaTipo;
+  cot.rentaCosto    = rentaCosto;
+  cot.horasTrabajadas  = horasTrabajadas;
+  cot.huboDificultad   = huboDificultad;
+  cot.horasExtra       = horasExtra;
+  cot.cargoExtraHoras  = cargoExtraHoras;
+  cot.gananciaReal     = monto + propina - pagoAyudante - rentaCosto;
+  // Guardar también pago doble si vino de campo
+  if(dc && dc.formaPago2) { cot.formaPago2=dc.formaPago2; cot.montoPago1=dc.montoPago1; cot.montoPago2=dc.montoPago2; cot.refPago2=dc.refPago2||''; }
+  const fechaRealVal = document.getElementById('tm-fecha-real') ? document.getElementById('tm-fecha-real').value : '';
+  cot.fechaTerminado    = fechaRealVal ? new Date(fechaRealVal+'T12:00:00').toLocaleDateString('es-US') : new Date().toLocaleDateString('es-US');
+  cot.fechaTerminadoISO = fechaRealVal || new Date().toISOString().split('T')[0];
+  if(rentaCosto > 0) {
+    if(!d.gg) d.gg = [];
+    d.gg.push({ id:'GG-'+Date.now(), fecha:new Date().toISOString().split('T')[0], categoria:'Renta de camión', desc:rentaTipo||'Uhaul', monto:rentaCosto, trabajo:cot.id });
   }
   saveData(d);
+
+  // Re-habilitar inputs bloqueados antes de cerrar
+  ['tm-monto','tm-propina','tm-ref'].forEach(id => { const e=document.getElementById(id); if(e){e.disabled=false;e.style.background='';} });
+  const pe = document.getElementById('tm-pago'); if(pe){pe.disabled=false;pe.style.background='';}
+  const banner = document.getElementById('tm-campo-banner'); if(banner) banner.remove();
+
   cerrar('m-terminar');
   // Limpiar campos
   ['tm-monto','tm-propina','tm-ref','tm-ayudante-monto','tm-ayudante-nombre','tm-renta-tipo','tm-renta-costo'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
@@ -3359,7 +3577,7 @@ function exportarExcel(tipo) {
     const term = d.cots.filter(c=>c.estatus==='terminado')
       .slice()
       .sort((a,b) => parseFechaTerminadoOrdenable(a) - parseFechaTerminadoOrdenable(b));
-    const h = ['Folio Recibo','ID Cotización','Fecha Terminado','Cliente','Teléfono','Origen','Destino','Cobrado','Propina','Total Cobrado','Pago Ayudante','Renta Camión','Ganancia Real','Forma Pago','Ref. Zelle','Vehículo','Ayudante Nombre','Tipo Renta','Notas','Observaciones'];
+    const h = ['Folio Recibo','ID Cotización','Fecha Terminado','Cliente','Teléfono','Origen','Destino','Canal','Cobrado','Propina','Total Cobrado','Pago Ayudante','Renta Camión','Ganancia Real','Forma Pago','Ref. Zelle','Vehículo','Ayudante Nombre','Tipo Renta','Notas','Observaciones'];
     let totCobrado=0, totPropina=0, totTotalCobrado=0, totAyudante=0, totRenta=0, totGanancia=0;
     const rows = term.map(c => {
       const cobrado = +(c.montoFinal||c.total||0).toFixed(2);
@@ -3368,15 +3586,16 @@ function exportarExcel(tipo) {
       const pagoAy = +(c.pagoAyudante||0).toFixed(2);
       const renta = +(c.rentaCosto||0).toFixed(2);
       const gananciaReal = +(totalCobrado - pagoAy - renta).toFixed(2);
+      const canalStr = c.canal ? (canalLabel(c.canal) + (c.canalNombre?' · '+c.canalNombre:'')) : '';
       totCobrado+=cobrado; totPropina+=propina; totTotalCobrado+=totalCobrado; totAyudante+=pagoAy; totRenta+=renta; totGanancia+=gananciaReal;
       return [c.folioTerminado||'', c.id, c.fechaTerminado, c.cliente.nombre, c.cliente.tel, c.origen, c.destino,
-        cobrado, propina, totalCobrado, pagoAy, renta, gananciaReal,
+        canalStr, cobrado, propina, totalCobrado, pagoAy, renta, gananciaReal,
         c.pagoFinal||'', c.refPago||'', c.vehiculoId||'', c.nombreAyudante||'', c.rentaTipo||'',
         c.notas||'', c.obsFinales||''];
     });
     const fechas = term.map(parseFechaTerminadoOrdenable).filter(f=>f.getTime()>0);
     const periodo = fechas.length ? (fechas[0].toLocaleDateString('es-US') + '  a  ' + fechas[fechas.length-1].toLocaleDateString('es-US')) : '—';
-    const totalesRow = ['', '', 'TOTALES', '', '', '', '', +totCobrado.toFixed(2), +totPropina.toFixed(2), +totTotalCobrado.toFixed(2), +totAyudante.toFixed(2), +totRenta.toFixed(2), +totGanancia.toFixed(2), '', '', '', '', '', '', ''];
+    const totalesRow = ['', '', 'TOTALES', '', '', '', '', '', +totCobrado.toFixed(2), +totPropina.toFixed(2), +totTotalCobrado.toFixed(2), +totAyudante.toFixed(2), +totRenta.toFixed(2), +totGanancia.toFixed(2), '', '', '', '', '', '', ''];
     const aoa = [
       ['MUDANZAS EXPRESS LA'],
       ['Reporte de Trabajos Terminados'],
@@ -3387,21 +3606,37 @@ function exportarExcel(tipo) {
       totalesRow
     ];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols']=[{wch:11},{wch:12},{wch:13},{wch:22},{wch:14},{wch:24},{wch:32},{wch:9},{wch:9},{wch:11},{wch:11},{wch:11},{wch:11},{wch:9},{wch:14},{wch:16},{wch:18},{wch:12},{wch:30},{wch:30}];
+    ws['!cols']=[{wch:11},{wch:12},{wch:13},{wch:22},{wch:14},{wch:24},{wch:32},{wch:22},{wch:9},{wch:9},{wch:11},{wch:11},{wch:11},{wch:11},{wch:9},{wch:14},{wch:16},{wch:18},{wch:12},{wch:30},{wch:30}];
     ws['!merges'] = [
       { s:{r:0,c:0}, e:{r:0,c:h.length-1} },
       { s:{r:1,c:0}, e:{r:1,c:h.length-1} },
       { s:{r:2,c:0}, e:{r:2,c:h.length-1} }
     ];
-    // Formato de moneda en columnas numericas (Cobrado, Propina, Total, Pago Ayudante, Renta, Ganancia)
-    const colsMoneda = [7,8,9,10,11,12]; // Cobrado...Ganancia Real (corridas +1 por la columna Folio Recibo)
-    const headerRowIdx = 5; // fila 5 (1-indexed) = header, filas de datos empiezan en 6
+    // Columnas de moneda ahora corren +1 por la nueva columna Canal
+    const colsMoneda = [8,9,10,11,12,13];
+    const headerRowIdx = 5;
     for (let r = headerRowIdx; r < headerRowIdx + rows.length + 1; r++) {
       colsMoneda.forEach(cIdx => {
         const cellRef = XLSX.utils.encode_cell({ r: r, c: cIdx });
         if (ws[cellRef] && typeof ws[cellRef].v === 'number') ws[cellRef].z = '$#,##0.00';
       });
     }
+
+    // Hoja extra: Resumen por Canal
+    const porCanal = {};
+    term.forEach(c => {
+      const k = c.canal ? (canalLabel(c.canal)+(c.canalNombre?' · '+c.canalNombre:'')) : 'Sin canal';
+      if(!porCanal[k]) porCanal[k] = {trabajos:0, cobrado:0, propina:0};
+      porCanal[k].trabajos++;
+      porCanal[k].cobrado += +(c.montoFinal||c.total||0);
+      porCanal[k].propina += +(c.propina||0);
+    });
+    const hCanal = ['Canal de origen','Trabajos','Cobrado','Propina','Total'];
+    const rCanal = Object.entries(porCanal).sort((a,b)=>b[1].cobrado-a[1].cobrado).map(([k,v])=>[k, v.trabajos, +v.cobrado.toFixed(2), +v.propina.toFixed(2), +(v.cobrado+v.propina).toFixed(2)]);
+    const wsCanal = XLSX.utils.aoa_to_sheet([['RESUMEN POR CANAL DE ORIGEN'],['Generado: '+new Date().toLocaleDateString('es-US')],[],hCanal,...rCanal]);
+    wsCanal['!cols']=[{wch:30},{wch:10},{wch:12},{wch:10},{wch:12}];
+    XLSX.utils.book_append_sheet(wb, wsCanal, 'Por Canal');
+
     XLSX.utils.book_append_sheet(wb, ws, 'Trabajos Terminados');
   }
 
@@ -3591,7 +3826,17 @@ function abrir(id) { document.getElementById(id).classList.add('open'); }
 function cerrar(id) { document.getElementById(id).classList.remove('open'); }
 
 document.querySelectorAll('.modal-overlay').forEach(m => {
-  m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); });
+  m.addEventListener('click', e => {
+    if(e.target===m) {
+      m.classList.remove('open');
+      // Re-habilitar inputs que abrirTerminar pudo bloquear
+      if(m.id === 'm-terminar') {
+        ['tm-monto','tm-propina','tm-ref'].forEach(id => { const el=document.getElementById(id); if(el){el.disabled=false;el.style.background='';} });
+        const pe=document.getElementById('tm-pago'); if(pe){pe.disabled=false;pe.style.background='';}
+        const banner=document.getElementById('tm-campo-banner'); if(banner) banner.remove();
+      }
+    }
+  });
 });
 
 function handlePhotos(event, tipo) {
@@ -4476,6 +4721,11 @@ async function sincronizarRegistrosCampoSilencioso() {
 }
 
 async function verificarTerminadosCampo() {
+  // FLUJO 2 FASES:
+  // Cuando el ayudante termina desde campo, los datos llegan aquí.
+  // NO marcamos como terminado automáticamente — solo guardamos los datos
+  // de campo en la cotización (datosCampo) y dejamos el trabajo en en_trabajo
+  // para que el jefe complete Fase 2 (ayudante, camión) y confirme.
   if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('PEGA_AQUI')) return;
   const d = getData();
   const enProceso = (d.cots||[]).filter(c => c.estatus === 'en_trabajo' && c.enviadoCampo);
@@ -4489,25 +4739,34 @@ async function verificarTerminadosCampo() {
         const t = data.terminado;
         const dx = getData();
         const idx = dx.cots.findIndex(c => c.id === cot.id);
-        if(idx >= 0 && dx.cots[idx].estatus !== 'terminado') {
-          dx.cots[idx].estatus = 'terminado';
-          asignarFolioTerminado(dx, dx.cots[idx]); // Folio de recibo también cuando termina el ayudante desde la app de campo
-          dx.cots[idx].montoFinal = t.montoFinal || dx.cots[idx].total || 0;
-          dx.cots[idx].propina = t.propina || 0;
-          dx.cots[idx].pagoFinal = t.formaPago || dx.cots[idx].pago || 'Efectivo';
-          dx.cots[idx].refPago = t.refPago || '';
-          dx.cots[idx].obsFinales = t.observaciones || '';
-          dx.cots[idx].firmaCliente = t.firmaCliente || '';
-          dx.cots[idx].fechaTerminado = t.fechaTerminado ? new Date(t.fechaTerminado).toLocaleDateString('es-US') : new Date().toLocaleDateString('es-US');
-          dx.cots[idx].gananciaReal = (dx.cots[idx].montoFinal||0) + (dx.cots[idx].propina||0);
+        if(idx >= 0 && dx.cots[idx].estatus === 'en_trabajo' && !dx.cots[idx].datosCampoRecibidos) {
+          // Guardar datos del campo SIN terminar — el jefe los verá pre-llenados en Fase 2
+          dx.cots[idx].datosCampoRecibidos = true;
+          dx.cots[idx].datosCampo = {
+            montoFinal:   t.montoFinal   || dx.cots[idx].total || 0,
+            propina:      t.propina      || 0,
+            formaPago:    t.formaPago    || 'Efectivo',
+            formaPago1:   t.formaPago1   || t.formaPago || 'Efectivo',
+            formaPago2:   t.formaPago2   || '',
+            montoPago1:   t.montoPago1   || 0,
+            montoPago2:   t.montoPago2   || 0,
+            refPago:      t.refPago      || '',
+            refPago2:     t.refPago2     || '',
+            observaciones: t.observaciones || '',
+            firmaCliente: t.firmaCliente || '',
+            horasTrabajadas: t.horasTrabajadas || 0,
+            huboDificultad:  t.huboDificultad  || false,
+            fechaTerminado:  t.fechaTerminado  || new Date().toISOString()
+          };
           saveData(dx);
-          renderTrabajos(); renderTerminados(); updateBadges();
-          // Notificación visual discreta
+          renderTrabajos(); updateBadges();
+          // Notificación visible al jefe
           const notif = document.createElement('div');
-          notif.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#143F74;color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px #0005';
-          notif.textContent = '✅ ' + (cot.cliente?.nombre||cot.id) + ' marcado como terminado por el ayudante';
+          notif.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1D9E75;color:#fff;padding:14px 20px;border-radius:12px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px #0005;cursor:pointer;max-width:320px';
+          notif.innerHTML = '📲 <strong>' + (cot.cliente?.nombre||cot.id) + '</strong> terminó el trabajo desde campo.<br><span style="font-size:12px;opacity:.9">Ve a Trabajos → ✅ Terminar para completar Fase 2</span>';
+          notif.onclick = () => { showTab('trabajos'); notif.remove(); };
           document.body.appendChild(notif);
-          setTimeout(() => notif.remove(), 5000);
+          setTimeout(() => notif.remove(), 8000);
         }
       }
     } catch(e) { /* sin conexión, se reintenta */ }
@@ -4582,7 +4841,8 @@ function enviarTrabajoCampo(cotId) {
   var hora = cot.hora || '';
   var notas = cot.notas || '';
   var fotosInventario = cot.fotosInventario || [];
-  var trabajoCampo = { cotId:cotId, nombre:nombre, tel:tel, origen:origen, destino:destino, fecha:fecha, hora:hora, notas:notas, fotos:fotosInventario, monto: cot.total||0, enviado:new Date().toISOString(), ayudanteId:'default' };
+  // BUG 4 FIX: Use fechaAgendada/horaAgendada (the confirmed scheduled date), not cot.fecha (creation date)
+  var trabajoCampo = { cotId:cotId, nombre:nombre, tel:tel, origen:origen, destino:destino, fecha: cot.fechaAgendada||fecha, hora: cot.horaAgendada||hora, notas:notas, fotos:fotosInventario, monto: cot.total||0, enviado:new Date().toISOString(), ayudanteId:'default' };
   try { localStorage.setItem('trabajoActivoCampo', JSON.stringify(trabajoCampo)); } catch(e) {}
   if(APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('PEGA_AQUI')) {
     fetch(APPS_SCRIPT_URL, { method:'POST', body:JSON.stringify(Object.assign({action:'enviarTrabajoCampo'}, trabajoCampo)) })
@@ -4599,6 +4859,60 @@ window.initMapsCallback = function() { initMapsAutocomplete(); };
 
 // Init
 getCfg();
+
+// ===================== TRABAJOS ESTE FIN DE SEMANA (pre-cargados) =====================
+(function() {
+  const SEED_KEY = 'mel_weekend_aug2026_loaded';
+  if (localStorage.getItem(SEED_KEY)) return; // ya cargados, no duplicar
+  const d = getData();
+  const nuevos = [
+    {
+      id: 'COT-' + String(d.counter).padStart(3,'0'),
+      fecha: new Date().toISOString(),
+      estatus: 'agendado',
+      cliente: { nombre: 'Luisa Oliva', tel: '', email: '' },
+      origen: 'Pico Rivera (recoger UHaul 7:30am — Reservación #82931101)',
+      destino: '',
+      total: 500,
+      fechaAgendada: '2026-08-30',
+      horaAgendada: '07:30',
+      notasAgenda: 'UHaul 20ft — Reservación #82931101. Recoger 7:30am Pico Rivera.',
+      montoFinal: 0, pagoFinal: '', refPago: '', obsFinales: '', usaAyudante: '', fechaTerminado: '',
+      tipoTrabajo: '2_recamaras', base: 500
+    },
+    {
+      id: 'COT-' + String(d.counter + 1).padStart(3,'0'),
+      fecha: new Date().toISOString(),
+      estatus: 'agendado',
+      cliente: { nombre: 'James (subcontratado)', tel: '', email: '' },
+      origen: '', destino: '',
+      total: 180,
+      fechaAgendada: '2026-08-30',
+      horaAgendada: '',
+      notasAgenda: 'Trabajo subcontratado. Comisión nuestra: $20.',
+      montoFinal: 0, pagoFinal: '', refPago: '', obsFinales: '', usaAyudante: '', fechaTerminado: '',
+      tipoTrabajo: '', base: 180
+    },
+    {
+      id: 'COT-' + String(d.counter + 2).padStart(3,'0'),
+      fecha: new Date().toISOString(),
+      estatus: 'agendado',
+      cliente: { nombre: 'Gabby Bautista', tel: '', email: '' },
+      origen: '', destino: '',
+      total: 200,
+      fechaAgendada: '2026-09-01',
+      horaAgendada: '',
+      notasAgenda: 'Solo labor (Labor Loading Only). SIN trampolín. SIN armado de muebles.',
+      montoFinal: 0, pagoFinal: '', refPago: '', obsFinales: '', usaAyudante: '', fechaTerminado: '',
+      tipoTrabajo: 'labor', base: 200
+    }
+  ];
+  nuevos.forEach(cot => d.cots.push(cot));
+  d.counter += 3;
+  saveData(d);
+  localStorage.setItem(SEED_KEY, '1');
+})();
+
 // Drive via Apps Script (no OAuth needed for field workers)
 const today = new Date().toISOString().split('T')[0];
 ['c-fecha-pref','g-fecha','gg-fecha','ay-fecha','ag-fecha','gig-fecha','odo-fecha'].forEach(id => { const e=document.getElementById(id); if(e) e.value=today; });
@@ -4781,24 +5095,51 @@ initDarkMode();
 
   <!-- ===================== TAB TERMINAR ===================== -->
   <div id="tab-terminar" class="hidden">
+
+    <!-- ======= FASE 1: COBRO AL CLIENTE (lo hace el ayudante en campo) ======= -->
+    <div style="background:#1F5EA8;color:#fff;border-radius:12px;padding:12px 16px;margin-bottom:12px;font-size:13px;font-weight:700;text-align:center">
+      📋 FASE 1 — Cobro al cliente
+    </div>
+    <div class="notice notice-green" style="margin-bottom:12px;font-size:12px">
+      ✅ Aquí cobras al cliente y generas su recibo. El jefe completa los costos internos (ayudante, camión) después desde la computadora.
+    </div>
+
+    <!-- Cronómetro -->
     <div class="card">
-      <div class="card-title">✅ Terminar trabajo y cobrar</div>
-      <div class="notice notice-blue">Llena estos datos al final del trabajo. El jefe los verá en la app principal para cerrar el trabajo.</div>
+      <div class="card-title">⏱️ Cronómetro del trabajo</div>
+      <div class="notice notice-blue" style="font-size:12px">Base: 3 hrs incluidas. Hora extra: $35/hr al cliente · $20/hr al ayudante + $15 bono si hubo escaleras.</div>
+      <div style="display:flex;align-items:center;gap:12px;margin:10px 0;flex-wrap:wrap">
+        <button type="button" class="btn btn-primary" style="width:auto;padding:10px 16px;margin-bottom:0;font-size:14px" onclick="campoCronoIniciar()">▶️ Inicio</button>
+        <button type="button" class="btn btn-secondary" style="width:auto;padding:10px 16px;margin-bottom:0;font-size:14px" onclick="campoCronoDetener()">⏹️ Fin</button>
+        <button type="button" class="btn btn-secondary" style="width:auto;padding:10px 16px;margin-bottom:0;font-size:14px" onclick="campoCronoReset()">↺ Reset</button>
+        <div id="campo-crono-display" style="font-size:28px;font-weight:900;color:#1F5EA8;letter-spacing:2px">00:00:00</div>
+      </div>
+      <label style="font-size:12px;color:#555;font-weight:700">Horas trabajadas (auto o manual)</label>
+      <input id="campo-crono-horas" type="number" placeholder="3.0" step="0.1" min="0" style="margin-bottom:6px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;cursor:pointer;margin-bottom:0">
+        <input type="checkbox" id="campo-crono-dificil" style="width:18px;height:18px;accent-color:#1F5EA8">
+        🪜 Hubo escaleras o muebles pesados (bono +$15 al ayudante)
+      </label>
+    </div>
 
-      <label>ID de cotización *</label>
-      <input id="t-cotid" type="text" placeholder="COT-005" readonly style="background:#f5f5f5">
+    <!-- Datos de cobro -->
+    <div class="card">
+      <div class="card-title">💵 Cobro al cliente</div>
 
-      <div style="background:#143F7415;border-radius:10px;padding:10px;margin-bottom:12px">
-        <div style="font-size:12px;color:#143F74;font-weight:700;margin-bottom:4px">💵 Total del servicio</div>
-        <div id="t-monto-display" style="font-size:22px;font-weight:900;color:#143F74">$0.00</div>
+      <input id="t-cotid" type="text" placeholder="COT-005" readonly style="background:#f5f5f5;display:none">
+
+      <div style="background:#143F7415;border-radius:10px;padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;color:#143F74;font-weight:700;margin-bottom:4px">💵 Total acordado del servicio</div>
+        <div id="t-monto-display" style="font-size:26px;font-weight:900;color:#143F74">$0.00</div>
         <input id="t-monto" type="hidden" value="0">
       </div>
 
-      <label>🎁 Propina recibida ($)</label>
+      <label>🎁 Propina recibida ($) — si el cliente da propina</label>
       <input id="t-propina" type="number" placeholder="0.00" step="0.01" min="0" oninput="actualizarTotalCampo()">
-      <div id="t-total-display" style="display:none;background:#EF9F2720;border-radius:8px;padding:8px;margin-bottom:8px;font-size:13px;color:#996600;font-weight:700;text-align:center"></div>
+      <div id="t-total-display" style="display:none;background:#EF9F2720;border-radius:8px;padding:8px;margin-bottom:8px;font-size:14px;color:#996600;font-weight:700;text-align:center"></div>
 
-      <label>Forma de pago recibida *</label>
+      <!-- PAGO 1 (principal) -->
+      <label>💳 Forma de pago principal *</label>
       <select id="t-pago" onchange="mostrarQRZelle()">
         <option>Efectivo</option>
         <option>Zelle</option>
@@ -4814,30 +5155,69 @@ initDarkMode();
         <div style="font-size:11px;color:#888;margin-top:4px">mudanzasexpressla · Chase</div>
       </div>
 
-      <label>Referencia / confirmación (Zelle, etc.)</label>
-      <input id="t-ref" type="text" placeholder="Número de confirmación Zelle">
+      <label>🔖 Referencia de pago principal (Zelle, cheque #, etc.)</label>
+      <input id="t-ref" type="text" placeholder="Ej: confirmación Zelle 123456">
 
-      <label>Observaciones finales</label>
+      <!-- SEGUNDA FORMA DE PAGO (pago dividido) -->
+      <div style="background:#f0f7ff;border-radius:10px;padding:12px;margin:8px 0 12px;border:1px solid #c2d8f5">
+        <label style="font-size:12px;color:#1F5EA8;font-weight:700;margin-bottom:6px;display:block">➕ ¿El cliente pagó con dos formas? (pago dividido)</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:8px">
+          <input type="checkbox" id="t-pago2-activo" style="width:18px;height:18px;accent-color:#1F5EA8" onchange="togglePago2()">
+          Sí, usó dos formas de pago
+        </label>
+        <div id="t-pago2-wrap" style="display:none">
+          <label style="font-size:12px;color:#555;font-weight:600">Monto pagado con método 1 ($)</label>
+          <input id="t-monto-pago1" type="number" placeholder="0.00" step="0.01" min="0" oninput="actualizarTotalCampo()" style="margin-bottom:8px">
+          <label style="font-size:12px;color:#555;font-weight:600">Segunda forma de pago</label>
+          <select id="t-pago2" style="margin-bottom:8px" onchange="mostrarQRZelle2()">
+            <option>Efectivo</option>
+            <option>Zelle</option>
+            <option>Tarjeta</option>
+            <option>Cheque</option>
+          </select>
+          <div id="zelle-qr-block2" style="display:none;text-align:center;background:#f8f0ff;border-radius:10px;padding:10px;margin-bottom:8px">
+            <div style="font-size:12px;font-weight:700;color:#6B21A8;margin-bottom:6px">Zelle: (323) 946-2008</div>
+          </div>
+          <label style="font-size:12px;color:#555;font-weight:600">Monto pagado con método 2 ($)</label>
+          <input id="t-monto-pago2" type="number" placeholder="0.00" step="0.01" min="0" oninput="actualizarTotalCampo()" style="margin-bottom:8px">
+          <label style="font-size:12px;color:#555;font-weight:600">Referencia pago 2 (opcional)</label>
+          <input id="t-ref2" type="text" placeholder="Ref del segundo pago">
+          <div id="t-resumen-pago" style="display:none;background:#eafaf1;border-radius:8px;padding:10px;margin-top:8px;font-size:13px;color:#1a7a4a;font-weight:700;text-align:center"></div>
+        </div>
+      </div>
+
+      <label>📝 Observaciones finales del trabajo</label>
       <textarea id="t-obs" placeholder="Todo salió bien, el cliente quedó satisfecho..."></textarea>
     </div>
 
     <!-- Firma del cliente -->
     <div class="card">
-      <div class="card-title">✍️ Firma del cliente (opcional)</div>
-      <div class="notice notice-amber">Pídele al cliente que firme en la pantalla como comprobante de conformidad.</div>
+      <div class="card-title">✍️ Firma del cliente (opcional pero recomendada)</div>
+      <div class="notice notice-amber">Pídele al cliente que firme aquí como comprobante de conformidad antes de irte.</div>
       <canvas id="firma-canvas" width="440" height="160"></canvas>
       <div class="firma-row">
         <button onclick="limpiarFirma()">🗑️ Limpiar firma</button>
       </div>
     </div>
 
+    <!-- BOTONES: primero el recibo, luego terminar -->
+    <div style="background:#eafaf1;border-radius:12px;padding:14px;margin-bottom:12px;border:1px solid #1D9E7540">
+      <div style="font-size:13px;font-weight:700;color:#1a7a4a;margin-bottom:8px">📄 PASO 1 — Genera el recibo para el cliente ANTES de terminar</div>
+      <div style="font-size:12px;color:#555;margin-bottom:10px">El cliente lo revisa, firma si quiere, y tú envías el terminado después.</div>
+      <button class="btn" style="width:100%;background:#1D9E75;color:#fff;border:none;padding:14px;font-size:15px;font-weight:700;border-radius:10px;margin-bottom:0" onclick="imprimirRecibo()">
+        🖨️ Generar recibo para el cliente
+      </button>
+    </div>
+
     <div id="terminar-status" style="display:none;padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:12px;line-height:1.5"></div>
-    <button class="btn btn-success" id="btn-terminar" onclick="enviarTerminado()">
-      ✅ Marcar como terminado y enviar
+
+    <div style="font-size:13px;font-weight:700;color:#1F5EA8;margin-bottom:8px;text-align:center">📤 PASO 2 — Cuando el cliente acepte, envía al jefe</div>
+    <button class="btn btn-primary" style="width:100%;padding:16px;font-size:16px;font-weight:700;border-radius:12px;border:none;margin-bottom:10px" id="btn-terminar" onclick="enviarTerminado()">
+      ✅ Enviar terminado al jefe
     </button>
-    <button class="btn btn-secondary" style="margin-top:4px" onclick="imprimirRecibo()">
-      🖨️ Ver recibo para el cliente
-    </button>
+    <div class="notice notice-blue" style="font-size:11px;margin-top:4px">
+      El jefe completa el costo del ayudante y camión rentado desde la computadora. Eso no lo necesitas tú para el recibo del cliente.
+    </div>
   </div>
 
   <!-- ===================== TAB COLA ===================== -->
@@ -4986,6 +5366,56 @@ function mostrarEstado(elId, mensaje, tipo) {
   const colores = { ok: ['#eafaf1','#1a7a4a'], error: ['#fdf3f3','#922b21'], info: ['#e8f4fd','#1a5276'] };
   const [bg, color] = colores[tipo] || colores.info;
   el.style.background = bg; el.style.color = color;
+}
+
+// ===================== CRONÓMETRO APP DE CAMPO (BUG 2 FIX) =====================
+let campoCronoStartTime = null;
+let campoCronoElapsedMs = 0;
+let campoCronoInterval = null;
+let campoCronoRunning = false;
+
+function campoCronoFormatear(ms) {
+  const totalSeg = Math.floor(ms / 1000);
+  const h = String(Math.floor(totalSeg / 3600)).padStart(2, '0');
+  const m = String(Math.floor((totalSeg % 3600) / 60)).padStart(2, '0');
+  const s = String(totalSeg % 60).padStart(2, '0');
+  return h + ':' + m + ':' + s;
+}
+
+function campoCronoActualizarDisplay() {
+  const ms = campoCronoRunning ? (Date.now() - campoCronoStartTime) : campoCronoElapsedMs;
+  const el = document.getElementById('campo-crono-display');
+  if (el) el.textContent = campoCronoFormatear(ms);
+}
+
+function campoCronoIniciar() {
+  if (campoCronoRunning) return;
+  campoCronoStartTime = Date.now() - campoCronoElapsedMs;
+  campoCronoRunning = true;
+  campoCronoInterval = setInterval(campoCronoActualizarDisplay, 1000);
+  campoCronoActualizarDisplay();
+}
+
+function campoCronoDetener() {
+  if (!campoCronoRunning) return;
+  campoCronoElapsedMs = Date.now() - campoCronoStartTime;
+  campoCronoRunning = false;
+  clearInterval(campoCronoInterval);
+  campoCronoActualizarDisplay();
+  const horas = campoCronoElapsedMs / 3600000;
+  const horasEl = document.getElementById('campo-crono-horas');
+  if (horasEl) horasEl.value = horas.toFixed(2);
+}
+
+function campoCronoReset() {
+  clearInterval(campoCronoInterval);
+  campoCronoRunning = false;
+  campoCronoElapsedMs = 0;
+  campoCronoStartTime = null;
+  const dispEl = document.getElementById('campo-crono-display');
+  if (dispEl) dispEl.textContent = '00:00:00';
+  const horasEl = document.getElementById('campo-crono-horas');
+  if (horasEl) horasEl.value = '';
 }
 
 // ===================== GUARDAR Y SUBIR =====================
@@ -5159,12 +5589,32 @@ async function verificarTrabajoSilencioso() {
   } catch(e) { /* sin conexión, se reintenta en el siguiente ciclo */ }
 }
 
+// BUG 3 FIX: Check if a job from localStorage is already marked as terminado in the main app
+function trabajoYaTerminado(cotId) {
+  if (!cotId) return false;
+  try {
+    const d = JSON.parse(localStorage.getItem(KEY) || '{}');
+    const cots = d.cots || [];
+    const cot = cots.find(c => c.id === cotId);
+    return cot && cot.estatus === 'terminado';
+  } catch(e) { return false; }
+}
+
 async function cargarTrabajoCampo() {
   if(!CAMPO_APPS_URL || CAMPO_APPS_URL.includes('PEGA_AQUI')) {
     // Fallback: leer de localStorage (si el jefe está en el mismo dispositivo)
     try {
       const raw = localStorage.getItem('trabajoActivoCampo');
-      if(raw) { trabajosCola = [JSON.parse(raw)]; mostrarTrabajo(JSON.parse(raw), 0); return; }
+      if(raw) {
+        const t = JSON.parse(raw);
+        // BUG 3 FIX: No mostrar si ya está terminado en la app principal
+        if(trabajoYaTerminado(t.cotId)) {
+          localStorage.removeItem('trabajoActivoCampo');
+          trabajoActivo = null;
+        } else {
+          trabajosCola = [t]; mostrarTrabajo(t, 0); return;
+        }
+      }
     } catch(e) {}
     document.getElementById('sin-trabajo').style.display = '';
     document.getElementById('campo-lista-trabajos').style.display = 'none';
@@ -5180,7 +5630,9 @@ async function cargarTrabajoCampo() {
   try {
     const res = await fetch(CAMPO_APPS_URL + '?action=obtenerTrabajoCampo&ayudanteId=' + CAMPO_AYUDANTE_ID);
     const data = await res.json();
-    const trabajos = (data.ok && data.trabajos) ? data.trabajos : (data.ok && data.trabajo ? [data.trabajo] : []);
+    const trabajosRaw = (data.ok && data.trabajos) ? data.trabajos : (data.ok && data.trabajo ? [data.trabajo] : []);
+    // BUG 3 FIX: Exclude jobs already marked as terminado in the main app
+    const trabajos = trabajosRaw.filter(t => !trabajoYaTerminado(t.cotId));
     if(trabajos.length > 0) {
       trabajosCola = trabajos;
       trabajoActivo = trabajos[0];
@@ -5375,15 +5827,51 @@ function mostrarQRZelle() {
   if(qrBlock) qrBlock.style.display = pago === 'Zelle' ? '' : 'none';
 }
 
+function togglePago2() {
+  const activo = document.getElementById('t-pago2-activo').checked;
+  document.getElementById('t-pago2-wrap').style.display = activo ? '' : 'none';
+  actualizarTotalCampo();
+}
+
+function mostrarQRZelle2() {
+  const pago = document.getElementById('t-pago2').value;
+  const qrBlock = document.getElementById('zelle-qr-block2');
+  if(qrBlock) qrBlock.style.display = pago === 'Zelle' ? '' : 'none';
+}
+
 function actualizarTotalCampo() {
   const monto = parseFloat(document.getElementById('t-monto').value) || 0;
   const propina = parseFloat(document.getElementById('t-propina').value) || 0;
+  const total = monto + propina;
   const totalDisplay = document.getElementById('t-total-display');
   if(propina > 0) {
     totalDisplay.style.display = '';
-    totalDisplay.textContent = '🎁 Total con propina: $' + (monto + propina).toFixed(2);
+    totalDisplay.textContent = '🎁 Total con propina: $' + total.toFixed(2);
   } else {
     totalDisplay.style.display = 'none';
+  }
+
+  // Validar pago dividido
+  const pago2Activo = document.getElementById('t-pago2-activo') && document.getElementById('t-pago2-activo').checked;
+  const resumenPago = document.getElementById('t-resumen-pago');
+  if(pago2Activo && resumenPago) {
+    const m1 = parseFloat(document.getElementById('t-monto-pago1').value) || 0;
+    const m2 = parseFloat(document.getElementById('t-monto-pago2').value) || 0;
+    const sumaPagos = m1 + m2;
+    resumenPago.style.display = '';
+    const diff = total - sumaPagos;
+    if(Math.abs(diff) < 0.01) {
+      resumenPago.textContent = '✅ Pago completo: $' + m1.toFixed(2) + ' + $' + m2.toFixed(2) + ' = $' + sumaPagos.toFixed(2);
+      resumenPago.style.background = '#eafaf1'; resumenPago.style.color = '#1a7a4a';
+    } else if(diff > 0) {
+      resumenPago.textContent = '⚠️ Falta recibir: $' + diff.toFixed(2) + ' (suma: $' + sumaPagos.toFixed(2) + ' de $' + total.toFixed(2) + ')';
+      resumenPago.style.background = '#fdf3f3'; resumenPago.style.color = '#922b21';
+    } else {
+      resumenPago.textContent = '⚠️ Ya superaste el total por $' + Math.abs(diff).toFixed(2);
+      resumenPago.style.background = '#fdf3f3'; resumenPago.style.color = '#922b21';
+    }
+  } else if(resumenPago) {
+    resumenPago.style.display = 'none';
   }
 }
 
@@ -5401,15 +5889,32 @@ async function enviarTerminado() {
   document.getElementById('btn-terminar').disabled = true;
   mostrarEstado('terminar-status', '⏳ Enviando al jefe...', 'info');
 
+  // Recoger 2da forma de pago si aplica
+  const pago2Activo = document.getElementById('t-pago2-activo') && document.getElementById('t-pago2-activo').checked;
+  const pago2 = pago2Activo ? document.getElementById('t-pago2').value : '';
+  const montoPago1 = pago2Activo ? (parseFloat(document.getElementById('t-monto-pago1').value)||0) : monto;
+  const montoPago2 = pago2Activo ? (parseFloat(document.getElementById('t-monto-pago2').value)||0) : 0;
+  const ref2 = pago2Activo ? (document.getElementById('t-ref2').value||'') : '';
+  const horasTrabajadas = parseFloat(document.getElementById('campo-crono-horas').value) || 0;
+  const huboDificultad = document.getElementById('campo-crono-dificil') && document.getElementById('campo-crono-dificil').checked;
+  const formaPagoCompleta = pago2Activo ? (pago + ' + ' + pago2) : pago;
+
   const payload = {
     action: 'terminarTrabajo',
     cotId,
     montoFinal: monto,
     propina: propina,
-    formaPago: pago,
+    formaPago: formaPagoCompleta,
+    formaPago1: pago,
+    formaPago2: pago2,
+    montoPago1,
+    montoPago2,
     refPago: document.getElementById('t-ref').value,
+    refPago2: ref2,
     observaciones: document.getElementById('t-obs').value,
     firmaCliente: obtenerFirmaBase64(),
+    horasTrabajadas,
+    huboDificultad,
     ayudanteId: CAMPO_AYUDANTE_ID,
     fechaTerminado: new Date().toISOString()
   };
@@ -5445,6 +5950,12 @@ async function enviarTerminado() {
     document.getElementById('t-total-display').style.display = 'none';
     document.getElementById('t-ref').value = '';
     document.getElementById('t-obs').value = '';
+    const p2a = document.getElementById('t-pago2-activo');
+    if(p2a) { p2a.checked = false; togglePago2(); }
+    const mp1 = document.getElementById('t-monto-pago1'); if(mp1) mp1.value='';
+    const mp2 = document.getElementById('t-monto-pago2'); if(mp2) mp2.value='';
+    const r2 = document.getElementById('t-ref2'); if(r2) r2.value='';
+    campoCronoReset();
     limpiarFirma();
     // Volver a la pestaña de trabajo asignado y revisar si ya hay uno nuevo
     setTimeout(() => { switchTab('asignado'); }, 1200);
@@ -5468,6 +5979,12 @@ function imprimirRecibo(idioma) {
   const destino = trabajoActivo ? trabajoActivo.destino : '—';
   const fecha = new Date().toLocaleDateString(idioma === 'en' ? 'en-US' : 'es-US', {year:'numeric',month:'long',day:'numeric'});
   const totalConPropina = monto + propina;
+  // Segundo pago
+  const pago2Activo = document.getElementById('t-pago2-activo') && document.getElementById('t-pago2-activo').checked;
+  const pago2 = pago2Activo ? document.getElementById('t-pago2').value : '';
+  const montoPago1 = pago2Activo ? (parseFloat(document.getElementById('t-monto-pago1').value)||0) : 0;
+  const montoPago2 = pago2Activo ? (parseFloat(document.getElementById('t-monto-pago2').value)||0) : 0;
+  const ref2 = pago2Activo ? (document.getElementById('t-ref2').value||'') : '';
 
   const txt = {
     es: {
@@ -5498,16 +6015,20 @@ function imprimirRecibo(idioma) {
   };
   const icono = pagoIconos[pago] || '💳';
 
+  // BUG 5 FIX: Match receipt format to main app (add tel, route, folio, social links)
+  const tel = trabajoActivo ? (trabajoActivo.tel || '') : '';
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>Receipt ${cotId}</title>
   <style>
     body{font-family:Arial,sans-serif;padding:24px;max-width:500px;margin:0 auto;color:#111;font-size:14px}
-    .header{background:#143F74;color:#fff;padding:18px;border-radius:12px;text-align:center;margin-bottom:18px}
+    .header{background:linear-gradient(135deg,#143F74,#0F2F57);color:#fff;padding:18px;border-radius:12px;text-align:center;margin-bottom:18px}
     .header h1{font-size:20px;margin:0 0 4px}
     .header p{font-size:11px;opacity:.9;margin:2px 0}
-    .titulo{text-align:center;font-size:17px;font-weight:700;color:#143F74;margin-bottom:14px;letter-spacing:.5px}
-    .row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eee;font-size:13px}
-    .row strong{color:#143F74}
+    .titulo{text-align:center;font-size:17px;font-weight:700;color:#143F74;margin-bottom:14px;letter-spacing:.5px;text-transform:uppercase}
+    .folio-badge{display:inline-block;background:#EDF3FB;color:#143F74;border:1px solid #BDD0EE;border-radius:20px;font-size:12px;font-weight:700;padding:4px 14px;margin-bottom:14px}
+    .row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eee;font-size:13px;gap:8px}
+    .row strong{color:#143F74;white-space:nowrap}
+    .row span{text-align:right;color:#333}
     .pago-box{border:2px solid #1F5EA8;border-radius:12px;padding:14px 18px;margin:16px 0;display:flex;align-items:center;gap:14px}
     .pago-icono{font-size:32px}
     .pago-info{flex:1}
@@ -5519,6 +6040,8 @@ function imprimirRecibo(idioma) {
     .propina-row{background:#FFF8E7;border-radius:8px;padding:8px 14px;margin:6px 0;display:flex;justify-content:space-between;font-size:13px}
     .firma-box{text-align:center;margin-top:16px;padding:14px;border:1px dashed #1F5EA8;border-radius:10px;background:#F6F9FD}
     .firma-box .firma-label{font-size:12px;font-weight:700;color:#143F74;margin-bottom:8px}
+    .social-box{background:#EDF3FB;border-radius:10px;padding:14px;text-align:center;margin-top:16px}
+    .social-icons{display:flex;justify-content:center;gap:18px;margin-top:10px}
     .firma-box img{max-width:220px;border:1px solid #ddd;border-radius:6px}
     .firma-line{border-top:1px solid #999;width:220px;margin:20px auto 6px;display:block}
     .firma-name{font-size:11px;color:#888;text-align:center}
@@ -5530,15 +6053,28 @@ function imprimirRecibo(idioma) {
   <div class="header">
     <h1>🚛 MUDANZAS EXPRESS LA</h1>
     <p>Tel/WhatsApp/Zelle: (323) 946-2008</p>
-    <p>mudanzasexpressla@gmail.com</p>
+    <p>mudanzasexpressla@gmail.com · facebook.com/MudanzasExpressLA</p>
   </div>
   <div class="titulo">${T.titulo}</div>
-  <div class="row"><strong>${T.folio}:</strong> <span>${cotId}</span></div>
+  <div style="text-align:center;margin-bottom:14px"><span class="folio-badge">📋 ${T.folio}: ${cotId}</span></div>
   <div class="row"><strong>${T.fecha}:</strong> <span>${fecha}</span></div>
   <div class="row"><strong>${T.cliente}:</strong> <span>${nombre}</span></div>
+  ${tel ? `<div class="row"><strong>📞 ${idioma==='en'?'Phone':'Teléfono'}:</strong> <span>${tel}</span></div>` : ''}
   <div class="row"><strong>${T.origen}:</strong> <span style="text-align:right;max-width:280px">${origen}</span></div>
   <div class="row"><strong>${T.destino}:</strong> <span style="text-align:right;max-width:280px">${destino}</span></div>
 
+  ${pago2Activo ? `
+  <div style="border:2px solid #1F5EA8;border-radius:12px;padding:14px;margin:16px 0">
+    <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">💳 ${T.pago}</div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;font-size:13px">
+      <span>${icono} ${pago}</span>
+      <strong style="color:#143F74">$${montoPago1.toFixed(2)}${ref?'  <small style="color:#888;font-weight:400">Ref: '+ref+'</small>':''}</strong>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px">
+      <span>${pagoIconos[pago2]||'💳'} ${pago2}</span>
+      <strong style="color:#143F74">$${montoPago2.toFixed(2)}${ref2?'  <small style="color:#888;font-weight:400">Ref: '+ref2+'</small>':''}</strong>
+    </div>
+  </div>` : `
   <div class="pago-box">
     <div class="pago-icono">${icono}</div>
     <div class="pago-info">
@@ -5546,7 +6082,7 @@ function imprimirRecibo(idioma) {
       <div class="pago-valor">${pago}</div>
       ${ref ? `<div style="font-size:11px;color:#555;margin-top:2px">Ref: ${ref}</div>` : ''}
     </div>
-  </div>
+  </div>`}
 
   <div class="total-box">
     <div class="label">${T.cobrado}</div>
@@ -5563,27 +6099,27 @@ function imprimirRecibo(idioma) {
     <span style="font-weight:900;color:#143F74;font-size:15px">$${totalConPropina.toFixed(2)}</span>
   </div>` : ''}
 
-  ${obs ? `<div class="row"><strong>${T.obs_label}:</strong> <span>${obs}</span></div>` : ''}
+  ${obs ? `<div class="row" style="margin-top:10px"><strong>${T.obs_label}:</strong> <span style="color:#555">${obs}</span></div>` : ''}
 
   <div class="firma-box">
     <div class="firma-label">${T.firma_title}</div>
-    ${firma ? `<img src="${firma}" alt="Firma">` : '<div class="firma-line"></div>'}
+    ${firma ? `<img src="${firma}" alt="Firma" style="max-width:220px;border:1px solid #ddd;border-radius:6px">` : '<div class="firma-line"></div>'}
     <div class="firma-name">${nombre}</div>
   </div>
 
   <div class="social-box">
     <div style="font-size:13px;font-weight:700;color:#143F74;margin-bottom:4px">${T.social}</div>
     <div style="font-size:11.5px;color:#555;margin-bottom:12px">${T.social2}</div>
-    <div style="display:flex;justify-content:center;gap:18px">
-      <a href="https://facebook.com/MudanzasExpressLA" target="_blank" style="text-decoration:none;color:#333">
+    <div class="social-icons">
+      <a href="https://facebook.com/MudanzasExpressLA" target="_blank" style="text-decoration:none;color:#333;text-align:center">
         <div style="width:42px;height:42px;border-radius:50%;background:#3862B3;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 4px">📘</div>
         <div style="font-size:10px">Facebook</div>
       </a>
-      <a href="https://wa.me/13239462008" target="_blank" style="text-decoration:none;color:#333">
+      <a href="https://wa.me/13239462008" target="_blank" style="text-decoration:none;color:#333;text-align:center">
         <div style="width:42px;height:42px;border-radius:50%;background:#25D366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 4px">💬</div>
         <div style="font-size:10px">WhatsApp</div>
       </a>
-      <a href="mailto:mudanzasexpressla@gmail.com" style="text-decoration:none;color:#333">
+      <a href="mailto:mudanzasexpressla@gmail.com" style="text-decoration:none;color:#333;text-align:center">
         <div style="width:42px;height:42px;border-radius:50%;background:#D94731;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 4px">📧</div>
         <div style="font-size:10px">Gmail</div>
       </a>
@@ -5591,9 +6127,9 @@ function imprimirRecibo(idioma) {
   </div>
   <div class="legal">${T.legal}</div>
   <div class="footer">Mudanzas Express LA · (323) 946-2008<br>mudanzasexpressla@gmail.com · facebook.com/MudanzasExpressLA</div>
-  <div class="no-print" style="margin-top:14px;display:flex;gap:10px">
+  <div class="no-print" style="margin-top:16px;display:flex;gap:10px">
     <button onclick="window.print()" style="flex:2;padding:14px;background:#1F5EA8;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">${T.imprimir}</button>
-    <button onclick="window.close();window.opener.imprimirRecibo('${otroIdioma}')" style="flex:1;padding:14px;background:#f0f0f0;color:#333;border:none;border-radius:10px;font-size:13px;cursor:pointer">${T.cambiar}</button>
+    <button onclick="window.opener && window.opener.imprimirRecibo ? window.opener.imprimirRecibo('${otroIdioma}') : window.close()" style="flex:1;padding:14px;background:#f0f0f0;color:#333;border:none;border-radius:10px;font-size:13px;cursor:pointer">${T.cambiar}</button>
   </div>
   </body></html>`;
 
@@ -5607,11 +6143,17 @@ window.addEventListener('load', () => {
   renderFotos();
   renderCola();
   // Check trabajo activo en localStorage (fallback sin internet)
+  // BUG 3 FIX: Don't show if already terminated in main app
   try {
     const raw = localStorage.getItem('trabajoActivoCampo');
     if(raw) {
-      trabajoActivo = JSON.parse(raw);
-      document.getElementById('badge-asignado').style.display = '';
+      const t = JSON.parse(raw);
+      if(trabajoYaTerminado(t.cotId)) {
+        localStorage.removeItem('trabajoActivoCampo');
+      } else {
+        trabajoActivo = t;
+        document.getElementById('badge-asignado').style.display = '';
+      }
     }
   } catch(e) {}
   if(CAMPO_APPS_URL && !CAMPO_APPS_URL.includes('PEGA_AQUI')) {
