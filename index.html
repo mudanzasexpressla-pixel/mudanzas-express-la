@@ -4862,59 +4862,6 @@ window.initMapsCallback = function() { initMapsAutocomplete(); };
 // Init
 getCfg();
 
-// ===================== TRABAJOS ESTE FIN DE SEMANA (pre-cargados) =====================
-(function() {
-  const SEED_KEY = 'mel_weekend_aug2026_loaded';
-  if (localStorage.getItem(SEED_KEY)) return; // ya cargados, no duplicar
-  const d = getData();
-  const nuevos = [
-    {
-      id: 'COT-' + String(d.counter).padStart(3,'0'),
-      fecha: new Date().toISOString(),
-      estatus: 'agendado',
-      cliente: { nombre: 'Luisa Oliva', tel: '', email: '' },
-      origen: 'Pico Rivera (recoger UHaul 7:30am — Reservación #82931101)',
-      destino: '',
-      total: 500,
-      fechaAgendada: '2026-08-30',
-      horaAgendada: '07:30',
-      notasAgenda: 'UHaul 20ft — Reservación #82931101. Recoger 7:30am Pico Rivera.',
-      montoFinal: 0, pagoFinal: '', refPago: '', obsFinales: '', usaAyudante: '', fechaTerminado: '',
-      tipoTrabajo: '2_recamaras', base: 500
-    },
-    {
-      id: 'COT-' + String(d.counter + 1).padStart(3,'0'),
-      fecha: new Date().toISOString(),
-      estatus: 'agendado',
-      cliente: { nombre: 'James (subcontratado)', tel: '', email: '' },
-      origen: '', destino: '',
-      total: 180,
-      fechaAgendada: '2026-08-30',
-      horaAgendada: '',
-      notasAgenda: 'Trabajo subcontratado. Comisión nuestra: $20.',
-      montoFinal: 0, pagoFinal: '', refPago: '', obsFinales: '', usaAyudante: '', fechaTerminado: '',
-      tipoTrabajo: '', base: 180
-    },
-    {
-      id: 'COT-' + String(d.counter + 2).padStart(3,'0'),
-      fecha: new Date().toISOString(),
-      estatus: 'agendado',
-      cliente: { nombre: 'Gabby Bautista', tel: '', email: '' },
-      origen: '', destino: '',
-      total: 200,
-      fechaAgendada: '2026-09-01',
-      horaAgendada: '',
-      notasAgenda: 'Solo labor (Labor Loading Only). SIN trampolín. SIN armado de muebles.',
-      montoFinal: 0, pagoFinal: '', refPago: '', obsFinales: '', usaAyudante: '', fechaTerminado: '',
-      tipoTrabajo: 'labor', base: 200
-    }
-  ];
-  nuevos.forEach(cot => d.cots.push(cot));
-  d.counter += 3;
-  saveData(d);
-  localStorage.setItem(SEED_KEY, '1');
-})();
-
 // Drive via Apps Script (no OAuth needed for field workers)
 const today = new Date().toISOString().split('T')[0];
 ['c-fecha-pref','g-fecha','gg-fecha','ay-fecha','ag-fecha','gig-fecha','odo-fecha'].forEach(id => { const e=document.getElementById(id); if(e) e.value=today; });
