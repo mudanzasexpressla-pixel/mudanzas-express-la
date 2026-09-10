@@ -572,6 +572,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="tabs-inner">
     <button class="tab-inner-btn active" onclick="showGTab('gasolina',this)">⛽ Gasolina</button>
     <button class="tab-inner-btn" onclick="showGTab('general',this)">💸 Gastos generales</button>
+    <button class="tab-inner-btn" onclick="showGTab('ayudantes',this)">👷 Ayudantes</button>
     <button class="tab-inner-btn" onclick="showGTab('sueldos',this)">🧑‍💼 Sueldos / Retiros</button>
     <button class="tab-inner-btn" onclick="showGTab('capital',this)">🏦 Capital aportado</button>
     <button class="tab-inner-btn" onclick="showGTab('resumen',this)">📊 Resumen anual</button>
@@ -2077,18 +2078,18 @@ function renderTerminados() {
   const resumenCanal = {};
   listaCompleta.forEach(c => {
     const k = c.canal || 'sin_canal';
-    if(!resumenCanal[k]) resumenCanal[k] = { count:0, total:0, label: k==='sin_canal'?'❓ Sin canal especificado':canalLabel(k) };
+    if(!resumenCanal[k]) resumenCanal[k] = { count:0, total:0, label: k==='sin_canal'?'💬 MUDANZAS LA MENSAJE WHATSAPP v2 CAMPAÑA':canalLabel(k) };
     resumenCanal[k].count++;
     resumenCanal[k].total += (c.montoFinal||c.total||0) + (c.propina||0);
   });
   const canales = Object.values(resumenCanal).sort((a,b) => b.total - a.total);
-  const resumenHTML = canales.length > 0 ? `
+  const resumenHTML = canales.length > 1 ? `
     <div class="card" style="margin-bottom:14px;border-left:4px solid #1F5EA8">
       <div class="card-title">📣 Ingresos por canal de origen</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
         ${canales.map(c => `
           <div style="background:rgba(31,94,168,0.13);border:1px solid rgba(31,94,168,0.25);border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:11px;font-weight:700;color:#AFC6E4;margin-bottom:4px;line-height:1.3">${c.label}</div>
+            <div style="font-size:12px;font-weight:700;color:#AFC6E4;margin-bottom:4px">${c.label}</div>
             <div style="font-size:20px;font-weight:800;color:#1D9E75">$${c.total.toFixed(0)}</div>
             <div style="font-size:11px;color:#6FA8E8;margin-top:2px">${c.count} trabajo${c.count!==1?'s':''}</div>
           </div>`).join('')}
@@ -2263,7 +2264,6 @@ function renderGastos() {
 
     // ── Resumen semanal de ayudantes (solo referencia, no se duplica) ──
     const ay = d.ay||[];
-    // Agrupar por ayudante y semana
     const hoy = new Date();
     const lunesEstaSemana = new Date(hoy);
     lunesEstaSemana.setDate(hoy.getDate() - ((hoy.getDay()+6)%7));
@@ -2276,11 +2276,11 @@ function renderGastos() {
       return f >= lunesEstaSemana && f <= domingoCierre;
     });
 
-    // Agrupar por nombre
+    // Agrupar esta semana por nombre
     const porAyudante = {};
     aySemanales.forEach(a => {
       const k = a.nombre;
-      if(!porAyudante[k]) porAyudante[k] = { nombre:k, horas:0, base:0, bono:0, total:0, trabajos:[], pagado: a.pagadoEnSemana };
+      if(!porAyudante[k]) porAyudante[k] = { nombre:k, horas:0, base:0, bono:0, total:0, trabajos:[] };
       porAyudante[k].horas += (a.horas||0);
       porAyudante[k].base += (a.horas||0)*(a.tarifaHr||getCfg().tarifaAyudanteHr||22.50);
       porAyudante[k].bono += (a.bono||0);
@@ -2288,9 +2288,26 @@ function renderGastos() {
       if(a.trabajo) porAyudante[k].trabajos.push(a.trabajo);
     });
 
-    const resumenAyHTML = Object.values(porAyudante).length > 0 ? `
-      <div class="card" style="border-left:4px solid #EF9F27">
-        <div class="card-title">⏱️ Acumulado esta semana — Ayudantes <span style="font-size:11px;color:#888;font-weight:400">(${lunesEstaSemana.toLocaleDateString('es-US')} al ${domingoCierre.toLocaleDateString('es-US')}) · Solo referencia, no se duplica</span></div>
+    // ── Todos los ayudantes que han trabajado alguna vez ──
+    const todosAyudantes = [...new Set((ay||[]).map(a=>a.nombre).filter(Boolean))];
+
+    // ── Semanas disponibles ──
+    const semanasSet = {};
+    ay.forEach(a => {
+      if(!a.fecha) return;
+      const f = new Date(a.fecha+'T12:00:00');
+      const lunes = new Date(f); lunes.setDate(f.getDate()-((f.getDay()+6)%7)); lunes.setHours(0,0,0,0);
+      const dom = new Date(lunes); dom.setDate(lunes.getDate()+6);
+      const key = lunes.toISOString().split('T')[0];
+      if(!semanasSet[key]) semanasSet[key] = { label: lunes.toLocaleDateString('es-US')+ ' - '+dom.toLocaleDateString('es-US'), lunes, dom };
+    });
+    const semanas = Object.entries(semanasSet).sort((a,b)=>b[0].localeCompare(a[0]));
+
+    // ── HTML resumen esta semana ──
+    const hayEstaSemana = Object.values(porAyudante).length > 0;
+    const resumenEstaSemanaHTML = hayEstaSemana ? `
+      <div class="card" style="border-left:4px solid #EF9F27;margin-bottom:12px">
+        <div class="card-title">⏱️ Acumulado esta semana <span style="font-size:11px;color:#888;font-weight:400">(${lunesEstaSemana.toLocaleDateString('es-US')} al ${domingoCierre.toLocaleDateString('es-US')}) · Solo referencia</span></div>
         ${Object.values(porAyudante).map(ay => `
           <div style="background:#FEF9E7;border-radius:10px;padding:12px;margin-bottom:10px">
             <div style="display:flex;justify-content:space-between;align-items:center">
@@ -2308,8 +2325,7 @@ function renderGastos() {
               </div>
             </div>
           </div>`).join('')}
-        <div class="notice notice-amber" style="font-size:11.5px">💡 Este monto ya está registrado en Ayudantes por trabajo. Cuando pagues, registra el pago en Ayudantes — aquí es solo para ver el total de la semana.</div>
-        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
           ${Object.values(porAyudante).map(ay => `
             <button class="btn btn-primary btn-sm" onclick='generarComprobanteAyudante(
               "${ay.nombre}",
@@ -2317,9 +2333,30 @@ function renderGastos() {
               ${JSON.stringify(aySemanales.filter(a=>a.nombre===ay.nombre))}
             )'>📄 Comprobante de ${ay.nombre.split(' ')[0]}</button>`).join('')}
         </div>
-      </div>` : '';
+      </div>` : `
+      <div class="card" style="border-left:4px solid #2F74C0;margin-bottom:12px">
+        <div class="card-title">⏱️ Comprobantes de pago — Ayudantes</div>
+        <div class="notice notice-blue" style="margin-bottom:12px">Esta semana no hay registros pendientes. Genera un comprobante de cualquier semana anterior.</div>
+        ${todosAyudantes.length > 0 && semanas.length > 0 ? `
+        <div class="form-row">
+          <div>
+            <label>👷 Ayudante</label>
+            <select id="comp-ayudante-nombre" style="width:100%;padding:9px 11px;border:1px solid #C9D2DD;border-radius:9px;font-size:13px">
+              ${todosAyudantes.map(n=>`<option value="${n}">${n}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label>📅 Semana</label>
+            <select id="comp-semana-key" style="width:100%;padding:9px 11px;border:1px solid #C9D2DD;border-radius:9px;font-size:13px">
+              ${semanas.map(([k,s])=>`<option value="${k}">${s.label}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="generarComprobanteSeleccionado()" style="margin-top:8px">📄 Generar comprobante</button>
+        ` : '<div style="color:#888;font-size:13px">Aún no hay registros de ayudantes.</div>'}
+      </div>`;
 
-    slEl.innerHTML = resumenAyHTML + (sl.length ? `
+    slEl.innerHTML = resumenEstaSemanaHTML + (sl.length ? `
       <div class="card">
         <div style="font-weight:700;color:#2F74C0;margin-bottom:10px">Total retirado (propietario/empleados fijos): $${tot.toFixed(2)}</div>
         <table class="data-table">
@@ -3673,6 +3710,24 @@ function generarRecibo(id, idioma) {
 }
 
 // ===================== PDF COMPROBANTE PAGO AYUDANTE =====================
+function generarComprobanteSeleccionado() {
+  const nombre = document.getElementById('comp-ayudante-nombre')?.value;
+  const semanaKey = document.getElementById('comp-semana-key')?.value;
+  if(!nombre || !semanaKey) { alert('Selecciona ayudante y semana'); return; }
+  const d = getData();
+  const ay = d.ay||[];
+  const lunes = new Date(semanaKey+'T12:00:00');
+  lunes.setHours(0,0,0,0);
+  const dom = new Date(lunes); dom.setDate(lunes.getDate()+6);
+  const registros = ay.filter(a => {
+    if(a.nombre !== nombre) return false;
+    const f = new Date(a.fecha+'T12:00:00');
+    return f >= lunes && f <= dom;
+  });
+  if(!registros.length) { alert('No hay registros para esa semana'); return; }
+  const semanaLabel = lunes.toLocaleDateString('es-US')+' - '+dom.toLocaleDateString('es-US');
+  generarComprobanteAyudante(nombre, semanaLabel, registros);
+}
 function generarComprobanteAyudante(nombre, semanaLabel, registros) {
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF();
