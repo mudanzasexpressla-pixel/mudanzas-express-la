@@ -2291,15 +2291,27 @@ function renderGastos() {
     // ── Todos los ayudantes que han trabajado alguna vez ──
     const todosAyudantes = [...new Set((ay||[]).map(a=>a.nombre).filter(Boolean))];
 
-    // ── Semanas disponibles ──
+    // ── Helper: parsear fecha en cualquier formato ──
+    function parseFechaAy(fecha) {
+      if(!fecha) return null;
+      // formato yyyy-mm-dd
+      if(/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return new Date(fecha+'T12:00:00');
+      // formato dd/mm/yyyy o d/m/yyyy
+      const p = fecha.split('/');
+      if(p.length===3) return new Date(`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}T12:00:00`);
+      return new Date(fecha);
+    }
+
+    // ── Semanas disponibles (de todos los registros de ayudantes) ──
     const semanasSet = {};
     ay.forEach(a => {
       if(!a.fecha) return;
-      const f = new Date(a.fecha+'T12:00:00');
+      const f = parseFechaAy(a.fecha);
+      if(!f || isNaN(f)) return;
       const lunes = new Date(f); lunes.setDate(f.getDate()-((f.getDay()+6)%7)); lunes.setHours(0,0,0,0);
       const dom = new Date(lunes); dom.setDate(lunes.getDate()+6);
       const key = lunes.toISOString().split('T')[0];
-      if(!semanasSet[key]) semanasSet[key] = { label: lunes.toLocaleDateString('es-US')+ ' - '+dom.toLocaleDateString('es-US'), lunes, dom };
+      if(!semanasSet[key]) semanasSet[key] = { label: lunes.toLocaleDateString('es-US')+' - '+dom.toLocaleDateString('es-US'), lunes, dom };
     });
     const semanas = Object.entries(semanasSet).sort((a,b)=>b[0].localeCompare(a[0]));
 
@@ -3719,9 +3731,17 @@ function generarComprobanteSeleccionado() {
   const lunes = new Date(semanaKey+'T12:00:00');
   lunes.setHours(0,0,0,0);
   const dom = new Date(lunes); dom.setDate(lunes.getDate()+6);
+  function parseFechaAy(fecha) {
+    if(!fecha) return null;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return new Date(fecha+'T12:00:00');
+    const p = fecha.split('/');
+    if(p.length===3) return new Date(`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}T12:00:00`);
+    return new Date(fecha);
+  }
   const registros = ay.filter(a => {
     if(a.nombre !== nombre) return false;
-    const f = new Date(a.fecha+'T12:00:00');
+    const f = parseFechaAy(a.fecha);
+    if(!f || isNaN(f)) return false;
     return f >= lunes && f <= dom;
   });
   if(!registros.length) { alert('No hay registros para esa semana'); return; }
