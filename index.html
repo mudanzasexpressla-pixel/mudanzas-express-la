@@ -2077,18 +2077,18 @@ function renderTerminados() {
   const resumenCanal = {};
   listaCompleta.forEach(c => {
     const k = c.canal || 'sin_canal';
-    if(!resumenCanal[k]) resumenCanal[k] = { count:0, total:0, label: k==='sin_canal'?'💬 MUDANZAS LA MENSAJE WHATSAPP v2 CAMPAÑA':canalLabel(k) };
+    if(!resumenCanal[k]) resumenCanal[k] = { count:0, total:0, label: k==='sin_canal'?'❓ Sin canal especificado':canalLabel(k) };
     resumenCanal[k].count++;
     resumenCanal[k].total += (c.montoFinal||c.total||0) + (c.propina||0);
   });
   const canales = Object.values(resumenCanal).sort((a,b) => b.total - a.total);
-  const resumenHTML = canales.length > 1 ? `
+  const resumenHTML = canales.length > 0 ? `
     <div class="card" style="margin-bottom:14px;border-left:4px solid #1F5EA8">
       <div class="card-title">📣 Ingresos por canal de origen</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
         ${canales.map(c => `
           <div style="background:rgba(31,94,168,0.13);border:1px solid rgba(31,94,168,0.25);border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:12px;font-weight:700;color:#AFC6E4;margin-bottom:4px">${c.label}</div>
+            <div style="font-size:11px;font-weight:700;color:#AFC6E4;margin-bottom:4px;line-height:1.3">${c.label}</div>
             <div style="font-size:20px;font-weight:800;color:#1D9E75">$${c.total.toFixed(0)}</div>
             <div style="font-size:11px;color:#6FA8E8;margin-top:2px">${c.count} trabajo${c.count!==1?'s':''}</div>
           </div>`).join('')}
