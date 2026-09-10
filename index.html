@@ -390,6 +390,8 @@ table.data-table tr:hover td{background:#1A2A42!important}
           <option value="">— Sin especificar —</option>
           <optgroup label="📘 Facebook Ads (campañas pagadas)">
             <option value="fb_zonas_premium">FB Ads · Zonas Premium Bilingüe (ago 2025)</option>
+            <option value="fb_wa_v2_campaña">FB Ads · MUDANZAS LA MENSAJE WHATSAPP v2 CAMPAÑA</option>
+            <option value="fb_wa_v2_escal20">FB Ads · MUDANZAS LA -WHATSAPP v2 ESCALAMIENTO 20 USD</option>
             <option value="fb_otra_campana">FB Ads · Otra campaña</option>
           </optgroup>
           <optgroup label="💬 WhatsApp">
@@ -627,20 +629,43 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div id="gt-ayudantes" style="display:none">
     <div class="card">
       <div class="card-title">👷 Registrar pago a ayudante</div>
+      <div class="notice notice-blue" style="font-size:12px">La tarifa por hora se configura en ⚙️ Configuración. El pago acumulado de la semana se muestra en <strong>Sueldos</strong> (solo referencia, sin duplicarse).</div>
       <div class="form-row">
-        <div><label>Nombre del ayudante</label><input type="text" id="ay-nombre" placeholder="Carlos López"></div>
+        <div><label>Nombre del ayudante</label><input type="text" id="ay-nombre" placeholder="Gelacio Huerta López"></div>
         <div><label>Tipo de contratación</label>
           <select id="ay-tipo"><option>Temporal (por trabajo)</option><option>Permanente (empleado)</option></select>
         </div>
       </div>
       <div class="form-row three">
         <div><label>Fecha de pago</label><input type="date" id="ay-fecha"></div>
-        <div><label>Monto pagado ($)</label><input type="number" id="ay-monto" placeholder="0.00" step="0.01"></div>
-        <div><label>Forma de pago</label><select id="ay-forma-pago"><option>Efectivo</option><option>Zelle</option><option>Cheque</option><option>Otro</option></select></div>
         <div><label>Trabajo asociado (ID)</label><input type="text" id="ay-trabajo" placeholder="COT-001"></div>
+        <div><label>Forma de pago</label><select id="ay-forma-pago"><option>Efectivo</option><option>Zelle</option><option>Cheque</option><option>Otro</option></select></div>
       </div>
-      <div class="form-row full"><div><label>Notas</label><input type="text" id="ay-notas" placeholder="Horas trabajadas, descripción del trabajo..."></div></div>
-      <button class="btn btn-primary" onclick="guardarAy()">💾 Guardar pago</button>
+      <div class="form-row four" style="align-items:end">
+        <div>
+          <label>⏱️ Horas trabajadas</label>
+          <input type="number" id="ay-horas" placeholder="0.0" step="0.25" min="0" oninput="calcAyudanteMonto()">
+          <div style="font-size:11px;color:#888;margin-top:3px">Del cronómetro · ej: 3.5 = 3hr 30min</div>
+        </div>
+        <div>
+          <label>💵 Tarifa/hr (auto)</label>
+          <input type="number" id="ay-tarifa-hr" step="0.50" min="0" oninput="calcAyudanteMonto()" style="color:#1D9E75;font-weight:700">
+          <div style="font-size:11px;color:#888;margin-top:3px">Tomado de Configuración</div>
+        </div>
+        <div>
+          <label>➕ Extra / Bono ($)</label>
+          <input type="number" id="ay-bono" placeholder="0.00" step="0.50" min="0" oninput="calcAyudanteMonto()">
+        </div>
+        <div>
+          <label>💰 Total a pagar</label>
+          <input type="number" id="ay-monto" placeholder="0.00" step="0.01" style="font-weight:700;color:#1D9E75;font-size:15px">
+        </div>
+      </div>
+      <div class="form-row">
+        <div><label>Razón del extra / bono (opcional)</label><input type="text" id="ay-bono-nota" placeholder="Ej: Custodia del camión, escaleras, trabajo pesado..."></div>
+        <div><label>Notas adicionales</label><input type="text" id="ay-notas" placeholder="Notas del trabajo..."></div>
+      </div>
+      <button class="btn btn-primary" onclick="guardarAy()">💾 Guardar pago a ayudante</button>
     </div>
     <div id="lista-ay"></div>
   </div>
@@ -847,6 +872,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
     <div class="form-row">
       <div><label>Email del negocio</label><input type="email" id="cfg-email" value="mudanzasexpressla@gmail.com"></div>
       <div><label>Tarifa por milla predeterminada ($)</label><input type="number" id="cfg-milla" value="2.50" step="0.25"></div>
+      <div><label>💵 Tarifa por hora — ayudantes ($/hr)</label><input type="number" id="cfg-tarifa-ayudante" value="22.50" step="0.50" min="0" placeholder="22.50"><div style="font-size:11px;color:#888;margin-top:3px">La app usa este valor para calcular el pago automático al terminar el cronómetro.</div></div>
     </div>
     <div class="form-row full"><div>
       <label>🏠 Dirección de TU CASA (punto de partida para calcular millas)</label>
@@ -1035,7 +1061,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
 <script>
 // ===================== STORAGE =====================
 const KEY = 'mudanzas_express_la_v3';
-let CFG = { pin: '1234', nombre: 'Mudanzas Express LA', tel: '(323) 946-2008', email: 'mudanzasexpressla@gmail.com', tarifaMilla: 2.50, dirCasa: '' };
+let CFG = { pin: '1234', nombre: 'Mudanzas Express LA', tel: '(323) 946-2008', email: 'mudanzasexpressla@gmail.com', tarifaMilla: 2.50, dirCasa: '', tarifaAyudanteHr: 22.50 };
 
 function getData() {
   try {
@@ -1620,15 +1646,17 @@ function toggleCanalNombre() {
 
 // Etiqueta legible para mostrar en listas
 const CANAL_LABELS = {
-  'fb_zonas_premium': '📘 FB Ads Zonas Premium',
-  'fb_otra_campana':  '📘 FB Ads',
-  'wa_organico':      '💬 WhatsApp orgánico',
-  'wa_ads':           '💬 WhatsApp Ads',
-  'referido':         '🤝 Referido',
-  'google':           '🔍 Google',
-  'web':              '🌐 Web',
-  'llamada':          '📞 Llamada directa',
-  'otro':             '❓ Otro',
+  'fb_zonas_premium':  '📘 FB Ads Zonas Premium',
+  'fb_wa_v2_campaña':  '📘 FB Ads · MUDANZAS LA MENSAJE WHATSAPP v2 CAMPAÑA',
+  'fb_wa_v2_escal20':  '📘 FB Ads · MUDANZAS LA -WHATSAPP v2 ESCALAMIENTO 20 USD',
+  'fb_otra_campana':   '📘 FB Ads',
+  'wa_organico':       '💬 WhatsApp orgánico',
+  'wa_ads':            '💬 WhatsApp Ads',
+  'referido':          '🤝 Referido',
+  'google':            '🔍 Google',
+  'web':               '🌐 Web',
+  'llamada':           '📞 Llamada directa',
+  'otro':              '❓ Otro',
 };
 function canalLabel(c) {
   return c ? (CANAL_LABELS[c] || c) : '';
@@ -2049,7 +2077,7 @@ function renderTerminados() {
   const resumenCanal = {};
   listaCompleta.forEach(c => {
     const k = c.canal || 'sin_canal';
-    if(!resumenCanal[k]) resumenCanal[k] = { count:0, total:0, label: k==='sin_canal'?'❓ Sin canal':canalLabel(k) };
+    if(!resumenCanal[k]) resumenCanal[k] = { count:0, total:0, label: k==='sin_canal'?'💬 MUDANZAS LA MENSAJE WHATSAPP v2 CAMPAÑA':canalLabel(k) };
     resumenCanal[k].count++;
     resumenCanal[k].total += (c.montoFinal||c.total||0) + (c.propina||0);
   });
@@ -2059,10 +2087,10 @@ function renderTerminados() {
       <div class="card-title">📣 Ingresos por canal de origen</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
         ${canales.map(c => `
-          <div style="background:#F6F9FD;border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:12px;font-weight:700;color:#143F74;margin-bottom:4px">${c.label}</div>
+          <div style="background:rgba(31,94,168,0.13);border:1px solid rgba(31,94,168,0.25);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:12px;font-weight:700;color:#AFC6E4;margin-bottom:4px">${c.label}</div>
             <div style="font-size:20px;font-weight:800;color:#1D9E75">$${c.total.toFixed(0)}</div>
-            <div style="font-size:11px;color:#888;margin-top:2px">${c.count} trabajo${c.count!==1?'s':''}</div>
+            <div style="font-size:11px;color:#6FA8E8;margin-top:2px">${c.count} trabajo${c.count!==1?'s':''}</div>
           </div>`).join('')}
       </div>
     </div>` : '';
@@ -2232,9 +2260,68 @@ function renderGastos() {
   if(slEl) {
     const sl = d.sl||[];
     const tot = sl.reduce((a,s)=>a+(s.monto||0),0);
-    slEl.innerHTML = sl.length ? `
+
+    // ── Resumen semanal de ayudantes (solo referencia, no se duplica) ──
+    const ay = d.ay||[];
+    // Agrupar por ayudante y semana
+    const hoy = new Date();
+    const lunesEstaSemana = new Date(hoy);
+    lunesEstaSemana.setDate(hoy.getDate() - ((hoy.getDay()+6)%7));
+    lunesEstaSemana.setHours(0,0,0,0);
+    const domingoCierre = new Date(lunesEstaSemana);
+    domingoCierre.setDate(lunesEstaSemana.getDate()+6);
+
+    const aySemanales = ay.filter(a => {
+      const f = new Date(a.fecha+'T12:00:00');
+      return f >= lunesEstaSemana && f <= domingoCierre;
+    });
+
+    // Agrupar por nombre
+    const porAyudante = {};
+    aySemanales.forEach(a => {
+      const k = a.nombre;
+      if(!porAyudante[k]) porAyudante[k] = { nombre:k, horas:0, base:0, bono:0, total:0, trabajos:[], pagado: a.pagadoEnSemana };
+      porAyudante[k].horas += (a.horas||0);
+      porAyudante[k].base += (a.horas||0)*(a.tarifaHr||getCfg().tarifaAyudanteHr||22.50);
+      porAyudante[k].bono += (a.bono||0);
+      porAyudante[k].total += (a.monto||0);
+      if(a.trabajo) porAyudante[k].trabajos.push(a.trabajo);
+    });
+
+    const resumenAyHTML = Object.values(porAyudante).length > 0 ? `
+      <div class="card" style="border-left:4px solid #EF9F27">
+        <div class="card-title">⏱️ Acumulado esta semana — Ayudantes <span style="font-size:11px;color:#888;font-weight:400">(${lunesEstaSemana.toLocaleDateString('es-US')} al ${domingoCierre.toLocaleDateString('es-US')}) · Solo referencia, no se duplica</span></div>
+        ${Object.values(porAyudante).map(ay => `
+          <div style="background:#FEF9E7;border-radius:10px;padding:12px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-weight:700;font-size:14px">👷 ${ay.nombre}</div>
+                <div style="font-size:12px;color:#666;margin-top:3px">
+                  ${ay.horas > 0 ? `⏱️ ${ay.horas.toFixed(1)} hrs × $${(getCfg().tarifaAyudanteHr||22.50).toFixed(2)}/hr = $${ay.base.toFixed(2)}` : ''}
+                  ${ay.bono > 0 ? ` + Bono $${ay.bono.toFixed(2)}` : ''}
+                </div>
+                <div style="font-size:11px;color:#888;margin-top:2px">Trabajos: ${ay.trabajos.join(', ')||'—'}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:20px;font-weight:800;color:#EF9F27">$${ay.total.toFixed(2)}</div>
+                <div style="font-size:10px;color:#888">acumulado sem.</div>
+              </div>
+            </div>
+          </div>`).join('')}
+        <div class="notice notice-amber" style="font-size:11.5px">💡 Este monto ya está registrado en Ayudantes por trabajo. Cuando pagues, registra el pago en Ayudantes — aquí es solo para ver el total de la semana.</div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          ${Object.values(porAyudante).map(ay => `
+            <button class="btn btn-primary btn-sm" onclick='generarComprobanteAyudante(
+              "${ay.nombre}",
+              "${lunesEstaSemana.toLocaleDateString('es-US')} - ${domingoCierre.toLocaleDateString('es-US')}",
+              ${JSON.stringify(aySemanales.filter(a=>a.nombre===ay.nombre))}
+            )'>📄 Comprobante de ${ay.nombre.split(' ')[0]}</button>`).join('')}
+        </div>
+      </div>` : '';
+
+    slEl.innerHTML = resumenAyHTML + (sl.length ? `
       <div class="card">
-        <div style="font-weight:700;color:#2F74C0;margin-bottom:10px">Total retirado: $${tot.toFixed(2)}</div>
+        <div style="font-weight:700;color:#2F74C0;margin-bottom:10px">Total retirado (propietario/empleados fijos): $${tot.toFixed(2)}</div>
         <table class="data-table">
           <thead><tr><th>Fecha</th><th>Quién</th><th>Monto</th><th>Forma de pago</th><th>Notas</th></tr></thead>
           <tbody>${sl.slice().reverse().map(s=>`<tr>
@@ -2242,7 +2329,7 @@ function renderGastos() {
             <td><strong style="color:#2F74C0">$${s.monto.toFixed(2)}</strong></td><td>${s.pago}</td><td>${s.notas||'—'}</td>
           </tr>`).join('')}</tbody>
         </table>
-      </div>` : '<div class="empty-state" style="padding:30px"><p>Sin retiros registrados</p></div>';
+      </div>` : '<div class="empty-state" style="padding:20px"><p>Sin retiros del propietario registrados</p></div>');
   }
   renderCapital();
 }
@@ -2844,16 +2931,43 @@ function guardarGG() {
   renderGastos();
 }
 
+function calcAyudanteMonto() {
+  const horas = parseFloat(document.getElementById('ay-horas').value)||0;
+  const tarifa = parseFloat(document.getElementById('ay-tarifa-hr').value)||getCfg().tarifaAyudanteHr||22.50;
+  const bono = parseFloat(document.getElementById('ay-bono').value)||0;
+  const total = (horas * tarifa) + bono;
+  document.getElementById('ay-monto').value = total > 0 ? total.toFixed(2) : '';
+}
+
 function guardarAy() {
   const nombre = document.getElementById('ay-nombre').value.trim();
   const monto = parseFloat(document.getElementById('ay-monto').value);
   const fecha = document.getElementById('ay-fecha').value;
   if(!nombre || !monto || !fecha) { alert('Completa nombre, fecha y monto'); return; }
+  const horas = parseFloat(document.getElementById('ay-horas').value)||0;
+  const tarifa = parseFloat(document.getElementById('ay-tarifa-hr').value)||getCfg().tarifaAyudanteHr||22.50;
+  const bono = parseFloat(document.getElementById('ay-bono').value)||0;
+  const bonoNota = document.getElementById('ay-bono-nota').value.trim();
   const d = getData();
   if(!d.ay) d.ay=[];
-  d.ay.push({ nombre, monto, fecha, tipo: document.getElementById('ay-tipo').value, trabajo: document.getElementById('ay-trabajo').value, notas: document.getElementById('ay-notas').value });
+  d.ay.push({
+    nombre, monto, fecha,
+    horas: horas||null,
+    tarifaHr: tarifa||null,
+    bono: bono||null,
+    bonoNota: bonoNota||null,
+    tipo: document.getElementById('ay-tipo').value,
+    trabajo: document.getElementById('ay-trabajo').value,
+    notas: document.getElementById('ay-notas').value,
+    pagadoEnSemana: false
+  });
   saveData(d);
   alert('✅ Pago guardado');
+  document.getElementById('ay-horas').value='';
+  document.getElementById('ay-bono').value='';
+  document.getElementById('ay-bono-nota').value='';
+  document.getElementById('ay-monto').value='';
+  document.getElementById('ay-notas').value='';
   renderGastos();
 }
 
@@ -3318,15 +3432,16 @@ function generarRecibo(id, idioma) {
   doc.text(idioma==='en' ? 'PROFESSIONAL MOVING & TRANSPORT SERVICES' : 'SERVICIOS PROFESIONALES DE MUDANZA Y TRANSPORTE', 14, 27);
   doc.setFont('helvetica','normal'); doc.setFontSize(7.8); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
   doc.text('Los Angeles, CA • Tel/WhatsApp/Zelle: (323) 946-2008 • mudanzasexpressla@gmail.com', 14, 33);
+  doc.text('facebook.com/MudanzasExpressLA', 14, 37.5);
   // Caja de folio a la derecha
-  const cajaH = c.folioTerminado ? 25 : 19;
+  const cajaH = c.folioTerminado ? 29 : 23;
   doc.setFillColor(TINT[0],TINT[1],TINT[2]); RR(144,9,52,cajaH,'F');
   doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]); doc.setFont('helvetica','bold'); doc.setFontSize(11);
   doc.text((idioma==='en'?'RECEIPT ':'RECIBO ') + (c.folioTerminado||c.id), 170, 16.5, {align:'center'});
   doc.setFont('helvetica','normal'); doc.setFontSize(7.8); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
   doc.text((idioma==='en'?'Date: ':'Fecha: ') + (c.fechaTerminado||''), 170, 22.5, {align:'center'});
   if(c.folioTerminado) doc.text((idioma==='en'?'Quote ref: ':'Ref. cotización: ') + c.id, 170, 28.5, {align:'center'});
-  let y = 44;
+  let y = 48;
 
   // ── BANDA DE DATOS: CLIENTE | TELÉFONO | ORIGEN | DESTINO ──
   const colX = [16, 62, 100, 150];
@@ -3557,6 +3672,155 @@ function generarRecibo(id, idioma) {
   }, 500);
 }
 
+// ===================== PDF COMPROBANTE PAGO AYUDANTE =====================
+function generarComprobanteAyudante(nombre, semanaLabel, registros) {
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF();
+  const NAVY=[20,63,116], BRAND=[31,94,168], GRIS=[100,108,118], TINT=[237,243,251], GREEN=[29,158,117];
+  const RR = (x,yy,w,h,st) => doc.roundedRect ? doc.roundedRect(x,yy,w,h,2,2,st) : doc.rect(x,yy,w,h,st);
+
+  // ── ENCABEZADO ──
+  doc.setFillColor(NAVY[0],NAVY[1],NAVY[2]); doc.rect(0,0,210,4,'F');
+  doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]); doc.setFontSize(19); doc.setFont('helvetica','bold');
+  doc.text('MUDANZAS EXPRESS LA', 14, 20);
+  doc.setFontSize(8.2); doc.setTextColor(BRAND[0],BRAND[1],BRAND[2]);
+  doc.text('SERVICIOS PROFESIONALES DE MUDANZA Y TRANSPORTE', 14, 27);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.8); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+  doc.text('Los Angeles, CA • Tel/WhatsApp/Zelle: (323) 946-2008 • mudanzasexpressla@gmail.com', 14, 33);
+  doc.text('facebook.com/MudanzasExpressLA', 14, 37.5);
+
+  // Caja tipo: COMPROBANTE DE PAGO
+  doc.setFillColor(TINT[0],TINT[1],TINT[2]); RR(136,9,60,29,'F');
+  doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text('COMPROBANTE DE PAGO', 166, 17, {align:'center'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+  doc.text('Semana: ' + semanaLabel, 166, 23, {align:'center'});
+  doc.text('Generado: ' + new Date().toLocaleDateString('es-US'), 166, 29, {align:'center'});
+
+  let y = 48;
+
+  // ── DATOS DEL TRABAJADOR ──
+  doc.setFillColor(TINT[0],TINT[1],TINT[2]); RR(12,y-4,186,14,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(BRAND[0],BRAND[1],BRAND[2]);
+  doc.text('TRABAJADOR', 16, y+1);
+  doc.text('EMPRESA', 110, y+1);
+  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(25,30,38);
+  doc.text(nombre, 16, y+7);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(60,60,70);
+  doc.text('Mudanzas Express LA  ·  (323) 946-2008', 110, y+7);
+  y += 20;
+
+  // ── TABLA DE TRABAJOS ──
+  doc.setFillColor(NAVY[0],NAVY[1],NAVY[2]); doc.rect(12,y-5,186,8,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+  doc.text('Trabajo', 16, y);
+  doc.text('Fecha', 55, y);
+  doc.text('Horas', 90, y, {align:'center'});
+  doc.text('Tarifa/hr', 118, y, {align:'center'});
+  doc.text('Base', 148, y, {align:'right'});
+  doc.text('Bono', 170, y, {align:'right'});
+  doc.text('Total', 193, y, {align:'right'});
+  y += 8;
+
+  let totalHoras = 0, totalBase = 0, totalBono = 0, totalGeneral = 0;
+  registros.forEach((r, i) => {
+    const horas = r.horas||0;
+    const tarifa = r.tarifaHr||getCfg().tarifaAyudanteHr||22.50;
+    const base = horas * tarifa;
+    const bono = r.bono||0;
+    const total = r.monto||0;
+    totalHoras += horas;
+    totalBase += base;
+    totalBono += bono;
+    totalGeneral += total;
+
+    if(i%2===0) { doc.setFillColor(246,249,252); doc.rect(12,y-4,186,10,'F'); }
+    doc.setTextColor(25,30,38); doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+    doc.text(r.trabajo||'—', 16, y);
+    doc.setFont('helvetica','normal');
+    doc.text(r.fecha||'—', 55, y);
+    doc.text(horas > 0 ? horas.toFixed(1)+' hrs' : '—', 90, y, {align:'center'});
+    doc.text(horas > 0 ? '$'+tarifa.toFixed(2) : '—', 118, y, {align:'center'});
+    doc.text(base > 0 ? '$'+base.toFixed(2) : '—', 148, y, {align:'right'});
+    if(bono > 0) {
+      doc.setTextColor(GREEN[0],GREEN[1],GREEN[2]);
+      doc.text('+$'+bono.toFixed(2), 170, y, {align:'right'});
+      doc.setTextColor(25,30,38);
+    } else {
+      doc.text('—', 170, y, {align:'right'});
+    }
+    doc.setFont('helvetica','bold');
+    doc.text('$'+total.toFixed(2), 193, y, {align:'right'});
+
+    // Nota del bono si existe
+    if(r.bonoNota) {
+      doc.setFont('helvetica','italic'); doc.setFontSize(7); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+      doc.text('  Bono: '+r.bonoNota, 148, y+4);
+      y += 4;
+    }
+    doc.setDrawColor(226,232,240); doc.setLineWidth(0.2); doc.line(12,y+5,198,y+5);
+    y += 10;
+  });
+
+  // ── FILA DE TOTALES ──
+  y += 3;
+  doc.setDrawColor(BRAND[0],BRAND[1],BRAND[2]); doc.setLineWidth(0.5); doc.line(12,y,198,y); y += 5;
+  doc.setFillColor(NAVY[0],NAVY[1],NAVY[2]); doc.rect(12,y-4,186,13,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+  doc.text('TOTALES', 16, y+4);
+  doc.text(totalHoras.toFixed(1)+' hrs', 90, y+4, {align:'center'});
+  doc.text('$'+totalBase.toFixed(2), 148, y+4, {align:'right'});
+  doc.setTextColor(150,255,200);
+  doc.text(totalBono > 0 ? '+$'+totalBono.toFixed(2) : '—', 170, y+4, {align:'right'});
+  doc.setTextColor(255,255,255); doc.setFontSize(11);
+  doc.text('$'+totalGeneral.toFixed(2), 193, y+4, {align:'right'});
+  y += 22;
+
+  // ── CAJA TOTAL A PAGAR ──
+  doc.setFillColor(GREEN[0],GREEN[1],GREEN[2]); RR(118,y-4,80,18,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+  doc.text('TOTAL A PAGAR:', 123, y+4);
+  doc.setFontSize(14);
+  doc.text('$'+totalGeneral.toFixed(2), 193, y+7, {align:'right'});
+  y += 25;
+
+  // ── NOTA INFORMATIVA ──
+  doc.setFillColor(237,243,251); RR(12,y-4,186,14,'F');
+  doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]); doc.setFont('helvetica','normal'); doc.setFontSize(8);
+  const nota = 'Este comprobante muestra el detalle de horas trabajadas y bonos del período indicado. El pago se realiza cada fin de semana vía Zelle o efectivo.';
+  const notaLines = doc.splitTextToSize(nota, 178);
+  doc.text(notaLines, 16, y+2);
+  y += Math.max(14, notaLines.length*4+6) + 8;
+
+  // ── FIRMA ──
+  if(y > 230) { doc.addPage(); y = 20; }
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]);
+  doc.text('CONFORMIDAD DEL PAGO', 105, y, {align:'center'}); y += 8;
+  doc.setDrawColor(NAVY[0],NAVY[1],NAVY[2]); doc.setLineWidth(0.3);
+  doc.rect(15,y,85,28); doc.rect(110,y,85,28);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+  doc.text('Firma del trabajador', 57.5, y+34, {align:'center'});
+  doc.text(nombre, 57.5, y+38, {align:'center'});
+  doc.setFillColor(TINT[0],TINT[1],TINT[2]); doc.rect(110,y,85,28,'F');
+  doc.setDrawColor(NAVY[0],NAVY[1],NAVY[2]); doc.rect(110,y,85,28);
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]);
+  doc.text('Mudanzas Express LA', 152.5, y+13, {align:'center'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+  doc.text('(323) 946-2008', 152.5, y+19, {align:'center'});
+  doc.text('Representante autorizado', 152.5, y+34, {align:'center'});
+  y += 45;
+
+  // ── PIE ──
+  doc.setDrawColor(170,190,215); doc.setLineWidth(0.3);
+  for(let px=14; px<196; px+=3) doc.line(px,279,px+1.4,279);
+  doc.setFontSize(7.5); doc.setTextColor(BRAND[0],BRAND[1],BRAND[2]); doc.setFont('helvetica','bold');
+  doc.text('¡Gracias por tu trabajo! — Mudanzas Express LA', 105, 285, {align:'center'});
+  doc.setFontSize(7); doc.setTextColor(120,128,138); doc.setFont('helvetica','normal');
+  doc.text('Mudanzas Express LA · (323) 946-2008 · mudanzasexpressla@gmail.com · facebook.com/MudanzasExpressLA', 105, 291, {align:'center'});
+
+  doc.save('Comprobante_Pago_'+nombre.replace(/\s+/g,'_')+'_'+semanaLabel.replace(/\s/g,'_')+'.pdf');
+}
+
 // ===================== EXCEL EXPORT =====================
 function parseFechaTerminadoOrdenable(c) {
   if (c.fechaTerminadoISO) return new Date(c.fechaTerminadoISO + 'T12:00:00');
@@ -3780,6 +4044,7 @@ function guardarConfig() {
   CFG.tel = document.getElementById('cfg-tel').value;
   CFG.email = document.getElementById('cfg-email').value;
   CFG.tarifaMilla = parseFloat(document.getElementById('cfg-milla').value)||2.50;
+  CFG.tarifaAyudanteHr = parseFloat(document.getElementById('cfg-tarifa-ayudante').value)||22.50;
   CFG.dirCasa = (document.getElementById('cfg-casa').value||'').trim();
   saveCfg();
   alert('✅ Configuración guardada');
@@ -4866,6 +5131,11 @@ getCfg();
 const today = new Date().toISOString().split('T')[0];
 ['c-fecha-pref','g-fecha','gg-fecha','ay-fecha','ag-fecha','gig-fecha','odo-fecha'].forEach(id => { const e=document.getElementById(id); if(e) e.value=today; });
 document.getElementById('c-tarifa-milla').value = CFG.tarifaMilla;
+// Tarifa ayudante
+const ayTarifaEl = document.getElementById('ay-tarifa-hr');
+if(ayTarifaEl) ayTarifaEl.value = CFG.tarifaAyudanteHr||22.50;
+const cfgTarifaAyEl = document.getElementById('cfg-tarifa-ayudante');
+if(cfgTarifaAyEl) cfgTarifaAyEl.value = CFG.tarifaAyudanteHr||22.50;
 // Cargar dirección de casa guardada
 const cfgCasaEl = document.getElementById('cfg-casa');
 if(cfgCasaEl && CFG.dirCasa) cfgCasaEl.value = CFG.dirCasa;
@@ -6037,144 +6307,238 @@ function imprimirRecibo(idioma) {
     '</div></div>'
   ) : '';
 
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>Receipt ${cotId}</title>
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Recibo ${cotId}</title>
   <style>
-    body{font-family:Arial,sans-serif;padding:24px;max-width:560px;margin:0 auto;color:#111;font-size:14px}
-    .header{background:linear-gradient(135deg,#143F74,#0F2F57);color:#fff;padding:18px;border-radius:12px;text-align:center;margin-bottom:18px}
-    .header h1{font-size:20px;margin:0 0 4px}
-    .header p{font-size:11px;opacity:.9;margin:2px 0}
-    .titulo{text-align:center;font-size:17px;font-weight:700;color:#143F74;margin-bottom:14px;letter-spacing:.5px;text-transform:uppercase}
-    .folio-badge{display:inline-block;background:#EDF3FB;color:#143F74;border:1px solid #BDD0EE;border-radius:20px;font-size:12px;font-weight:700;padding:4px 14px;margin-bottom:14px}
-    .row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eee;font-size:13px;gap:8px}
-    .row strong{color:#143F74;white-space:nowrap}
-    .row span{text-align:right;color:#333}
-    .pago-box{border:2px solid #1F5EA8;border-radius:12px;padding:14px 18px;margin:16px 0;display:flex;align-items:center;gap:14px}
-    .pago-icono{font-size:32px}
-    .pago-info{flex:1}
-    .pago-label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px}
-    .pago-valor{font-size:16px;font-weight:700;color:#143F74}
-    .total-box{background:#1F5EA8;color:#fff;border-radius:12px;padding:16px;text-align:center;margin:14px 0}
-    .total-box .label{font-size:11px;opacity:.85;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
-    .total-box .monto{font-size:28px;font-weight:900}
-    .propina-row{background:#FFF8E7;border-radius:8px;padding:8px 14px;margin:6px 0;display:flex;justify-content:space-between;font-size:13px}
-    .firma-box{text-align:center;margin-top:16px;padding:14px;border:1px dashed #1F5EA8;border-radius:10px;background:#F6F9FD}
-    .firma-box .firma-label{font-size:12px;font-weight:700;color:#143F74;margin-bottom:8px}
-    .social-box{background:#EDF3FB;border-radius:10px;padding:14px;text-align:center;margin-top:16px}
-    .social-icons{display:flex;justify-content:center;gap:18px;margin-top:10px}
-    .firma-box img{max-width:220px;border:1px solid #ddd;border-radius:6px}
-    .firma-line{border-top:1px solid #999;width:220px;margin:20px auto 6px;display:block}
-    .firma-name{font-size:11px;color:#888;text-align:center}
-    .legal{font-size:10px;color:#999;margin-top:16px;line-height:1.6;padding-top:12px;border-top:1px dashed #eee}
-    .social-box{background:#EDF3FB;border-radius:10px;padding:14px;text-align:center;margin-top:16px}
-    .footer{text-align:center;margin-top:16px;font-size:11px;color:#888}
-    @media print{.no-print{display:none}body{padding:10px}}
-  </style></head><body>
-  <div class="header">
-    <h1>🚛 MUDANZAS EXPRESS LA</h1>
-    <p>Tel/WhatsApp/Zelle: (323) 946-2008</p>
-    <p>mudanzasexpressla@gmail.com · facebook.com/MudanzasExpressLA</p>
-  </div>
-  <div class="titulo">${T.titulo}</div>
-  <div style="text-align:center;margin-bottom:14px"><span class="folio-badge">📋 ${T.folio}: ${cotId}</span></div>
-  <div class="row"><strong>${T.fecha}:</strong> <span>${fecha}</span></div>
-  <div class="row"><strong>${T.cliente}:</strong> <span>${nombre}</span></div>
-  ${tel ? `<div class="row"><strong>📞 ${idioma==='en'?'Phone':'Teléfono'}:</strong> <span>${tel}</span></div>` : ''}
-  <div class="row"><strong>${T.origen}:</strong> <span style="text-align:right;max-width:280px">${origen}</span></div>
-  <div class="row"><strong>${T.destino}:</strong> <span style="text-align:right;max-width:280px">${destino}</span></div>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#1C2530;font-size:13px;padding:0}
+    .page{max-width:600px;margin:0 auto;padding:24px}
 
-  <!-- Tabla de servicio y cronómetro -->
-  <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
-    <thead><tr style="background:#EDF3FB">
-      <th style="padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#143F74">${idioma==='en'?'SERVICE':'SERVICIO'}</th>
-      <th style="padding:8px 10px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#143F74">TOTAL</th>
+    /* ── ENCABEZADO ── */
+    .hdr-bar{height:4px;background:#143F74;margin-bottom:0}
+    .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 0 10px}
+    .hdr-left h1{font-size:20px;font-weight:900;color:#143F74;letter-spacing:.3px}
+    .hdr-left .sub{font-size:8.5px;color:#1F5EA8;font-weight:700;letter-spacing:.3px;margin-top:2px}
+    .hdr-left .contact{font-size:8px;color:#6A7280;margin-top:3px;line-height:1.6}
+    .folio-box{background:#EDF3FB;border-radius:6px;padding:8px 14px;text-align:center;min-width:130px}
+    .folio-box .folio-title{font-size:11px;font-weight:800;color:#143F74}
+    .folio-box .folio-fecha{font-size:8px;color:#6A7280;margin-top:2px}
+    .folio-box .folio-ref{font-size:8px;color:#6A7280;margin-top:1px}
+
+    /* ── BANDA CLIENTE ── */
+    .banda{background:#EDF3FB;border-radius:8px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;padding:10px 14px;margin:10px 0}
+    .banda-col .lbl{font-size:7px;font-weight:800;color:#1F5EA8;text-transform:uppercase;letter-spacing:.4px}
+    .banda-col .val{font-size:9px;font-weight:700;color:#1C2530;margin-top:3px;line-height:1.4}
+
+    /* ── TABLA SERVICIO ── */
+    table{width:100%;border-collapse:collapse;margin:12px 0}
+    thead tr{background:#143F74}
+    thead th{color:#fff;font-size:8px;font-weight:700;padding:7px 10px;text-align:left;text-transform:uppercase;letter-spacing:.4px}
+    thead th.right{text-align:right}
+    tbody tr:nth-child(even){background:#F6F9FC}
+    tbody td{padding:9px 10px;font-size:12px;border-bottom:1px solid #E3E8EF;vertical-align:top}
+    tbody td.right{text-align:right;font-weight:700}
+    .td-desc{font-weight:700;color:#1C2530}
+    .td-sub{font-size:10px;color:#6A7280;margin-top:3px;line-height:1.5}
+
+    /* ── TOTAL BOX ── */
+    .total-band{background:#1F5EA8;border-radius:8px;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;margin:10px 0}
+    .total-band .tlbl{font-size:11px;font-weight:700;color:#fff}
+    .total-band .tval{font-size:22px;font-weight:900;color:#fff}
+    .subtotal-row{display:flex;justify-content:space-between;padding:5px 14px;font-size:12px;color:#555;border-bottom:1px solid #eee}
+    .subtotal-row.propina{color:#996600;background:#FFF8E7;border-radius:6px;margin:4px 0}
+    .pago-box{border:1.5px solid #1F5EA8;border-radius:8px;padding:10px 14px;margin:10px 0;display:flex;gap:12px;align-items:center}
+    .pago-icono{font-size:26px}
+    .pago-lbl{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.4px}
+    .pago-val{font-size:14px;font-weight:800;color:#143F74}
+    .pago-ref{font-size:10px;color:#666;margin-top:2px}
+
+    /* ── ARTÍCULOS ── */
+    .art-box{background:#F8FAFC;border:1px solid #E3E8EF;border-radius:8px;padding:12px;margin:10px 0}
+    .art-title{font-size:9px;font-weight:800;color:#143F74;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+    .art-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px}
+    .art-item{font-size:11.5px;color:#333;padding:3px 0;border-bottom:1px solid #eee}
+
+    /* ── NOTAS ── */
+    .notas-box{background:#FFF8E7;border-left:3px solid #EF9F27;border-radius:0 6px 6px 0;padding:8px 12px;margin:8px 0;font-size:11px;color:#555}
+
+    /* ── FIRMA ── */
+    .firma-section{margin:14px 0}
+    .firma-title{font-size:10px;font-weight:800;color:#143F74;text-align:center;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px}
+    .firma-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .firma-box{border:1px solid #BDD0EE;border-radius:8px;min-height:70px;padding:10px;position:relative;background:#fff}
+    .firma-box.empresa{background:#EDF3FB}
+    .firma-box img{max-width:100%;max-height:60px;display:block;margin:0 auto}
+    .firma-line{border-top:1px solid #aaa;margin:40px 10px 6px}
+    .firma-name{font-size:9px;color:#888;text-align:center}
+    .firma-empresa-name{font-size:11px;font-weight:800;color:#143F74;text-align:center;margin-top:10px}
+    .firma-empresa-sub{font-size:9px;color:#6A7280;text-align:center;margin-top:3px}
+
+    /* ── LEGAL ── */
+    .legal{font-size:9px;color:#999;margin-top:14px;line-height:1.7;padding-top:10px;border-top:1px dashed #ddd}
+
+    /* ── REDES ── */
+    .social{background:#EDF3FB;border-radius:10px;padding:14px;text-align:center;margin:12px 0}
+    .social-title{font-size:12px;font-weight:800;color:#143F74;margin-bottom:4px}
+    .social-sub{font-size:10px;color:#555;margin-bottom:10px}
+    .social-icons{display:flex;justify-content:center;gap:20px}
+    .social-icon-wrap{text-decoration:none;color:#333;text-align:center}
+    .social-circle{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;margin:0 auto 4px;font-weight:900;color:#fff}
+    .social-lbl{font-size:9px;color:#555}
+
+    /* ── FOOTER ── */
+    .footer-line{border-top:1px dashed #BDD0EE;margin:14px 0 6px}
+    .gracias{font-size:12px;font-weight:800;color:#1F5EA8;text-align:center;margin-bottom:4px}
+    .footer-txt{font-size:9px;color:#888;text-align:center;line-height:1.6}
+
+    /* ── PRINT ── */
+    .no-print{margin-top:18px;display:flex;gap:10px}
+    @media print{
+      .no-print{display:none!important}
+      body{padding:0}
+      .page{padding:10px}
+    }
+  </style>
+</head><body>
+<div class="page">
+
+  <div class="hdr-bar"></div>
+  <div class="hdr">
+    <div class="hdr-left">
+      <h1>MUDANZAS EXPRESS LA</h1>
+      <div class="sub">SERVICIOS PROFESIONALES DE MUDANZA Y TRANSPORTE</div>
+      <div class="contact">
+        Los Angeles, CA • Tel/WhatsApp/Zelle: (323) 946-2008 • mudanzasexpressla@gmail.com<br>
+        facebook.com/MudanzasExpressLA
+      </div>
+    </div>
+    <div class="folio-box">
+      <div class="folio-title">RECIBO ${cotId}</div>
+      <div class="folio-fecha">Fecha: ${fecha}</div>
+      ${trabajoActivo && trabajoActivo.cotId ? '<div class="folio-ref">Ref. cotización: '+(trabajoActivo.cotId||'')+'</div>' : ''}
+    </div>
+  </div>
+
+  <div class="banda">
+    <div class="banda-col"><div class="lbl">Cliente</div><div class="val">${nombre}</div></div>
+    <div class="banda-col"><div class="lbl">Teléfono</div><div class="val">${tel||'—'}</div></div>
+    <div class="banda-col"><div class="lbl">Origen</div><div class="val">${origen}</div></div>
+    <div class="banda-col"><div class="lbl">Destino</div><div class="val">${destino}</div></div>
+  </div>
+
+  <table>
+    <thead><tr>
+      <th>Descripción del servicio</th>
+      <th class="right" style="width:60px">Cant.</th>
+      <th class="right" style="width:70px">Precio</th>
+      <th class="right" style="width:70px">Total</th>
     </tr></thead>
     <tbody>
       <tr>
-        <td style="padding:10px;border-bottom:1px solid #eee;vertical-align:top">
-          <div style="font-weight:700;color:#1C2530">${idioma==='en'?'Moving service — Local move':'Servicio de mudanza — Mudanza local'}</div>
-          <div style="font-size:11px;color:#666;margin-top:4px">
-            ${fecha}${hora?' · '+(idioma==='en'?'Time':'Hora')+': '+hora:''}${millas>0?' · '+(idioma==='en'?'Distance':'Distancia')+': '+millas+' mi':''}${horasCrono>0?' · ⏱️ '+(idioma==='en'?'Duration':'Duración')+': '+horasCrono.toFixed(1)+' hrs'+(horasExtra>0?' (+'+horasExtra.toFixed(1)+' extra)':''):''}
+        <td>
+          <div class="td-desc">Servicio de mudanza — Mudanza local</div>
+          <div class="td-sub">
+            Fecha del servicio: ${fecha}${hora?' · Hora: '+hora:''}${millas>0?' · Distancia recorrida: '+millas+' millas':''}${horasCrono>0?' · ⏱️ Duración: '+horasCrono.toFixed(1)+' hrs'+(horasExtra>0?' (+'+horasExtra.toFixed(1)+' extra)':''):''}
+            ${articulos.length > 0 ? '<br>Incluye: Con ayudante adicional.' : ''}
           </div>
         </td>
-        <td style="padding:10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#143F74">$${monto.toFixed(2)}</td>
+        <td class="right">1</td>
+        <td class="right">$${monto.toFixed(2)}</td>
+        <td class="right">$${monto.toFixed(2)}</td>
       </tr>
-      ${propina>0?('<tr><td style="padding:8px 10px;font-size:12px;color:#996600">🎁 '+T.propina+'</td><td style="padding:8px 10px;text-align:right;color:#996600;font-weight:700">+$'+propina.toFixed(2)+'</td></tr>'):''}
+      ${propina>0?'<tr><td><div class="td-desc">Propina recibida</div><div class="td-sub">Propina voluntaria del cliente.</div></td><td class="right">1</td><td class="right">$'+propina.toFixed(2)+'</td><td class="right">$'+propina.toFixed(2)+'</td></tr>':''}
     </tbody>
   </table>
 
-  ${articulosHTML}
-  ${notasTrabajo?('<div style="background:#FFF8E7;border-radius:8px;padding:10px 14px;margin:10px 0;font-size:12px;color:#555;border-left:3px solid #EF9F27"><strong>📝 '+(idioma==='en'?'Notes':'Notas')+':</strong> '+notasTrabajo+'</div>'):''}
+  ${articulosHTML.replace('<div style="background:#F8FAFC;border-radius:10px;padding:14px;margin:14px 0;border:1px solid #E3E8EF">','<div class="art-box">').replace('<div style="font-size:11px;font-weight:700;color:#143F74;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📦 ARTÍCULOS MOVIDOS</div>','<div class="art-title">Artículos movidos:</div>').replace('<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">','<div class="art-grid">')}
+
+  ${notasTrabajo?'<div class="notas-box"><strong>📝 Notas del trabajo:</strong> '+notasTrabajo+'</div>':''}
+
+  <div style="margin:10px 14px">
+    <div class="subtotal-row"><span>Subtotal:</span><span>$${monto.toFixed(2)}</span></div>
+    ${propina>0?'<div class="subtotal-row propina"><span>Propina recibida:</span><span>+$'+propina.toFixed(2)+'</span></div>':''}
+  </div>
 
   ${pago2Activo ? `
-  <div style="border:2px solid #1F5EA8;border-radius:12px;padding:14px;margin:16px 0">
-    <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">💳 ${T.pago}</div>
-    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;font-size:13px">
+  <div class="pago-box" style="flex-direction:column;gap:6px">
+    <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.4px;width:100%">Forma de pago</div>
+    <div style="display:flex;justify-content:space-between;width:100%;font-size:13px">
       <span>${icono} ${pago}</span>
-      <strong style="color:#143F74">$${montoPago1.toFixed(2)}${ref?'  <small style="color:#888;font-weight:400">Ref: '+ref+'</small>':''}</strong>
+      <strong style="color:#143F74">$${montoPago1.toFixed(2)}${ref?' <small style="color:#888;font-weight:400">· Ref: '+ref+'</small>':''}</strong>
     </div>
-    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px">
+    <div style="display:flex;justify-content:space-between;width:100%;font-size:13px;border-top:1px solid #ddd;padding-top:6px">
       <span>${pagoIconos[pago2]||'💳'} ${pago2}</span>
-      <strong style="color:#143F74">$${montoPago2.toFixed(2)}${ref2?'  <small style="color:#888;font-weight:400">Ref: '+ref2+'</small>':''}</strong>
+      <strong style="color:#143F74">$${montoPago2.toFixed(2)}${ref2?' <small style="color:#888;font-weight:400">· Ref: '+ref2+'</small>':''}</strong>
     </div>
   </div>` : `
   <div class="pago-box">
     <div class="pago-icono">${icono}</div>
-    <div class="pago-info">
-      <div class="pago-label">${T.pago}</div>
-      <div class="pago-valor">${pago}</div>
-      ${ref ? `<div style="font-size:11px;color:#555;margin-top:2px">Ref: ${ref}</div>` : ''}
+    <div>
+      <div class="pago-lbl">Forma de pago</div>
+      <div class="pago-val">${pago}</div>
+      ${ref?'<div class="pago-ref">Ref: '+ref+'</div>':''}
     </div>
   </div>`}
 
-  <div class="total-box">
-    <div class="label">${T.cobrado}</div>
-    <div class="monto">$${monto.toFixed(2)}</div>
+  <div class="total-band">
+    <div class="tlbl">TOTAL PAGADO:</div>
+    <div class="tval">$${totalConPropina.toFixed(2)}</div>
   </div>
 
-  ${propina > 0 ? `
-  <div class="propina-row">
-    <span>🎁 ${T.propina}</span>
-    <span style="font-weight:700;color:#996600">+$${propina.toFixed(2)}</span>
+  ${obs?'<div class="notas-box" style="border-left-color:#2F74C0;background:#EAF2FC"><strong>Observaciones:</strong> '+obs+'</div>':''}
+
+  <div class="firma-section">
+    <div class="firma-title">Firma del cliente — Conformidad con el servicio</div>
+    <div class="firma-cols">
+      <div class="firma-box">
+        ${firma?'<img src="'+firma+'" alt="Firma">':'<div class="firma-line"></div>'}
+        <div class="firma-name">${nombre} — ${fecha}</div>
+      </div>
+      <div class="firma-box empresa">
+        <div class="firma-empresa-name">Mudanzas Express LA</div>
+        <div class="firma-empresa-sub">(323) 946-2008</div>
+        <div class="firma-line"></div>
+        <div class="firma-name">Representante autorizado</div>
+      </div>
+    </div>
   </div>
-  <div class="propina-row" style="background:#e8f8f2">
-    <span style="font-weight:700">${T.total}</span>
-    <span style="font-weight:900;color:#143F74;font-size:15px">$${totalConPropina.toFixed(2)}</span>
-  </div>` : ''}
 
-  ${obs ? `<div class="row" style="margin-top:10px"><strong>${T.obs_label}:</strong> <span style="color:#555">${obs}</span></div>` : ''}
+  <div class="legal">Este recibo es el comprobante oficial del servicio prestado por Mudanzas Express LA. El pago realizado acredita el pago total del servicio descrito. Cualquier disputa o reclamo por daños debe ser notificado el mismo día del servicio antes del retiro del equipo de trabajo. Artículos no declarados previamente quedan fuera de la responsabilidad de la empresa.</div>
 
-  <div class="firma-box">
-    <div class="firma-label">${T.firma_title}</div>
-    ${firma ? `<img src="${firma}" alt="Firma" style="max-width:220px;border:1px solid #ddd;border-radius:6px">` : '<div class="firma-line"></div>'}
-    <div class="firma-name">${nombre}</div>
-  </div>
+  <div style="font-size:12px;font-weight:800;color:#1F5EA8;text-align:center;margin:14px 0 4px">¡GRACIAS POR SU PREFERENCIA!</div>
+  <div style="font-size:10px;color:#888;text-align:center">Mudanzas Express LA · (323) 946-2008 · mudanzasexpressla@gmail.com</div>
 
-  <div class="social-box">
-    <div style="font-size:13px;font-weight:700;color:#143F74;margin-bottom:4px">${T.social}</div>
-    <div style="font-size:11.5px;color:#555;margin-bottom:12px">${T.social2}</div>
+  <div class="social">
+    <div class="social-title">¿Te gustó nuestro servicio?</div>
+    <div class="social-sub">¡Regálanos un like, déjanos un comentario o síguenos! Haz clic en un ícono para visitarnos.</div>
     <div class="social-icons">
-      <a href="https://facebook.com/MudanzasExpressLA" target="_blank" style="text-decoration:none;color:#333;text-align:center">
-        <div style="width:42px;height:42px;border-radius:50%;background:#3862B3;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 4px">📘</div>
-        <div style="font-size:10px">Facebook</div>
+      <a href="https://facebook.com/MudanzasExpressLA" target="_blank" class="social-icon-wrap">
+        <div class="social-circle" style="background:#3862B3">f</div>
+        <div class="social-lbl">Facebook</div>
       </a>
-      <a href="https://wa.me/13239462008" target="_blank" style="text-decoration:none;color:#333;text-align:center">
-        <div style="width:42px;height:42px;border-radius:50%;background:#25D366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 4px">💬</div>
-        <div style="font-size:10px">WhatsApp</div>
+      <a href="https://wa.me/13239462008" target="_blank" class="social-icon-wrap">
+        <div class="social-circle" style="background:#25D366">W</div>
+        <div class="social-lbl">WhatsApp</div>
       </a>
-      <a href="mailto:mudanzasexpressla@gmail.com" style="text-decoration:none;color:#333;text-align:center">
-        <div style="width:42px;height:42px;border-radius:50%;background:#D94731;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 4px">📧</div>
-        <div style="font-size:10px">Gmail</div>
+      <a href="mailto:mudanzasexpressla@gmail.com" class="social-icon-wrap">
+        <div class="social-circle" style="background:#D94731">@</div>
+        <div class="social-lbl">Gmail</div>
       </a>
     </div>
   </div>
-  <div class="legal">${T.legal}</div>
-  <div class="footer">Mudanzas Express LA · (323) 946-2008<br>mudanzasexpressla@gmail.com · facebook.com/MudanzasExpressLA</div>
-  <div class="no-print" style="margin-top:16px;display:flex;gap:10px">
-    <button onclick="window.print()" style="flex:2;padding:14px;background:#1F5EA8;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">${T.imprimir}</button>
-    <button onclick="window.opener && window.opener.imprimirRecibo ? window.opener.imprimirRecibo('${otroIdioma}') : window.close()" style="flex:1;padding:14px;background:#f0f0f0;color:#333;border:none;border-radius:10px;font-size:13px;cursor:pointer">${T.cambiar}</button>
+
+  <div class="footer-line"></div>
+  <div class="footer-txt">¡Gracias por confiar en Mudanzas Express LA! • Comprobante Oficial de Pago<br>
+  Mudanzas Express LA · (323) 946-2008 · mudanzasexpressla@gmail.com · facebook.com/MudanzasExpressLA · Pagos: Efectivo · Zelle</div>
+
+  <div class="no-print">
+    <button onclick="window.print()" style="flex:2;padding:14px;background:#1F5EA8;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">🖨️ Imprimir / Guardar PDF</button>
+    <button onclick="window.opener && window.opener.imprimirRecibo ? window.opener.imprimirRecibo('en') : window.close()" style="flex:1;padding:14px;background:#f0f0f0;color:#333;border:none;border-radius:10px;font-size:13px;cursor:pointer">🇺🇸 English version</button>
   </div>
-  </body></html>`;
+
+</div>
+</body></html>`
 
   const w = window.open('', '_blank');
   w.document.write(html);
