@@ -56,6 +56,10 @@
     --item-header: #F7F8FA;
     --item-border: #F3F4F6;
   }
+  .chk-item { display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:9px 12px;cursor:pointer;font-size:13px;color:var(--text2);transition:.15s; }
+  .chk-item:hover { border-color:#1D9E75;color:var(--text); }
+  .chk-item input[type=checkbox] { width:16px;height:16px;accent-color:#1D9E75;flex-shrink:0; }
+  .chk-item:has(input:checked) { border-color:#1D9E75;background:rgba(29,158,117,0.1);color:var(--text); }
   * { margin:0; padding:0; box-sizing:border-box; }
   html { scroll-behavior:smooth; }
   body { font-family:'Segoe UI',system-ui,sans-serif; color:var(--text); background:var(--bg); transition:background .3s,color .3s; }
@@ -381,9 +385,9 @@
           <label><span class="es-text" data-en="Declared load type (required)">Tipo de carga declarada (obligatorio)</span> <span class="req">*</span></label>
           <select id="q-tipo-carga" required onchange="calcularPrecio()">
             <option value="" disabled selected class="es-text" data-en="Select an option">Selecciona una opcion</option>
-            <option value="ligera" class="es-text" data-en="Light Load (Tacoma only) - just a few things">Carga Ligera (Solo Tacoma) - pocas cosas</option>
+            <option value="ligera" class="es-text" data-en="Light Load - just a few things">Carga Ligera - pocas cosas</option>
             <option value="estandar" class="es-text" data-en="Studio / 1 Bedroom - standard load">Estudio / 1 Recamara - carga estandar</option>
-            <option value="grande" class="es-text" data-en="Apartment / Large House">Departamento/Casa Grande</option>
+            <option value="grande" class="es-text" data-en="Apartment / Large House">Departamento / Casa Grande</option>
           </select>
         </div>
         <div class="form-group">
@@ -421,27 +425,51 @@
           </div>
         </div>
         <div class="form-section-hdr es-text" data-en="Items to move">Articulos a mover</div>
-        <p style="font-size:13px;color:var(--text3);margin-bottom:12px"><span class="es-text" data-en="Add each item. Dimensions are optional but help us give a more accurate quote.">Agrega cada articulo. Las medidas son opcionales pero ayudan a cotizar mejor.</span></p>
-        <div class="items-table">
-          <div class="item-hdr"><span class="es-text" data-en="Item">Articulo</span><span class="es-text" data-en="Qty">Cant.</span><span class="dim-col es-text" data-en="Length (optional)">Largo (opc.)</span><span class="dim-col es-text" data-en="Height (optional)">Alto (opc.)</span><span></span></div>
-          <div id="items-body">
-            <div class="item-row"><input type="text" placeholder="Ej: Sofa 3 plazas" oninput="detectarObjetosPesados()"><input type="number" min="1" value="1" style="text-align:center"><input type="text" class="dim-col" placeholder='60"' style="text-align:center"><input type="text" class="dim-col" placeholder='36"' style="text-align:center"><button type="button" class="del-btn" onclick="delItem(this)">x</button></div>
-          </div>
+        <p style="font-size:13px;color:var(--text3);margin-bottom:14px"><span class="es-text" data-en="Check everything you need to move:">Marca todo lo que necesitas mover:</span></p>
+        <div id="checklist-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:16px">
+          <!-- Sala -->
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Sofa 3 plazas"> 🛋️ <span class="es-text" data-en="Sofa (3-seat)">Sofa 3 plazas</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Sofa 2 plazas"> 🛋️ <span class="es-text" data-en="Loveseat">Sofa 2 plazas</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Sofa cama"> 🛋️ <span class="es-text" data-en="Sofa bed">Sofa cama</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Sillon / Reclinable"> 💺 <span class="es-text" data-en="Armchair / Recliner">Sillon / Reclinable</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Mesa de centro"> 🪵 <span class="es-text" data-en="Coffee table">Mesa de centro</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Television + mueble"> 📺 <span class="es-text" data-en="TV + stand">Television + mueble</span></label>
+          <!-- Comedor -->
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Mesa de comedor"> 🍽️ <span class="es-text" data-en="Dining table">Mesa de comedor</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Sillas de comedor"> 🪑 <span class="es-text" data-en="Dining chairs">Sillas de comedor</span></label>
+          <!-- Recamara -->
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Cama King"> 🛏️ <span class="es-text" data-en="King bed">Cama King</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Cama Queen"> 🛏️ <span class="es-text" data-en="Queen bed">Cama Queen</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Cama Full/Twin"> 🛏️ <span class="es-text" data-en="Full/Twin bed">Cama Full/Twin</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Colchon solo"> 🛏️ <span class="es-text" data-en="Mattress only">Colchon solo</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Tocador / Dresser"> 🪞 <span class="es-text" data-en="Dresser">Tocador / Dresser</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Closet / Ropero"> 🚪 <span class="es-text" data-en="Wardrobe">Closet / Ropero</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Buro / Mesita de noche"> 🪵 <span class="es-text" data-en="Nightstand">Buro / Mesita de noche</span></label>
+          <!-- Cocina -->
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Refrigerador"> 🧊 <span class="es-text" data-en="Refrigerator">Refrigerador</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Lavadora"> 🫧 <span class="es-text" data-en="Washer">Lavadora</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Secadora"> 🌀 <span class="es-text" data-en="Dryer">Secadora</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Estufa"> 🍳 <span class="es-text" data-en="Stove">Estufa</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Microondas"> 📦 <span class="es-text" data-en="Microwave">Microondas</span></label>
+          <!-- Oficina / Otros -->
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Escritorio"> 🖥️ <span class="es-text" data-en="Desk">Escritorio</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Libreros / Estantes"> 📚 <span class="es-text" data-en="Bookshelves">Libreros / Estantes</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Cajas de carton"> 📦 <span class="es-text" data-en="Moving boxes">Cajas de carton</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Bicicleta"> 🚲 <span class="es-text" data-en="Bicycle">Bicicleta</span></label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Plantas"> 🌿 <span class="es-text" data-en="Plants">Plantas</span></label>
         </div>
-        <button type="button" class="add-item-btn" onclick="addItem()">+ <span class="es-text" data-en="Add item">Agregar articulo</span></button>
 
-        <div class="form-section-hdr es-text" data-en="Extras">Extras</div>
+        <div class="form-section-hdr es-text" data-en="Extras / Special items">Extras / Articulos especiales</div>
         <div class="form-group" style="display:flex;align-items:center;gap:10px">
           <input type="checkbox" id="q-cama" onchange="calcularPrecio()" style="width:18px;height:18px">
-          <label for="q-cama" style="margin:0"><span class="es-text" data-en="I have a bed to assemble/disassemble (+$30)">Tengo cama para armar/desarmar (+$30)</span></label>
+          <label for="q-cama" style="margin:0"><span class="es-text" data-en="I have a bed to assemble/disassemble">Tengo cama para armar/desarmar</span></label>
         </div>
         <div class="form-group" style="display:flex;align-items:center;gap:10px">
           <input type="checkbox" id="q-cargo-distancia" onchange="calcularPrecio()" style="width:18px;height:18px">
-          <label for="q-cargo-distancia" style="margin:0"><span class="es-text" data-en="My area is far from the base / hard to access (+$50)">Mi zona es lejana o de dificil acceso (+$50)</span></label>
+          <label for="q-cargo-distancia" style="margin:0"><span class="es-text" data-en="My area is far or hard to access">Mi zona es lejana o de dificil acceso</span></label>
         </div>
 
-        <div class="form-section-hdr es-text" data-en="Almost done!">¡Casi listo!</div>
-        <div class="price-box" id="price-box" style="display:none">
+        <div id="price-box" style="display:none">
           <div id="price-range"></div>
           <div id="price-breakdown"></div>
           <div id="tiempo-estimado"></div>
@@ -644,27 +672,20 @@ function calcularMillas() {
   infoEl.textContent = lang === 'en' ? 'Calculating route distance...' : 'Calculando distancia de la ruta...';
   const service = new google.maps.DistanceMatrixService();
   service.getDistanceMatrix({
-    origins: [BASE_ADDRESS, origenVal, destinoVal],
-    destinations: [origenVal, destinoVal, BASE_ADDRESS],
+    origins: [origenVal],
+    destinations: [destinoVal],
     travelMode: 'DRIVING',
     unitSystem: google.maps.UnitSystem.IMPERIAL
   }, (response, status) => {
     millasCalculando = false;
     try {
       if (status !== 'OK') throw new Error(status);
-      const tramoA = response.rows[0].elements[0]; // Base -> Origen
-      const tramoB = response.rows[1].elements[1]; // Origen -> Destino
-      const tramoC = response.rows[2].elements[2]; // Destino -> Base
-      if (tramoA.status !== 'OK' || tramoB.status !== 'OK' || tramoC.status !== 'OK') throw new Error('leg-error');
+      const tramo = response.rows[0].elements[0]; // Origen -> Destino
+      if (tramo.status !== 'OK') throw new Error('leg-error');
       const metersToMiles = m => m / 1609.34;
-      const mA = metersToMiles(tramoA.distance.value);
-      const mB = metersToMiles(tramoB.distance.value);
-      const mC = metersToMiles(tramoC.distance.value);
-      millasTotales = mA + mB + mC;
-      // Duracion de manejo de los 3 tramos (Base->Origen->Destino->Base), en horas
-      const segundosViaje = (tramoA.duration.value || 0) + (tramoB.duration.value || 0) + (tramoC.duration.value || 0);
-      horasViajeTotales = segundosViaje / 3600;
-      infoEl.textContent = (lang === 'en' ? 'Estimated route (round trip incl. base): ' : 'Recorrido estimado (circuito completo con base): ') + millasTotales.toFixed(1) + ' mi &middot; ' + horasViajeTotales.toFixed(1) + (lang==='en'?' hr driving':' hr de manejo');
+      millasTotales = metersToMiles(tramo.distance.value);
+      horasViajeTotales = tramo.duration.value / 3600;
+      infoEl.textContent = (lang === 'en' ? 'Estimated distance: ' : 'Distancia estimada: ') + millasTotales.toFixed(1) + ' mi &middot; ' + horasViajeTotales.toFixed(1) + (lang==='en'?' hr driving':' hr de manejo');
     } catch (err) {
       millasTotales = null;
       horasViajeTotales = null;
@@ -866,13 +887,8 @@ async function sendQuote(e) {
   const pesados = pesadosInput ? pesadosInput.value : '';
 
   let itemsList = [];
-  document.querySelectorAll('#items-body .item-row').forEach(row => {
-    const ins = row.querySelectorAll('input');
-    if (ins[0].value) {
-      let item = ins[1].value + 'x ' + ins[0].value;
-      if (ins[2] && ins[2].value) item += ' (' + ins[2].value + ' x ' + (ins[3].value||'?') + ')';
-      itemsList.push(item);
-    }
+  document.querySelectorAll('input[name="articulos"]:checked').forEach(chk => {
+    itemsList.push(chk.value);
   });
 
   const precio = calcularPrecio();
@@ -943,6 +959,7 @@ async function sendQuote(e) {
     document.getElementById('success-msg').style.display = 'none';
     document.getElementById('quote-form').style.display = 'block';
     document.getElementById('quote-form').reset();
+    document.querySelectorAll('input[name="articulos"]').forEach(c => c.checked = false);
     millasTotales = null;
     horasViajeTotales = null;
     document.getElementById('millas-info').style.display = 'none';
