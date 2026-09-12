@@ -427,36 +427,79 @@
         <div class="form-section-hdr es-text" data-en="Items to move">Articulos a mover</div>
         <p style="font-size:13px;color:var(--text3);margin-bottom:14px"><span class="es-text" data-en="Check everything you need to move:">Marca todo lo que necesitas mover:</span></p>
         <div id="checklist-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:16px">
-          <!-- Sala -->
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Sofa 3 plazas"> 🛋️ <span class="es-text" data-en="Sofa (3-seat)">Sofa 3 plazas</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Sofa 2 plazas"> 🛋️ <span class="es-text" data-en="Loveseat">Sofa 2 plazas</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Sofa cama"> 🛋️ <span class="es-text" data-en="Sofa bed">Sofa cama</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Sillon / Reclinable"> 💺 <span class="es-text" data-en="Armchair / Recliner">Sillon / Reclinable</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Mesa de centro"> 🪵 <span class="es-text" data-en="Coffee table">Mesa de centro</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Television + mueble"> 📺 <span class="es-text" data-en="TV + stand">Television + mueble</span></label>
-          <!-- Comedor -->
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Mesa de comedor"> 🍽️ <span class="es-text" data-en="Dining table">Mesa de comedor</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Sillas de comedor"> 🪑 <span class="es-text" data-en="Dining chairs">Sillas de comedor</span></label>
-          <!-- Recamara -->
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Cama King"> 🛏️ <span class="es-text" data-en="King bed">Cama King</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Cama Queen"> 🛏️ <span class="es-text" data-en="Queen bed">Cama Queen</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Cama Full/Twin"> 🛏️ <span class="es-text" data-en="Full/Twin bed">Cama Full/Twin</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Colchon solo"> 🛏️ <span class="es-text" data-en="Mattress only">Colchon solo</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Tocador / Dresser"> 🪞 <span class="es-text" data-en="Dresser">Tocador / Dresser</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Closet / Ropero"> 🚪 <span class="es-text" data-en="Wardrobe">Closet / Ropero</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Buro / Mesita de noche"> 🪵 <span class="es-text" data-en="Nightstand">Buro / Mesita de noche</span></label>
-          <!-- Cocina -->
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Refrigerador"> 🧊 <span class="es-text" data-en="Refrigerator">Refrigerador</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Lavadora"> 🫧 <span class="es-text" data-en="Washer">Lavadora</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Secadora"> 🌀 <span class="es-text" data-en="Dryer">Secadora</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Estufa"> 🍳 <span class="es-text" data-en="Stove">Estufa</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Microondas"> 📦 <span class="es-text" data-en="Microwave">Microondas</span></label>
-          <!-- Oficina / Otros -->
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Escritorio"> 🖥️ <span class="es-text" data-en="Desk">Escritorio</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Libreros / Estantes"> 📚 <span class="es-text" data-en="Bookshelves">Libreros / Estantes</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Cajas de carton"> 📦 <span class="es-text" data-en="Moving boxes">Cajas de carton</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Bicicleta"> 🚲 <span class="es-text" data-en="Bicycle">Bicicleta</span></label>
-          <label class="chk-item"><input type="checkbox" name="articulos" value="Plantas"> 🌿 <span class="es-text" data-en="Plants">Plantas</span></label>
+
+          <!-- 🛋️ SALA -->
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Sofa 3 plazas"> 🛋️ Sofa 3 plazas</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Sofa 2 plazas"> 🛋️ Sofa 2 plazas</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Sofa cama"> 🛋️ Sofa cama</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Sillon / Reclinable"> 💺 Sillon / Reclinable</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Mesa de centro"> 🪵 Mesa de centro</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Mesa lateral / esquinero"> 🪵 Mesa lateral</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Television"> 📺 Television</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Mueble de TV"> 📺 Mueble de TV</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Aparador / Vitrina"> 🪟 Aparador / Vitrina</label>
+
+          <!-- 🍽️ COMEDOR -->
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Mesa de comedor"> 🍽️ Mesa de comedor</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Sillas de comedor"> 🪑 Sillas de comedor</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Barra / Mesa alta"> 🍽️ Barra / Mesa alta</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Bancos de barra"> 🪑 Bancos de barra</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Alacena / Buffet"> 🗄️ Alacena / Buffet</label>
+
+          <!-- 🛏️ RECAMARA -->
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Cama King"> 🛏️ Cama King</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Cama Queen"> 🛏️ Cama Queen</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Cama Full/Twin"> 🛏️ Cama Full/Twin</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Cama para nino"> 🛏️ Cama para nino</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Cuna"> 🛏️ Cuna</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Colchon solo"> 🛏️ Colchon solo</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Base de cama / Tarima"> 🛏️ Base / Tarima</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Tocador / Dresser"> 🪞 Tocador / Dresser</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Closet / Ropero"> 🚪 Closet / Ropero</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Buro / Mesita de noche"> 🪵 Buro / Mesita</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Espejo grande"> 🪞 Espejo grande</label>
+
+          <!-- 🍳 COCINA -->
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Refrigerador"> 🧊 Refrigerador</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Estufa"> 🍳 Estufa</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Microondas"> 📦 Microondas</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Lavaplatos / Lavavajillas"> 🍽️ Lavavajillas</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Alacena de cocina"> 🗄️ Alacena de cocina</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Mesa de trabajo / isla"> 🍳 Isla de cocina</label>
+
+          <!-- 🫧 LAVANDERIA -->
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Lavadora"> 🫧 Lavadora</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Secadora"> 🌀 Secadora</label>
+
+          <!-- 🖥️ OFICINA -->
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Escritorio"> 🖥️ Escritorio</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Silla de oficina"> 🪑 Silla de oficina</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Libreros / Estantes"> 📚 Libreros / Estantes</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Archivero"> 🗄️ Archivero</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Computadora / Monitor"> 🖥️ Computadora</label>
+
+          <!-- 📦 CAJAS Y BULTOS -->
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Cajas de carton (1-10)"> 📦 Cajas (1-10)</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Cajas de carton (10-30)"> 📦 Cajas (10-30)</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Cajas de carton (30+)"> 📦 Cajas (30+)</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Bolsas grandes de ropa"> 🛍️ Bolsas de ropa</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Maletas / Equipaje"> 🧳 Maletas</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Contenedores de plastico"> 📦 Contenedores</label>
+
+          <!-- 🌿 EXTERIOR / OTROS -->
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Plantas"> 🌿 Plantas</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Bicicleta"> 🚲 Bicicleta</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Carriola / Stroller"> 👶 Carriola</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Silla de ruedas / Andadera"> ♿ Silla de ruedas</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Equipo de ejercicio"> 🏋️ Equipo ejercicio</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Juguetes grandes / Resbaladero"> 🧸 Juguetes grandes</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Muebles de patio / jardin"> 🪑 Muebles de patio</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Parrilla / BBQ"> 🔥 Parrilla / BBQ</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Herramientas / Caja de herramientas"> 🔧 Herramientas</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Aire acondicionado de ventana"> ❄️ Aire acondicionado</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Calentador de agua"> 🚿 Calentador de agua</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Piano / Instrumento grande"> 🎹 Piano / Instrumento</label>
+          <label class="chk-item"><input type="checkbox" name="articulos" value="Caja fuerte"> 🔒 Caja fuerte</label>
         </div>
 
         <div class="form-section-hdr es-text" data-en="Extras / Special items">Extras / Articulos especiales</div>
@@ -479,7 +522,7 @@
 
 
         <div class="form-section-hdr es-text" data-en="Additional notes">Notas adicionales</div>
-        <div class="form-group"><label><span class="es-text" data-en="Anything we should know?">Algo que debamos saber?</span> <span class="opt es-text" data-en="(optional)">(opcional)</span></label><textarea id="q-notas" rows="3" placeholder="Ej: Tengo un piano, pasillo estrecho, necesito ayudante..."></textarea></div>
+        <div class="form-group"><label><span class="es-text" data-en="Anything else to move or tell us?">¿Algo mas que llevas o quieres que sepamos?</span> <span class="opt es-text" data-en="(optional)">(opcional)</span></label><textarea id="q-notas" rows="4" placeholder="Ej: Tengo 15 bolsas de ropa, 2 peceras, una moto, articulos de jardin, herramientas en el garage, pasillo estrecho, necesito ayudante extra..."></textarea></div>
         <div class="form-section-hdr es-text" data-en="&#x1F381; Want to lock in this price?">&#x1F381; Quieres congelar este precio?</div>
         <p style="font-size:13px;color:var(--text3);margin-bottom:12px"><span class="es-text" data-en="Upload photos and get your Final Guaranteed Price. This helps us confirm the real volume and protects you from surprise adjustments on moving day.">Sube fotos y obten tu Precio Final Garantizado. Esto nos ayuda a confirmar el volumen real y te protege de ajustes sorpresa el dia de la mudanza.</span></p>
         <div id="client-photos-preview" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;margin-bottom:12px"></div>
@@ -499,18 +542,150 @@
 <!-- REVIEWS -->
 <section class="reviews-section" id="resenas">
   <div class="container">
-    <div class="section-eyebrow es-text" data-en="What customers say">Lo que dicen nuestros clientes</div>
-    <div class="section-title es-text" data-en="Real reviews">Resenas reales</div>
-    <div class="reviews-grid">
-      <div class="review-card"><div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div><p class="review-text es-text" data-en="Excellent service, very fast and careful with my furniture. Everything arrived perfect and scratch-free. I will hire them again!">"Excelente servicio, muy rapido y cuidadoso con mis muebles. Todo llego perfecto y sin rayones. Definitivamente los vuelvo a contratar!"</p><div class="reviewer-name">Christina Z. <span class="reviewer-loc">— Downey, CA</span></div></div>
-      <div class="review-card"><div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div><p class="review-text es-text" data-en="Very professional and on time. Helped me move a fridge and washer with no problems. Fair price and top service.">"Muy profesional y puntual. Me ayudo a mover refrigerador y lavadora sin problemas. El precio es justo y el servicio de primera."</p><div class="reviewer-name">Jaki G. <span class="reviewer-loc">— Anaheim, CA</span></div></div>
-      <div class="review-card"><div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div><p class="review-text es-text" data-en="I hired him last minute and he came the same day. Very friendly and fast with all the right equipment. 100% recommended!">"Lo contrate de ultimo momento y llego el mismo dia. Muy amable, rapido y con todo el equipo. 100% recomendado!"</p><div class="reviewer-name">Yesenia U. <span class="reviewer-loc">— Los Angeles, CA</span></div></div>
-      <div class="review-card"><div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div><p class="review-text es-text" data-en="Moved my entire apartment in a few hours. Everything was wrapped and protected. Great price and super professional.">"Movio todo mi apartamento en pocas horas. Todo embalado y protegido. Buen precio y muy profesional."</p><div class="reviewer-name">Nenita S. <span class="reviewer-loc">— Lynwood, CA</span></div></div>
-      <div class="review-card"><div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div><p class="review-text es-text" data-en="Super careful with all my things, especially the fragile ones. Very honest and reliable. I highly recommend this service.">"Super cuidadoso con todas mis cosas, especialmente las fragiles. Muy honesto y confiable. Lo recomiendo ampliamente."</p><div class="reviewer-name">Romeo C. <span class="reviewer-loc">— Long Beach, CA</span></div></div>
-      <div class="review-card"><div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div><p class="review-text es-text" data-en="Best price I found in all of LA. Fast, efficient and nothing was damaged. Will definitely use them again for my next move.">"El mejor precio que encontre en todo LA. Rapido, eficiente y nada se danno. Definitivamente los usare para mi proxima mudanza."</p><div class="reviewer-name">Francisco V. <span class="reviewer-loc">— Hollywood, CA</span></div></div>
+    <div class="section-eyebrow es-text" data-en="What our customers say">Lo que dicen nuestros clientes</div>
+    <div class="section-title es-text" data-en="Real reviews, real people">Resenas reales, clientes reales</div>
+    <div class="section-sub" style="margin-bottom:28px"><span class="es-text" data-en="Verified reviews from Facebook">Resenas verificadas de Facebook ✅</span></div>
+
+    <!-- Carrusel -->
+    <div id="reviews-carousel" style="position:relative;overflow:hidden;margin-bottom:32px">
+      <div id="reviews-track" style="display:flex;transition:transform .4s ease;gap:16px">
+
+        <div class="review-card" style="min-width:280px;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:38px;height:38px;border-radius:50%;background:#1877F2;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:15px">E</div>
+            <div><div style="font-weight:600;font-size:14px">Ezra Lampert</div><div style="font-size:11px;color:var(--text3)">via Facebook ✅</div></div>
+          </div>
+          <div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div>
+          <p class="review-text">"Showed up on time, worked hard, brought all of the necessary equipment and were thoughtful and careful with my things. I would recommend their services."</p>
+        </div>
+
+        <div class="review-card" style="min-width:280px;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:38px;height:38px;border-radius:50%;background:#1877F2;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:15px">R</div>
+            <div><div style="font-weight:600;font-size:14px">Rigoberto Lopez</div><div style="font-size:11px;color:var(--text3)">via Facebook ✅</div></div>
+          </div>
+          <div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div>
+          <p class="review-text">"Muy excelente servicio y el precio muy accesible. Gracias por su gran trabajo 100% recomendados."</p>
+        </div>
+
+        <div class="review-card" style="min-width:280px;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:38px;height:38px;border-radius:50%;background:#1877F2;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:15px">J</div>
+            <div><div style="font-weight:600;font-size:14px">Jennifer Larrea</div><div style="font-size:11px;color:var(--text3)">via Facebook ✅</div></div>
+          </div>
+          <div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div>
+          <p class="review-text">"Muy amables y trabajadores, me instalaron todo muy rapido y muy cuidadosos. 100 por ciento recomendado."</p>
+        </div>
+
+        <div class="review-card" style="min-width:280px;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:38px;height:38px;border-radius:50%;background:#1877F2;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:15px">E</div>
+            <div><div style="font-weight:600;font-size:14px">Edgar Juarez</div><div style="font-size:11px;color:var(--text3)">via Facebook ✅</div></div>
+          </div>
+          <div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div>
+          <p class="review-text">"100% recomendado. Los muchachos hicieron todo el trabajo con cuidado y rapido, muy profesionales y el precio muy accesible tambien."</p>
+        </div>
+
+        <div class="review-card" style="min-width:280px;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:38px;height:38px;border-radius:50%;background:#1877F2;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:15px">H</div>
+            <div><div style="font-weight:600;font-size:14px">Hirano Rocio</div><div style="font-size:11px;color:var(--text3)">via Facebook ✅</div></div>
+          </div>
+          <div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div>
+          <p class="review-text">"Muy profesional, me encanto mucho el cuidado de mis muebles."</p>
+        </div>
+
+        <div class="review-card" style="min-width:280px;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:38px;height:38px;border-radius:50%;background:#1877F2;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:15px">J</div>
+            <div><div style="font-weight:600;font-size:14px">Juan Rodriguez</div><div style="font-size:11px;color:var(--text3)">via Facebook ✅</div></div>
+          </div>
+          <div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div>
+          <p class="review-text">"So awesome! came in clutch in a pinch!!!"</p>
+        </div>
+
+        <div class="review-card" style="min-width:280px;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:38px;height:38px;border-radius:50%;background:#1877F2;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:15px">J</div>
+            <div><div style="font-weight:600;font-size:14px">Julieth Gonzalez</div><div style="font-size:11px;color:var(--text3)">via Facebook ✅</div></div>
+          </div>
+          <div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div>
+          <p class="review-text">"Super excelente servicio, rapido y puntual, ademas siempre con disposicion a ayudar, y los precios son espectaculares. Muchisimas gracias!"</p>
+        </div>
+
+        <div class="review-card" style="min-width:280px;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:38px;height:38px;border-radius:50%;background:#1877F2;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:15px">N</div>
+            <div><div style="font-weight:600;font-size:14px">Nayeli Mendez</div><div style="font-size:11px;color:var(--text3)">via Facebook ✅</div></div>
+          </div>
+          <div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div>
+          <p class="review-text">"Muy profesionales y muy amables."</p>
+        </div>
+
+        <div class="review-card" style="min-width:280px;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:38px;height:38px;border-radius:50%;background:#1877F2;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:15px">J</div>
+            <div><div style="font-weight:600;font-size:14px">Julio Valencia</div><div style="font-size:11px;color:var(--text3)">via Facebook ✅</div></div>
+          </div>
+          <div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div>
+          <p class="review-text">"Muy bueno el chavo y tiene todo para la mudanza. Se los recomiendo."</p>
+        </div>
+
+        <div class="review-card" style="min-width:280px;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:38px;height:38px;border-radius:50%;background:#1877F2;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:15px">M</div>
+            <div><div style="font-weight:600;font-size:14px">Moncada Mejia</div><div style="font-size:11px;color:var(--text3)">via Facebook ✅</div></div>
+          </div>
+          <div class="stars">&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</div>
+          <p class="review-text">"Excelente servicio! Atento y con precios muy buenos!!"</p>
+        </div>
+
+      </div><!-- end track -->
+
+      <!-- Flechas -->
+      <button onclick="slideReview(-1)" style="position:absolute;left:0;top:50%;transform:translateY(-50%);background:var(--bg3);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;z-index:2">‹</button>
+      <button onclick="slideReview(1)" style="position:absolute;right:0;top:50%;transform:translateY(-50%);background:var(--bg3);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;z-index:2">›</button>
     </div>
+
+    <!-- Botones de acción -->
+    <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:20px">
+      <a href="https://www.facebook.com/MudanzasExpressLA" target="_blank" style="display:flex;align-items:center;gap:8px;background:#1877F2;color:white;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="18" height="18"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        <span class="es-text" data-en="See all reviews on Facebook">Ver todas las resenas en Facebook</span>
+      </a>
+      <a href="https://www.facebook.com/MudanzasExpressLA/reviews" target="_blank" style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:2px solid #1877F2;color:#1877F2;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">
+        ⭐ <span class="es-text" data-en="Leave us a review on Facebook">Dejanos una resena en Facebook</span>
+      </a>
+      <a href="#" id="google-review-btn" target="_blank" style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:2px solid #EA4335;color:#EA4335;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">
+        <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#EA4335" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        <span class="es-text" data-en="Leave us a review on Google">Resena en Google</span>
+      </a>
+    </div>
+    <p style="text-align:center;font-size:12px;color:var(--text3)" class="es-text" data-en="Your opinion helps other families choose a trustworthy service. Thank you! 🙏">Tu opinion ayuda a otras familias a elegir un servicio de confianza. ¡Gracias! 🙏</p>
   </div>
 </section>
+
+<script>
+// CARRUSEL DE RESENAS
+let reviewIndex = 0;
+function slideReview(dir) {
+  const track = document.getElementById('reviews-track');
+  const cards = track.querySelectorAll('.review-card');
+  const visible = window.innerWidth < 600 ? 1 : window.innerWidth < 900 ? 2 : 3;
+  const max = cards.length - visible;
+  reviewIndex = Math.max(0, Math.min(reviewIndex + dir, max));
+  const cardW = cards[0].offsetWidth + 16;
+  track.style.transform = 'translateX(-' + (reviewIndex * cardW) + 'px)';
+}
+// Auto-slide cada 4 segundos
+setInterval(() => {
+  const track = document.getElementById('reviews-track');
+  const cards = track.querySelectorAll('.review-card');
+  const visible = window.innerWidth < 600 ? 1 : window.innerWidth < 900 ? 2 : 3;
+  if (reviewIndex >= cards.length - visible) reviewIndex = -1;
+  slideReview(1);
+}, 4000);
+</script>
 
 <!-- COVERAGE -->
 <section class="coverage-section" id="cobertura">
