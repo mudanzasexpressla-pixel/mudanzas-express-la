@@ -647,6 +647,25 @@ table.data-table tr:hover td{background:#1A2A42!important}
     <div class="card">
       <div class="card-title">👷 Registrar pago a ayudante</div>
       <div class="notice notice-blue" style="font-size:12px">La tarifa por hora se configura en ⚙️ Configuración. El pago acumulado de la semana se muestra en <strong>Sueldos</strong> (solo referencia, sin duplicarse).</div>
+
+      <!-- RESUMEN PAGO AYUDANTE -->
+      <div style="background:linear-gradient(135deg,#0F4C35,#0a3325);border-radius:12px;padding:16px;margin-bottom:14px;border:1px solid rgba(29,158,117,0.3)">
+        <div style="font-size:13px;font-weight:800;color:#1D9E75;margin-bottom:10px">👷 Pago sugerido — Gelacio esta semana</div>
+        <div id="sueldos-resumen-ayudante" style="font-size:13px;color:rgba(255,255,255,0.7)">Cargando...</div>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+          <div style="flex:1">
+            <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:3px">Tarifa/hora</div>
+            <input type="number" id="sueldo-tarifa-hora" value="23" min="0" step="1"
+              style="width:80px;padding:6px 8px;font-size:14px;font-weight:700;color:#1D9E75;border:1px solid rgba(29,158,117,0.4);border-radius:8px;background:rgba(255,255,255,0.08)"
+              oninput="calcularPagoAyudanteSemana()">
+            <span style="color:rgba(255,255,255,0.5);font-size:12px">/hr</span>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:3px">TOTAL A PAGAR</div>
+            <div id="sueldo-total-ayudante" style="font-size:28px;font-weight:900;color:#1D9E75">$0.00</div>
+          </div>
+        </div>
+      </div>
       <div class="form-row">
         <div><label>Nombre del ayudante</label><input type="text" id="ay-nombre" placeholder="Gelacio Huerta López"></div>
         <div><label>Tipo de contratación</label>
@@ -2892,8 +2911,8 @@ function abrirTerminar(id) {
 // ===================== CRONÓMETRO DEL TRABAJO =====================
 const CRONO_HORAS_BASE = 3;
 const CRONO_TARIFA_EXTRA_CLIENTE = 35; // $/hr extra al cliente
-const CRONO_TARIFA_AYUDANTE = 20;      // $/hr real al ayudante
-const CRONO_BONO_DIFICIL = 15;         // bono si hubo escaleras o muebles pesados
+const CRONO_TARIFA_AYUDANTE = 23;      // $/hr real al ayudante
+const CRONO_BONO_DIFICIL = 15;         // bono si hubo escaleras o muebles pesados ($23/hr × horas)
 
 let cronoStartTime = null;
 let cronoElapsedMs = 0;
@@ -2981,7 +3000,7 @@ function calcResumenTerminar() {
     }
   }
 
-  // Pago automático al ayudante: $20/hr real + $15 de bono si hubo escaleras o muebles pesados
+  // Pago automático al ayudante: $20/hr real + $15 de bono si hubo escaleras o muebles pesados ($23/hr × horas)
   var usaAyChk = document.getElementById('tm-ayudante');
   if (usaAyChk && usaAyChk.value === 'si' && horas > 0) {
     var pagoAutoAyudante = (horas * CRONO_TARIFA_AYUDANTE) + (dificil ? CRONO_BONO_DIFICIL : 0);
@@ -5960,6 +5979,39 @@ let campoCronoElapsedMs = 0;
 let campoCronoInterval = null;
 let campoCronoRunning = false;
 
+// Restaurar timer si la página se recargó con el timer activo
+function campoCronoRestaurar() {
+  try {
+    const running = localStorage.getItem('crono_running');
+    const elapsed = parseFloat(localStorage.getItem('crono_elapsed') || '0');
+    const startTime = parseFloat(localStorage.getItem('crono_startTime') || '0');
+
+    if (running === 'true' && startTime) {
+      // Estaba corriendo — calcular tiempo transcurrido incluyendo mientras estuvo cerrado
+      campoCronoElapsedMs = 0;
+      campoCronoStartTime = startTime; // mantener el start time original
+      campoCronoRunning = true;
+      campoCronoInterval = setInterval(() => {
+        campoCronoActualizarDisplay();
+        try {
+          localStorage.setItem('crono_startTime', campoCronoStartTime);
+          localStorage.setItem('crono_elapsed', Date.now() - campoCronoStartTime);
+        } catch(e) {}
+      }, 1000);
+      campoCronoActualizarDisplay();
+      console.log('⏱️ Timer restaurado (estaba corriendo)');
+    } else if (running === 'false' && elapsed > 0) {
+      // Estaba pausado — restaurar tiempo acumulado
+      campoCronoElapsedMs = elapsed;
+      campoCronoActualizarDisplay();
+      const horas = elapsed / 3600000;
+      const horasEl = document.getElementById('campo-crono-horas');
+      if (horasEl) horasEl.value = horas.toFixed(2);
+      console.log('⏱️ Timer restaurado (estaba pausado):', horas.toFixed(2), 'hrs');
+    }
+  } catch(e) {}
+}
+
 function campoCronoFormatear(ms) {
   const totalSeg = Math.floor(ms / 1000);
   const h = String(Math.floor(totalSeg / 3600)).padStart(2, '0');
@@ -5978,8 +6030,17 @@ function campoCronoIniciar() {
   if (campoCronoRunning) return;
   campoCronoStartTime = Date.now() - campoCronoElapsedMs;
   campoCronoRunning = true;
-  campoCronoInterval = setInterval(campoCronoActualizarDisplay, 1000);
+  campoCronoInterval = setInterval(() => {
+    campoCronoActualizarDisplay();
+    // Guardar estado cada segundo en localStorage para sobrevivir recargas
+    try {
+      localStorage.setItem('crono_startTime', campoCronoStartTime);
+      localStorage.setItem('crono_running', 'true');
+      localStorage.setItem('crono_elapsed', campoCronoElapsedMs);
+    } catch(e) {}
+  }, 1000);
   campoCronoActualizarDisplay();
+  try { localStorage.setItem('crono_running', 'true'); } catch(e) {}
 }
 
 function campoCronoDetener() {
@@ -5991,6 +6052,12 @@ function campoCronoDetener() {
   const horas = campoCronoElapsedMs / 3600000;
   const horasEl = document.getElementById('campo-crono-horas');
   if (horasEl) horasEl.value = horas.toFixed(2);
+  // Guardar estado pausado
+  try {
+    localStorage.setItem('crono_running', 'false');
+    localStorage.setItem('crono_elapsed', campoCronoElapsedMs);
+    localStorage.removeItem('crono_startTime');
+  } catch(e) {}
 }
 
 function campoCronoReset() {
@@ -6002,6 +6069,12 @@ function campoCronoReset() {
   if (dispEl) dispEl.textContent = '00:00:00';
   const horasEl = document.getElementById('campo-crono-horas');
   if (horasEl) horasEl.value = '';
+  // Limpiar localStorage
+  try {
+    localStorage.removeItem('crono_startTime');
+    localStorage.removeItem('crono_running');
+    localStorage.removeItem('crono_elapsed');
+  } catch(e) {}
 }
 
 // ===================== GUARDAR Y SUBIR =====================
@@ -7139,14 +7212,14 @@ const TARIFAS = {
 
 // Precios base por tamaño (con tu camion incluido)
 const PRECIOS_BASE = {
-  '1mueble':  { min: 100, label: '1 mueble / pieza suelta',    horas: 1.5 },
-  'refri':    { min: 140, label: 'Refrigerador / pesado',       horas: 2   },
-  'labor':    { min: 220, label: 'Labor Only 2h (sin camion)',  horas: 2   },
-  'estudio':  { min: 280, label: 'Estudio / 1 cuarto',          horas: 3   },
-  '1rec':     { min: 350, label: '1 Recámara',                  horas: 4   },
-  '2rec':     { min: 480, label: '2 Recámaras',                 horas: 5.5 },
-  '3rec':     { min: 600, label: '3 Recámaras',                 horas: 7   },
-  '4rec':     { min: 750, label: '4+ Recámaras / Casa grande',  horas: 9   },
+  '1mueble':  { min: 90,  label: '1 mueble / pieza suelta',    horas: 1.5 },
+  'refri':    { min: 120, label: 'Refrigerador / pesado',       horas: 2   },
+  'labor':    { min: 190, label: 'Labor Only 2h (sin camion)',  horas: 2   },
+  'estudio':  { min: 160, label: 'Estudio / 1 cuarto',          horas: 3   },
+  '1rec':     { min: 220, label: '1 Recámara',                  horas: 4   },
+  '2rec':     { min: 320, label: '2 Recámaras',                 horas: 5.5 },
+  '3rec':     { min: 420, label: '3 Recámaras',                 horas: 7   },
+  '4rec':     { min: 550, label: '4+ Recámaras / Casa grande',  horas: 9   },
 };
 
 let qrSizeKey = '';
@@ -7410,6 +7483,74 @@ function resetCotRapida() {
 }
 
 // Init QR when tab opens (hook into showTab)
+
+// Restaurar timer al cargar la página
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(campoCronoRestaurar, 500);
+});
+
+// ═══════════════ CÁLCULO PAGO AYUDANTE ═══════════════
+function calcularPagoAyudanteSemana() {
+  try {
+    const dx = loadData();
+    const trabajos = Object.values(dx.cotizaciones || {});
+    const tarifa = parseFloat(document.getElementById('sueldo-tarifa-hora')?.value || 23);
+
+    // Get this week's range
+    const hoy = new Date();
+    const diaSemana = hoy.getDay(); // 0=dom, 1=lun...
+    const inicioSemana = new Date(hoy);
+    inicioSemana.setDate(hoy.getDate() - (diaSemana === 0 ? 6 : diaSemana - 1));
+    inicioSemana.setHours(0,0,0,0);
+
+    // Filter completed jobs this week with hours
+    const trabajosSemana = trabajos.filter(t => {
+      if (t.estatus !== 'terminado') return false;
+      if (!t.fechaTerminado) return false;
+      const fecha = new Date(t.fechaTerminado);
+      return fecha >= inicioSemana;
+    });
+
+    const resumen = document.getElementById('sueldos-resumen-ayudante');
+    const totalEl = document.getElementById('sueldo-total-ayudante');
+    if (!resumen || !totalEl) return;
+
+    if (trabajosSemana.length === 0) {
+      resumen.innerHTML = '<span style="color:rgba(255,255,255,0.4)">No hay trabajos terminados esta semana todavía.</span>';
+      totalEl.textContent = '$0.00';
+      return;
+    }
+
+    let totalHoras = 0;
+    let totalPago = 0;
+    let rows = '';
+
+    trabajosSemana.forEach(t => {
+      const horas = parseFloat(t.horasTrabajadas || 0);
+      const pago = horas * tarifa;
+      const bono = t.huboDificultad ? 15 : 0;
+      const pagoTotal = pago + bono;
+      totalHoras += horas;
+      totalPago += pagoTotal;
+
+      if (horas > 0) {
+        rows += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);font-size:12px">
+          <span style="color:rgba(255,255,255,0.7)">${t.cliente || t.nombre || 'Cliente'}</span>
+          <span style="color:rgba(255,255,255,0.5)">${horas.toFixed(1)}h × $${tarifa}${bono ? ' +$'+bono+' bono' : ''}</span>
+          <span style="color:#1D9E75;font-weight:700">$${pagoTotal.toFixed(2)}</span>
+        </div>`;
+      }
+    });
+
+    resumen.innerHTML = rows || '<span style="color:rgba(255,255,255,0.4)">Sin horas registradas esta semana.</span>';
+    totalEl.textContent = '$' + totalPago.toFixed(2);
+
+  } catch(e) {
+    console.error('calcularPagoAyudanteSemana error:', e);
+  }
+}
+
+// Run when sueldos tab opens
 </script>
 </body>
 </html>
