@@ -2505,135 +2505,101 @@ function renderGastos() {
     // Auto-comprobantes from completed jobs
     const autoComp = ay.filter(a=>a.esAutoComprobante);
 
-    // Group auto-comprobantes by week
-    function getWeekKey(dateStr) {
-      const d2 = new Date(dateStr);
+    let ayHtml = '<div class="card">';
+    ayHtml += '<div style="font-weight:800;font-size:15px;color:#1D9E75;margin-bottom:14px">🧾 Comprobantes de pago — Ayudantes</div>';
+    if(autoComp.length === 0) {
+      ayHtml += '<div style="color:#999;font-size:13px;padding:12px;background:#f8f9fa;border-radius:8px;margin-bottom:16px">Aún no hay comprobantes. Se generan automáticamente al terminar cada trabajo.</div>';
+    } else {
+      function getWeekKey2(dateStr) {
+        const d2 = new Date(dateStr);
+        const day = d2.getDay();
+        const mon = new Date(d2); mon.setDate(d2.getDate() - (day===0?6:day-1));
+        const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+        return mon.toLocaleDateString('es-US',{month:'short',day:'numeric'}) + ' – ' + sun.toLocaleDateString('es-US',{month:'short',day:'numeric'});
+      }
+      const weeks2 = {};
+      autoComp.forEach(a => {
+        const wk = getWeekKey2(a.fecha);
+        if (!weeks2[wk]) weeks2[wk] = [];
+        weeks2[wk].push(a);
+      });
+      Object.entries(weeks2).reverse().forEach(([semana, items]) => {
+        const totalSemana = items.reduce((s,a)=>s+(a.monto||0),0);
+        const totalHoras = items.reduce((s,a)=>s+(a.horas||0),0);
+        const ayNombre = items[0].nombre;
+        ayHtml += '<div style="border:1px solid #1D9E7540;border-radius:12px;overflow:hidden;margin-bottom:14px">';
+        ayHtml += '<div style="background:#1D9E7515;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">';
+        ayHtml += '<div><div style="font-weight:800;font-size:14px">📅 ' + semana + '</div>';
+        ayHtml += '<div style="font-size:12px;color:#555;margin-top:2px">' + items.length + ' trabajo(s) · ' + ayNombre + ' · ' + totalHoras.toFixed(1) + 'h</div></div>';
+        ayHtml += '<div style="text-align:right"><div style="font-size:20px;font-weight:900;color:#1D9E75">$' + totalSemana.toFixed(2) + '</div>';
+        const wkId2 = semana.replace(/[^a-z0-9]/gi,'_');
+        try { localStorage.setItem('wk_'+wkId2, JSON.stringify({semana, items, ayNombre, totalSemana})); } catch(e) {}
+        ayHtml += '<button onclick="imprimirComprobante(\''+wkId2+'\')" style="margin-top:4px;padding:4px 12px;background:#1D9E75;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir</button></div></div>';
+        ayHtml += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f8f9fa"><th style="padding:7px 12px;text-align:left">Trabajo</th><th style="padding:7px 12px;text-align:left">Cliente</th><th style="padding:7px 12px;text-align:center">Hrs</th><th style="padding:7px 12px;text-align:center">Tarifa</th><th style="padding:7px 12px;text-align:right">Sugerido</th><th style="padding:7px 12px;text-align:right">Pagado</th></tr></thead><tbody>';
+        items.forEach(a => {
+          ayHtml += '<tr style="border-top:1px solid #eee"><td style="padding:7px 12px;font-weight:700">' + (a.trabajo||'—') + '</td><td style="padding:7px 12px">' + (a.cliente||'—') + '</td><td style="padding:7px 12px;text-align:center">' + (a.horas||0).toFixed(1) + '</td><td style="padding:7px 12px;text-align:center">$' + (a.tarifaHr||23) + '/hr' + (a.bono?' +$'+a.bono:'') + '</td><td style="padding:7px 12px;text-align:right;font-weight:700;color:#1D9E75">$' + (a.monto||0).toFixed(2) + '</td><td style="padding:7px 12px;text-align:right;font-weight:700;color:#E24B4A">$' + (a.pagoReal||0).toFixed(2) + '</td></tr>';
+        });
+        ayHtml += '</tbody></table></div>';
+      });
+    }
+
+    // Historial por ayudante (trabajos terminados)
+    ayHtml += '<div style="font-weight:700;color:#E24B4A;font-size:16px;margin:16px 0 12px">Total pagado a ayudantes: $'+tot.toFixed(2)+'</div>';
+
+    // Group by ayudante then week
+    function getWkKey(dateStr) {
+      if (!dateStr) return 'Sin fecha';
+      const d2 = new Date(dateStr+'T12:00:00');
+      if (isNaN(d2)) return dateStr;
       const day = d2.getDay();
       const mon = new Date(d2); mon.setDate(d2.getDate() - (day===0?6:day-1));
       const sun = new Date(mon); sun.setDate(mon.getDate()+6);
       return mon.toLocaleDateString('es-US',{month:'short',day:'numeric'}) + ' – ' + sun.toLocaleDateString('es-US',{month:'short',day:'numeric'});
     }
-
-    let ayHtml = '<div class="card">';
-
-    // ── COMPROBANTES SEMANALES ─────────────────────────────
-    ayHtml += '<div style="font-weight:800;font-size:15px;color:#1D9E75;margin-bottom:14px">🧾 Comprobantes de pago — Ayudantes</div>';
-
-    if(autoComp.length === 0) {
-      ayHtml += '<div style="color:#999;font-size:13px;padding:12px;background:#f8f9fa;border-radius:8px;margin-bottom:16px">Aún no hay comprobantes. Se generan automáticamente al terminar cada trabajo.</div>';
-    } else {
-      // Group by week
-      const weeks = {};
-      autoComp.forEach(a => {
-        const wk = getWeekKey(a.fecha);
-        if (!weeks[wk]) weeks[wk] = [];
-        weeks[wk].push(a);
-      });
-
-      Object.entries(weeks).reverse().forEach(([semana, items]) => {
-        const totalSemana = items.reduce((s,a)=>s+(a.monto||0),0);
-        const totalHoras = items.reduce((s,a)=>s+(a.horas||0),0);
-        const ayudanteNombre = items[0].nombre;
-
-        ayHtml += `<div style="border:1px solid #1D9E7540;border-radius:12px;overflow:hidden;margin-bottom:14px">
-          <div style="background:#1D9E7515;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <div style="font-weight:800;font-size:14px">📅 Semana: ${semana}</div>
-              <div style="font-size:12px;color:#555;margin-top:2px">👷 ${ayudanteNombre} · ${items.length} trabajo(s) · ${totalHoras.toFixed(1)} hrs total</div>
-            </div>
-            <div style="text-align:right">
-              <div style="font-size:20px;font-weight:900;color:#1D9E75">$${totalSemana.toFixed(2)}</div>
-              <button onclick="imprimirComprobante('${semana.replace(/'/g,'')}')" style="margin-top:4px;padding:5px 12px;background:#1D9E75;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir</button>
-            </div>
-          </div>
-          <table style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead><tr style="background:#f8f9fa">
-              <th style="padding:8px 12px;text-align:left">Trabajo</th>
-              <th style="padding:8px 12px;text-align:left">Cliente</th>
-              <th style="padding:8px 12px;text-align:center">Horas</th>
-              <th style="padding:8px 12px;text-align:center">Tarifa</th>
-              <th style="padding:8px 12px;text-align:center">Bono</th>
-              <th style="padding:8px 12px;text-align:right">Sugerido</th>
-              <th style="padding:8px 12px;text-align:right">Pagado</th>
-            </tr></thead>
-            <tbody>
-              ${items.map(a=>`<tr style="border-top:1px solid #eee">
-                <td style="padding:8px 12px;font-weight:700">${a.trabajo||'—'}</td>
-                <td style="padding:8px 12px">${a.cliente||'—'}</td>
-                <td style="padding:8px 12px;text-align:center">${(a.horas||0).toFixed(1)}</td>
-                <td style="padding:8px 12px;text-align:center">$${(a.tarifaHr||23).toFixed(0)}/hr</td>
-                <td style="padding:8px 12px;text-align:center;color:#E24B4A">${a.bono?'+$'+a.bono:'—'}</td>
-                <td style="padding:8px 12px;text-align:right;font-weight:700;color:#1D9E75">$${(a.monto||0).toFixed(2)}</td>
-                <td style="padding:8px 12px;text-align:right;color:#E24B4A;font-weight:700">$${(a.pagoReal||0).toFixed(2)}</td>
-              </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>`;
-      });
+    const porAyudante = {};
+    terminadosAy.forEach(c => {
+      const nombre = c.nombreAyudante || '— Sin asignar';
+      if (!porAyudante[nombre]) porAyudante[nombre] = {};
+      const wk = getWkKey(c.fechaTerminadoISO || c.fechaAgendada);
+      if (!porAyudante[nombre][wk]) porAyudante[nombre][wk] = [];
+      porAyudante[nombre][wk].push(c);
+    });
+    ayHtml += '<div style="font-weight:800;font-size:14px;margin-bottom:16px">📋 Historial por ayudante</div>';
+    if (Object.keys(porAyudante).length === 0) {
+      ayHtml += '<div style="color:#999;font-size:13px;padding:12px">No hay trabajos con ayudante registrados.</div>';
     }
-
-    // ── TOTAL Y HISTORIAL ───────────────────────────────────
-    ayHtml += '<div style="font-weight:700;color:#E24B4A;font-size:16px;margin:16px 0 12px">Total pagado a ayudantes: $'+tot.toFixed(2)+'</div>';
-    if(terminadosAy.length) {
-      // Group terminados by week
-      function getWkKey(dateStr) {
-        if (!dateStr) return 'Sin fecha';
-        const d2 = new Date(dateStr);
-        if (isNaN(d2)) return dateStr;
-        const day = d2.getDay();
-        const mon = new Date(d2); mon.setDate(d2.getDate() - (day===0?6:day-1));
-        const sun = new Date(mon); sun.setDate(mon.getDate()+6);
-        const fmt = {month:'short',day:'numeric'};
-        return mon.toLocaleDateString('es-US',fmt) + ' – ' + sun.toLocaleDateString('es-US',fmt);
-      }
-
-      // Get unique ayudante names for filter
-      const ayudantesUnicos = [...new Set(terminadosAy.map(c => c.nombreAyudante).filter(Boolean))].sort();
-      const filtroActual = window._filtroAyudante || '';
-
-      ayHtml += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">';
-      ayHtml += '<div style="font-weight:700;font-size:12px;color:#555">📋 Historial por semana</div>';
-      ayHtml += '<select onchange="window._filtroAyudante=this.value;renderGastos()" style="font-size:12px;padding:5px 10px;border-radius:8px;border:1px solid #ccc;background:var(--card,#fff);color:var(--ink,#333)">';
-      ayHtml += '<option value="">👥 Todos los ayudantes</option>';
-      ayudantesUnicos.forEach(n => {
-        ayHtml += '<option value="'+n+'"'+(filtroActual===n?' selected':'')+'>👷 '+n+'</option>';
-      });
-      ayHtml += '</select></div>';
-
-      // Apply filter
-      const terminadosFiltrados = filtroActual
-        ? terminadosAy.filter(c => c.nombreAyudante === filtroActual)
-        : terminadosAy;
-
-      // Regroup with filter applied
-      const weeksFiltradas = {};
-      terminadosFiltrados.sort((a,b)=>(b.fechaTerminadoISO||b.fechaAgendada||'')>(a.fechaTerminadoISO||a.fechaAgendada||'')?1:-1).forEach(c => {
-        const wk = getWkKey(c.fechaTerminadoISO || c.fechaAgendada);
-        if (!weeksFiltradas[wk]) weeksFiltradas[wk] = [];
-        weeksFiltradas[wk].push(c);
-      });
-
-      Object.entries(weeksFiltradas).forEach(([semana, items]) => {
-        const totalSemana = items.reduce((s,c)=>s+(c.pagoAyudante||0),0);
-        const ayNombre = items.find(c=>c.nombreAyudante)?.nombreAyudante || 'Ayudante';
-        const wkId = semana.replace(/[^a-z0-9]/gi,'_');
-
-        ayHtml += '<div style="border:1px solid rgba(29,158,117,0.3);border-radius:12px;overflow:hidden;margin-bottom:12px">';
-        ayHtml += '<div style="background:rgba(29,158,117,0.1);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">';
-        ayHtml += '<div><div style="font-weight:800;font-size:13px">📅 ' + semana + '</div>';
-        ayHtml += '<div style="font-size:11px;color:#888;margin-top:2px">' + items.length + ' trabajo(s) · ' + ayNombre + '</div></div>';
-        ayHtml += '<div style="text-align:right">';
-        ayHtml += '<div style="font-size:18px;font-weight:900;color:#E24B4A">$' + totalSemana.toFixed(2) + '</div>';
-        ayHtml += '<button onclick="imprimirComprobanteHistorico(\''+wkId+'\')" style="margin-top:4px;padding:4px 12px;background:#1D9E75;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir</button>';
-        ayHtml += '</div></div>';
-        ayHtml += '<table class="data-table"><thead><tr><th>Trabajo</th><th>Cliente</th><th>Ayudante</th><th>Fecha</th><th>Pagado</th></tr></thead><tbody>';
-        ayHtml += items.map(c=>'<tr><td>'+c.id+'</td><td>'+(c.cliente&&c.cliente.nombre?c.cliente.nombre:(c.cliente||''))+'</td><td>'+(c.nombreAyudante||'—')+'</td><td>'+(c.fechaTerminadoISO||c.fechaAgendada||'')+'</td><td style="color:#E24B4A;font-weight:700">$'+(c.pagoAyudante||0).toFixed(2)+'</td></tr>').join('');
+    Object.entries(porAyudante).sort(([a],[b])=>a.localeCompare(b)).forEach(([nombre, semanas]) => {
+      const totalAy = Object.values(semanas).flat().reduce((s,c)=>s+(c.pagoAyudante||0),0);
+      const numTrab = Object.values(semanas).flat().length;
+      const ayId = 'ay_' + nombre.replace(/[^a-z0-9]/gi,'_');
+      ayHtml += '<div style="border:1px solid rgba(255,255,255,0.12);border-radius:14px;overflow:hidden;margin-bottom:14px">';
+      ayHtml += '<div onclick="toggleAy(\''+ayId+'\')" style="background:rgba(255,255,255,0.07);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer">';
+      ayHtml += '<div><div style="font-weight:800;font-size:14px">👷 '+nombre+'</div>';
+      ayHtml += '<div style="font-size:11px;color:#888;margin-top:3px">'+numTrab+' trabajo(s) · '+Object.keys(semanas).length+' semana(s)</div></div>';
+      ayHtml += '<div style="display:flex;align-items:center;gap:12px"><div style="font-size:20px;font-weight:900;color:#E24B4A">$'+totalAy.toFixed(2)+'</div>';
+      ayHtml += '<span id="arr_'+ayId+'" style="font-size:18px;color:#888">▼</span></div></div>';
+      ayHtml += '<div id="'+ayId+'" style="display:none">';
+      Object.entries(semanas).sort(([a],[b])=>b.localeCompare(a)).forEach(([semana, items]) => {
+        const totalSem = items.reduce((s,c)=>s+(c.pagoAyudante||0),0);
+        const wkId = (nombre+'_'+semana).replace(/[^a-z0-9]/gi,'_');
+        try { localStorage.setItem('wk2_'+wkId, JSON.stringify({semana, nombre, items, total:totalSem})); } catch(e) {}
+        ayHtml += '<div style="border-top:1px solid rgba(255,255,255,0.08)">';
+        ayHtml += '<div style="background:rgba(29,158,117,0.08);padding:10px 16px;display:flex;justify-content:space-between;align-items:center">';
+        ayHtml += '<div><div style="font-weight:700;font-size:13px">📅 '+semana+'</div>';
+        ayHtml += '<div style="font-size:11px;color:#888;margin-top:2px">'+items.length+' trabajo(s)</div></div>';
+        ayHtml += '<div style="display:flex;align-items:center;gap:10px"><div style="font-size:16px;font-weight:800;color:#E24B4A">$'+totalSem.toFixed(2)+'</div>';
+        ayHtml += '<button onclick="event.stopPropagation();imprimirComprobanteHistorico2(\''+wkId+'\')" style="padding:4px 12px;background:#1D9E75;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir</button></div></div>';
+        ayHtml += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:rgba(255,255,255,0.04)"><th style="padding:7px 12px;text-align:left;color:#888">Trabajo</th><th style="padding:7px 12px;text-align:left;color:#888">Cliente</th><th style="padding:7px 12px;text-align:center;color:#888">Fecha</th><th style="padding:7px 12px;text-align:center;color:#888">Horas</th><th style="padding:7px 12px;text-align:right;color:#888">Pagado</th></tr></thead><tbody>';
+        items.forEach(c => {
+          const horas = c.horasTrabajadas ? c.horasTrabajadas.toFixed(1)+'h' : '—';
+          const cliente = c.cliente&&c.cliente.nombre?c.cliente.nombre:(c.cliente||'—');
+          ayHtml += '<tr style="border-top:1px solid rgba(255,255,255,0.05)"><td style="padding:8px 12px;font-weight:700">'+c.id+'</td><td style="padding:8px 12px">'+cliente+'</td><td style="padding:8px 12px;text-align:center">'+(c.fechaTerminadoISO||c.fechaAgendada||'—')+'</td><td style="padding:8px 12px;text-align:center;color:#1D9E75;font-weight:600">'+horas+'</td><td style="padding:8px 12px;text-align:right;font-weight:700;color:#E24B4A">$'+(c.pagoAyudante||0).toFixed(2)+'</td></tr>';
+        });
         ayHtml += '</tbody></table></div>';
-
-        // Store week data for printing
-        try { localStorage.setItem('wk_'+wkId, JSON.stringify({semana, items, ayNombre, totalSemana})); } catch(e) {}
       });
-    }
+      ayHtml += '</div></div>';
+    });
+
     const manualAy = ay.filter(a=>!a.esAutoComprobante);
     if(manualAy.length) {
       ayHtml += '<div style="font-weight:700;font-size:12px;color:#555;margin-bottom:6px">📝 Pagos manuales adicionales</div>';
@@ -3040,8 +3006,8 @@ function abrirTerminar(id) {
 // ===================== CRONÓMETRO DEL TRABAJO =====================
 const CRONO_HORAS_BASE = 3;
 const CRONO_TARIFA_EXTRA_CLIENTE = 35; // $/hr extra al cliente
-const CRONO_TARIFA_AYUDANTE = 23;      // $/hr real al ayudante
-const CRONO_BONO_DIFICIL = 15;         // bono si hubo escaleras o muebles pesados ($23/hr × horas)
+const CRONO_TARIFA_AYUDANTE = 20;      // $/hr real al ayudante
+const CRONO_BONO_DIFICIL = 15;         // bono si hubo escaleras o muebles pesados
 
 let cronoStartTime = null;
 let cronoElapsedMs = 0;
@@ -3129,7 +3095,7 @@ function calcResumenTerminar() {
     }
   }
 
-  // Pago automático al ayudante: $20/hr real + $15 de bono si hubo escaleras o muebles pesados ($23/hr × horas)
+  // Pago automático al ayudante: $20/hr real + $15 de bono si hubo escaleras o muebles pesados
   var usaAyChk = document.getElementById('tm-ayudante');
   if (usaAyChk && usaAyChk.value === 'si' && horas > 0) {
     var pagoAutoAyudante = (horas * CRONO_TARIFA_AYUDANTE) + (dificil ? CRONO_BONO_DIFICIL : 0);
@@ -3210,38 +3176,6 @@ function confirmarTerminar() {
   cot.horasExtra       = horasExtra;
   cot.cargoExtraHoras  = cargoExtraHoras;
   cot.gananciaReal     = monto + propina - pagoAyudante - rentaCosto;
-
-  // ── AUTO-COMPROBANTE AYUDANTE ──────────────────────────────
-  // Si hubo horas trabajadas, crear registro automático en ayudantes
-  // como comprobante imprimible (no suma a gastos, solo es registro)
-  if (horasTrabajadas > 0 && nombreAyudante && nombreAyudante.trim()) {
-    const tarifa = getCfg().tarifaAyudanteHr || 23;
-    const bono   = huboDificultad ? 15 : 0;
-    const montoSugerido = Math.round(horasTrabajadas * tarifa) + bono;
-    if (!d.ay) d.ay = [];
-    // Solo crear si no existe ya uno para este trabajo
-    const yaExiste = d.ay.some(a => a.trabajo === cot.id && a.esAutoComprobante);
-    if (!yaExiste) {
-      d.ay.push({
-        id: 'AY-AUTO-' + Date.now(),
-        nombre: nombreAyudante,
-        trabajo: cot.id,
-        cliente: cot.cliente || cot.nombre || '',
-        fecha: new Date().toISOString().split('T')[0],
-        horas: horasTrabajadas,
-        tarifaHr: tarifa,
-        bono: bono,
-        bonoNota: huboDificultad ? 'Escaleras / muebles pesados' : '',
-        monto: montoSugerido,
-        pagoReal: pagoAyudante, // lo que realmente se pagó
-        tipo: 'Por trabajo terminado',
-        esAutoComprobante: true,
-        pagadoEnSemana: false
-      });
-    }
-  }
-  // ──────────────────────────────────────────────────────────
-
   // Guardar también pago doble si vino de campo
   if(dc && dc.formaPago2) { cot.formaPago2=dc.formaPago2; cot.montoPago1=dc.montoPago1; cot.montoPago2=dc.montoPago2; cot.refPago2=dc.refPago2||''; }
   const fechaRealVal = document.getElementById('tm-fecha-real') ? document.getElementById('tm-fecha-real').value : '';
@@ -5645,6 +5579,1323 @@ setTimeout(() => { if(typeof google !== 'undefined') initMapsAutocomplete(); }, 
 initDarkMode();
 
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDFh0_ki60agyS9v0P2PshChRPXd-xzyJ8&libraries=places&callback=initMapsCallback" async defer></script>
+<style>
+:root{
+  --brand:#1F5EA8; --brand-dark:#143F74; --brand-deep:#0F2F57;
+  --brand-tint:#EDF3FB; --brand-ring:rgba(31,94,168,.16);
+  --money:#1D9E75; --money-dark:#127453; --money-tint:#EEF9F4;
+  --amber:#EF9F27; --danger:#E24B4A;
+  --ink:#1C2530; --ink-soft:#5A6572; --ink-faint:#8A94A0;
+  --line:#E3E8EF; --line-soft:#EEF1F5;
+  --bg:#F3F5F8; --card:#fff;
+  --input-border:#C9D2DD;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;min-height:100vh}
+.app-header{background:linear-gradient(135deg,var(--brand-dark) 0%,var(--brand-deep) 100%);border-bottom:3px solid var(--brand);padding:12px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(15,47,87,.25)}
+.logo{width:42px;height:42px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--brand-dark);font-weight:800;font-size:18px;flex-shrink:0;letter-spacing:.5px}
+.app-title{font-size:17px;font-weight:700;color:#fff;letter-spacing:.2px}
+.app-subtitle{font-size:11px;color:#AFC6E4;margin-top:1px;letter-spacing:.3px}
+.header-right{margin-left:auto;text-align:right;font-size:11px;color:#AFC6E4;line-height:1.7}
+.header-right strong{color:#fff}
+.nav{background:#fff;border-bottom:1px solid var(--line);display:flex;overflow-x:auto;padding:0 12px;gap:0;box-shadow:0 1px 3px rgba(16,24,40,.04)}
+.nav-btn{padding:12px 16px;font-size:12px;font-weight:600;color:var(--ink-faint);background:none;border:none;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap;transition:.15s}
+.nav-btn.active{color:var(--brand);border-bottom-color:var(--brand)}
+.nav-btn:hover{color:var(--brand-dark);background:#F6F9FD}
+.tab-content{display:none;padding:18px;max-width:960px;margin:0 auto}
+.tab-content.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.card-title{font-size:13.5px;font-weight:700;margin-bottom:14px;color:var(--brand-dark);border-bottom:1px solid var(--line-soft);padding-bottom:8px;letter-spacing:.2px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-row.full{grid-template-columns:1fr}
+.form-row.three{grid-template-columns:1fr 1fr 1fr}
+.form-row.four{grid-template-columns:1fr 1fr 1fr 1fr}
+label{font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;font-weight:600}
+input[type=text],input[type=number],input[type=tel],input[type=email],input[type=date],input[type=time],input[type=password],select,textarea{width:100%;padding:9px 11px;border:1px solid var(--input-border);border-radius:9px;font-size:13px;background:#fff;color:var(--ink);transition:.15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
+textarea{resize:vertical;min-height:65px}
+.btn{padding:9px 16px;border-radius:9px;border:1px solid var(--input-border);background:#fff;color:#333;cursor:pointer;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+.btn:hover{background:#F6F9FD;border-color:#B4C2D4}
+.btn-primary{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 1px 2px rgba(31,94,168,.3)}
+.btn-primary:hover{background:var(--brand-dark);border-color:var(--brand-dark)}
+.btn-blue{background:#2F74C0;color:#fff;border-color:#2F74C0}
+.btn-blue:hover{background:#1F5EA8}
+.btn-orange{background:#EF9F27;color:#fff;border-color:#EF9F27}
+.btn-orange:hover{background:#BA7517}
+.btn-danger{background:#E24B4A;color:#fff;border-color:#E24B4A}
+.btn-danger:hover{background:#A32D2D}
+.btn-excel{background:#217346;color:#fff;border-color:#217346}
+.btn-excel:hover{background:#185c37}
+.btn-sm{padding:5px 11px;font-size:11px}
+.btn-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:16px}
+.stat-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.stat-num{font-size:26px;font-weight:700;color:var(--money);font-variant-numeric:tabular-nums}
+.stat-label{font-size:10.5px;color:var(--ink-faint);margin-top:3px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.list-item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(16,24,40,.05);transition:box-shadow .15s,border-color .15s}
+.list-item:hover{box-shadow:0 3px 10px rgba(16,24,40,.09);border-color:#CFDAE8}
+.list-item-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.list-item-title{font-size:14px;font-weight:700;color:var(--ink)}
+.list-item-detail{font-size:12px;color:var(--ink-soft);margin-top:3px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.3px}
+.badge-green{background:#d4edda;color:#155724}
+.badge-amber{background:#fff3cd;color:#856404}
+.badge-blue{background:#DBE8F8;color:#1E4E8C}
+.badge-red{background:#f8d7da;color:#721c24}
+.badge-gray{background:#e2e3e5;color:#383d41}
+.badge-orange{background:#fde8cc;color:#7d4e0d}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.section-title{font-size:17px;font-weight:700;color:var(--brand-dark);letter-spacing:.2px}
+hr.divider{border:none;border-top:1px solid var(--line-soft);margin:12px 0}
+.total-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;border-bottom:1px solid var(--line-soft);font-variant-numeric:tabular-nums}
+.total-row:last-child{border-bottom:none}
+.total-row.big{font-size:17px;font-weight:700;color:var(--money-dark);background:var(--money-tint);padding:10px 12px;border-radius:9px;margin-top:6px;border-bottom:none}
+.checkbox-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#F8FAFC;border-radius:9px;margin-bottom:7px;border:1px solid var(--line-soft)}
+.checkbox-row label{margin:0;font-size:13px;font-weight:500;color:#333;cursor:pointer}
+input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--brand)}
+.modal-overlay{position:fixed;inset:0;background:rgba(12,25,44,.6);display:none;align-items:center;justify-content:center;z-index:999}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:14px;padding:22px;width:92%;max-width:520px;max-height:92vh;overflow-y:auto;box-shadow:0 12px 40px rgba(12,25,44,.28)}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:16px;color:var(--brand-dark)}
+.notice{padding:11px 14px;border-radius:9px;font-size:12px;margin-bottom:12px;line-height:1.6;border-left:4px solid}
+.notice-blue{background:#EAF2FC;color:#1A4C82;border-left-color:#2F74C0}
+.notice-amber{background:#fef9e7;color:#7d6608;border-left-color:#EF9F27}
+.notice-green{background:#eafaf1;color:#1a7a4a;border-left-color:#1D9E75}
+.notice-red{background:#fdf3f3;color:#922b21;border-left-color:#E24B4A}
+.tabs-inner{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.tab-inner-btn{padding:7px 14px;border-radius:20px;border:1px solid var(--input-border);font-size:12px;font-weight:600;cursor:pointer;background:#fff;color:var(--ink-soft);transition:.15s}
+.tab-inner-btn.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+.progress-bar{height:8px;background:#eee;border-radius:4px;overflow:hidden;margin-top:5px}
+.progress-fill{height:100%;border-radius:4px;transition:.3s}
+.export-banner{background:linear-gradient(135deg,var(--brand-dark),var(--brand-deep));border-radius:14px;padding:18px;margin-bottom:16px;color:#fff}
+.export-banner h3{font-size:15px;font-weight:700;margin-bottom:6px}
+.export-banner p{font-size:12px;opacity:.85;margin-bottom:14px}
+.export-btn-row{display:flex;flex-wrap:wrap;gap:8px}
+.export-btn{padding:9px 16px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.4);border-radius:9px;color:#fff;cursor:pointer;font-size:12px;font-weight:600;transition:.15s}
+.export-btn:hover{background:rgba(255,255,255,.26)}
+.photo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.photo-slot{aspect-ratio:1;background:#F6F8FB;border:2px dashed var(--input-border);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:11px;color:var(--ink-faint);gap:4px;overflow:hidden;transition:.15s}
+.photo-slot:hover{border-color:var(--brand);background:var(--brand-tint)}
+.photo-slot img{width:100%;height:100%;object-fit:cover}
+.pin-input{font-size:28px;text-align:center;letter-spacing:10px;width:100%;padding:14px;border:2px solid var(--input-border);border-radius:10px}
+.pin-input:focus{border-color:var(--brand)}
+table.data-table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+table.data-table th{background:var(--brand-tint);color:var(--brand-dark);padding:9px 12px;text-align:left;font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid var(--brand)}
+table.data-table td{padding:9px 12px;border-bottom:1px solid var(--line-soft)}
+table.data-table tbody tr:nth-child(even) td{background:#F8FAFC}
+table.data-table tr:hover td{background:var(--brand-tint)}
+.empty-state{text-align:center;padding:50px 20px;color:var(--ink-faint)}
+.search-box-wrap{position:relative;margin-bottom:14px}
+.search-box-wrap input{padding-left:36px!important}
+.search-box-wrap .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:0.6;font-size:14px;pointer-events:none}
+.empty-state .icon{font-size:48px;margin-bottom:12px}
+.empty-state p{font-size:14px}
+.status-flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0}
+.status-step{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;border:2px solid transparent}
+.status-step.done{background:#d4edda;color:#155724;border-color:#1D9E75}
+.status-step.current{background:var(--brand);color:#fff}
+.status-step.pending{background:#F1F3F6;color:var(--ink-faint);border-color:var(--line)}
+.status-arrow{color:#C4CDD8;font-size:16px}
+.nav-btn span[id^="badge-"]:empty{display:none}
+
+.qr-size-btn{padding:10px 8px;border:1px solid rgba(255,255,255,0.15);border-radius:10px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.8);cursor:pointer;font-size:12px;font-weight:600;transition:.15s;text-align:center}
+.qr-size-btn:hover{border-color:#1D9E75;color:#1D9E75}
+.qr-size-btn.active{border-color:#1D9E75;background:#EEF9F4;color:#1D9E75}
+.qr-art-chip{display:inline-flex;align-items:center;gap:5px;background:#EEF9F4;border:1px solid #1D9E75;color:#1D9E75;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.qr-art-chip button{background:none;border:none;color:#E24B4A;cursor:pointer;font-size:14px;line-height:1;padding:0}
+.nav-btn[onclick*="cotizacion-rapida"]{color:#1D9E75}
+.qr-art-chk{display:flex;align-items:center;gap:6px;background:#F8FAFC;border:1px solid var(--line-soft);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:12px;font-weight:500;transition:.15s}
+.qr-art-chk:hover{border-color:#1D9E75}
+.qr-art-chk input{accent-color:#1D9E75;width:14px;height:14px}
+.qr-art-chk.checked{background:#EEF9F4;border-color:#1D9E75;color:#1D9E75}
+@media(max-width:700px){
+  #tab-cotizacion-rapida > div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+}
+</style>
+
+<style id="dark-style" disabled>
+body{background:#0F1623!important;color:#E4E9F0!important}
+.app-header{background:linear-gradient(135deg,#0F2540 0%,#0A1A30 100%)!important;border-color:#1F5EA8!important;box-shadow:0 2px 8px rgba(0,0,0,.5)!important}
+.app-title{color:#fff!important}
+.app-subtitle{color:#7E9CC4!important}
+.header-right{color:#7E9CC4!important}
+.header-right strong{color:#fff!important}
+.nav{background:#16202F!important;border-color:#26344A!important}
+.nav-btn{color:#65788F!important}
+.nav-btn.active{color:#6FA8E8!important;border-bottom-color:#6FA8E8!important}
+.nav-btn:hover{background:#1D2A3D!important;color:#B9D2F0!important}
+.card{background:#16202F!important;border-color:#26344A!important;box-shadow:0 1px 3px rgba(0,0,0,.35)!important}
+.card-title{color:#6FA8E8!important;border-color:#26344A!important}
+label{color:#8DA1B8!important}
+input,select,textarea{background:#0F1623!important;color:#E4E9F0!important;border-color:#33445E!important}
+input:focus,select:focus,textarea:focus{border-color:#6FA8E8!important;box-shadow:0 0 0 3px rgba(111,168,232,.22)!important}
+.btn{background:#26344A!important;color:#E4E9F0!important;border-color:#33445E!important}
+.btn:hover{background:#33445E!important}
+.btn-primary{background:#1F5EA8!important;color:#fff!important;border-color:#1F5EA8!important}
+.btn-primary:hover{background:#2F74C0!important}
+.btn-blue{background:#2F74C0!important;color:#fff!important;border-color:#2F74C0!important}
+.btn-orange{background:#EF9F27!important;color:#fff!important}
+.btn-danger{background:#E24B4A!important;color:#fff!important}
+.btn-excel{background:#217346!important;color:#fff!important}
+.stat-card{background:#16202F!important;border-color:#26344A!important}
+.stat-label{color:#8DA1B8!important}
+.list-item{background:#16202F!important;border-color:#26344A!important}
+.list-item:hover{border-color:#3A5078!important}
+.list-item-title{color:#E4E9F0!important}
+.list-item-detail{color:#8DA1B8!important}
+.checkbox-row{background:#0F1623!important;border-color:#26344A!important}
+.checkbox-row label{color:#C7D2DF!important}
+.total-row{border-color:#26344A!important}
+.total-row.big{background:#0D3A2B!important;color:#4ADE80!important}
+.modal{background:#16202F!important;color:#E4E9F0!important}
+.modal-title{color:#6FA8E8!important}
+.notice-blue{background:#122C4A!important;color:#9CC3EE!important}
+.notice-amber{background:#3d2a00!important;color:#fcd34d!important}
+.notice-green{background:#0D3A2B!important;color:#6ee7b7!important}
+.notice-red{background:#4c1d1d!important;color:#fca5a5!important}
+.tab-inner-btn{background:#26344A!important;color:#8DA1B8!important;border-color:#33445E!important}
+.tab-inner-btn.active{background:#1F5EA8!important;color:#fff!important}
+hr.divider{border-color:#26344A!important}
+table.data-table th{background:#12294A!important;color:#8FBBEF!important;border-color:#1F5EA8!important}
+table.data-table td{border-color:#26344A!important;color:#E4E9F0!important}
+table.data-table tbody tr:nth-child(even) td{background:#131C2B!important}
+table.data-table tr:hover td{background:#1A2A42!important}
+.section-title{color:#6FA8E8!important}
+.export-banner{background:linear-gradient(135deg,#0F2540,#0A1A30)!important}
+.empty-state{color:#65788F!important}
+.photo-slot{background:#26344A!important;border-color:#33445E!important;color:#65788F!important}
+.photo-slot:hover{border-color:#6FA8E8!important;background:#12294A!important}
+
+@media print {
+  body * { visibility: hidden; }
+  #calendario-agenda, #calendario-agenda * { visibility: visible; }
+  #calendario-agenda { position: absolute; left: 0; top: 0; width: 100%; background: #fff !important; }
+  #calendario-agenda .no-print { display: none !important; }
+  #calendario-agenda .card { border: none !important; box-shadow: none !important; background: #fff !important; }
+  #calendario-agenda, #cal-mes-titulo-print, #cal-grid, #cal-grid > div { background-color: #fff !important; color: #000 !important; }
+  #cal-grid > div { border: 1px solid #999 !important; min-height: 70px !important; }
+}
+</style>
+
+</head>
+<body>
+
+<div class="app-header">
+  <div class="logo">ME</div>
+  <div>
+    <div class="app-title">Mudanzas Express LA</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
+    <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
+    <button onclick="volverAlSelector()" title="Cambiar modo (Admin / Ayudante)" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.35);border-radius:8px;font-size:12px;cursor:pointer;padding:5px 10px;color:#fff">🔄 Cambiar modo</button>
+    <div class="header-right" style="margin-left:0">
+      <strong>📱 (323) 946-2008</strong> — WhatsApp / Zelle / Llamadas<br>
+      mudanzasexpressla@gmail.com · facebook.com/MudanzasExpressLA
+    </div>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" data-tab="dashboard" onclick="showTab('dashboard')">📊 Dashboard</button>
+  <button class="nav-btn" onclick="showTab('cotizacion-rapida')">⚡ Cotizar Rápido</button>
+<button class="nav-btn" data-tab="nueva-cot" onclick="showTab('nueva-cot')">➕ Nueva Cotización</button>
+  <button class="nav-btn" data-tab="cotizaciones" onclick="showTab('cotizaciones')">📋 Cotizaciones <span id="badge-cot" style="background:#EF9F27;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
+  <button class="nav-btn" data-tab="agenda" onclick="showTab('agenda')">📅 Agenda <span id="badge-ag" style="background:#2F74C0;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
+  <button class="nav-btn" data-tab="trabajos" onclick="showTab('trabajos')">🚛 Trabajos <span id="badge-trab" style="background:#EF9F27;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
+  <button class="nav-btn" data-tab="terminados" onclick="showTab('terminados')">✅ Terminados</button>
+  <button class="nav-btn" data-tab="cancelados" onclick="showTab('cancelados')">🗑️ Cancelados</button>
+  <button class="nav-btn" data-tab="gastos" onclick="showTab('gastos')">💰 Gastos</button>
+  <button class="nav-btn" data-tab="vehiculos" onclick="showTab('vehiculos')">🚛 Vehículos</button>
+  <button class="nav-btn" data-tab="gigs" onclick="showTab('gigs')">📦 Gigs/Brokers <span id="badge-gigs" style="background:#2F74C0;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
+<button class="nav-btn" onclick="showTab('galeria')">📸 Galería</button>
+  <button class="nav-btn" data-tab="config" onclick="showTab('config')">⚙️ Configuración</button>
+</nav>
+
+<!-- ======================== DASHBOARD ======================== -->
+<div id="tab-dashboard" class="tab-content active">
+  <div class="section-header">
+    <div class="section-title">📊 Panel de control</div>
+    <div id="dash-fecha" style="font-size:12px;color:#888"></div>
+  </div>
+  <div class="stat-grid" id="dash-stats"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+    <div class="card">
+      <div class="card-title">💵 Ingresos totales</div>
+      <div id="dash-ingresos" style="font-size:32px;font-weight:700;color:#1D9E75">$0.00</div>
+      <div style="font-size:11px;color:#888;margin-top:4px">Trabajos terminados</div>
+    </div>
+    <div class="card">
+      <div class="card-title">💸 Gastos totales</div>
+      <div id="dash-gastos-total" style="font-size:32px;font-weight:700;color:#E24B4A">$0.00</div>
+      <div id="dash-utilidad" style="font-size:12px;color:#1D9E75;margin-top:4px;font-weight:700"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">🧾 Resumen por trabajo (Total Cobrado · Pago Ayudante · Ganancia Neta)</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center">
+      <div><div style="font-size:11px;color:#888">💵 Total Cobrado</div><div id="dash-total-cobrado" style="font-size:22px;font-weight:800;color:#1D9E75">$0.00</div></div>
+      <div><div style="font-size:11px;color:#888">👷 Pago Ayudante</div><div id="dash-pago-ayudante" style="font-size:22px;font-weight:800;color:#E24B4A">$0.00</div></div>
+      <div><div style="font-size:11px;color:#888">🏠 Ganancia Neta</div><div id="dash-ganancia-neta" style="font-size:22px;font-weight:800;color:#EF9F27">$0.00</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">🤖 Recomendaciones automáticas</div>
+    <div id="dash-recs"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div class="card">
+      <div class="card-title">📦 Últimos trabajos</div>
+      <div id="dash-recientes"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">💸 Gastos por categoría</div>
+      <div id="dash-gastos-cat"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== NUEVA COTIZACIÓN ======================== -->
+<div id="tab-nueva-cot" class="tab-content">
+  <div class="section-header">
+    <div class="section-title">➕ Nueva Cotización</div>
+    <div style="background:#e8f4fd;color:#1a5276;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700" id="cot-id-preview">N° COT-001</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">👤 Datos del cliente</div>
+    <div class="form-row">
+      <div>
+        <label>Nombre completo *</label>
+        <input id="c-nombre" type="text" placeholder="Juan García" oninput="buscarClienteFrecuente()">
+        <div id="cliente-frecuente-badge" style="margin-top:6px;display:none"></div>
+      </div>
+      <div><label>Teléfono / WhatsApp *</label><input id="c-tel" type="tel" placeholder="(310) 000-0000"></div>
+    </div>
+    <div class="form-row">
+      <div><label>Email</label><input id="c-email" type="email" placeholder="cliente@email.com"></div>
+      <div><label>Fecha preferida del servicio</label><input id="c-fecha-pref" type="date"></div>
+    </div>
+    <div class="form-row">
+      <div><label>⏰ Hora de inicio del servicio</label><input id="c-hora" type="time" placeholder="08:00"></div>
+      <div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📍 Direcciones y cálculo de millas</div>
+    <div class="form-row full"><div><label>📦 Dirección de ORIGEN (donde se recoge) *</label><input id="c-origen" type="text" placeholder="123 Main St, Los Angeles, CA 90001" autocomplete="off"></div></div>
+    <div class="form-row full"><div><label>🏠 Dirección de DESTINO (donde se entrega) *</label><input id="c-destino" type="text" placeholder="456 Oak Ave, Pasadena, CA 91101" autocomplete="off"></div></div>
+    <div style="margin-bottom:12px">
+      <button class="btn btn-blue" type="button" onclick="calcularMillasGoogleMaps()" id="btn-calc-millas">
+        📍 Calcular millas automáticamente
+      </button>
+      <span id="millas-calc-status" style="font-size:12px;color:#888;margin-left:10px"></span>
+    </div>
+    <div class="form-row three">
+      <div><label>Millas origen → destino</label><input id="c-millas" type="number" placeholder="15" min="0" step="0.5" oninput="calcTotal()"></div>
+      <div><label>Millas mi casa → origen</label><input id="c-millas-extra" type="number" placeholder="8" min="0" step="0.5" oninput="calcTotal()"></div>
+      <div><label>Tarifa por milla ($)</label><input id="c-tarifa-milla" type="number" value="2.50" step="0.25" min="0" oninput="calcTotal()"></div>
+    </div>
+    <div class="notice notice-blue" id="millas-display">Ingresa las millas o usa el botón para calcular automáticamente con Google Maps</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📦 Artículos a mover</div>
+    <div style="font-size:12px;color:#888;margin-bottom:10px">Elige de la lista o escribe uno personalizado. Esto aparecerá detallado en el PDF de la cotización.</div>
+    <div id="articulos-admin-body"></div>
+    <button type="button" class="btn btn-sm" onclick="addArticuloAdmin()">+ Agregar artículo</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔧 Servicios adicionales <span style="font-size:11px;font-weight:400;color:#888">(puedes editar el precio de cada uno)</span></div>
+    <div class="checkbox-row">
+      <div style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="s-escaleras" onchange="calcTotal()"><label for="s-escaleras">🪜 Escaleras (subir o bajar)</label></div>
+      <div style="display:flex;align-items:center;gap:6px"><span style="color:#1D9E75;font-weight:700">+$</span><input type="number" id="p-escaleras" value="20" min="0" step="5" style="width:80px;padding:5px 8px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="calcTotal()"></div>
+    </div>
+    <div class="checkbox-row">
+      <div style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="s-ayudante" onchange="calcTotal()"><label for="s-ayudante">👷 Ayudante adicional</label></div>
+      <div style="display:flex;align-items:center;gap:6px"><span style="color:#1D9E75;font-weight:700">+$</span><input type="number" id="p-ayudante" value="40" min="0" step="5" style="width:80px;padding:5px 8px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="calcTotal()"></div>
+    </div>
+    <div class="checkbox-row">
+      <div style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="s-armar" onchange="calcTotal()"><label for="s-armar">🛋️ Armar / Desarmar muebles</label></div>
+      <div style="display:flex;align-items:center;gap:6px"><span style="color:#1D9E75;font-weight:700">+$</span><input type="number" id="p-armar" value="20" min="0" step="5" style="width:80px;padding:5px 8px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="calcTotal()"></div>
+    </div>
+    <div class="checkbox-row">
+      <div style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="s-embalaje" onchange="calcTotal()"><label for="s-embalaje">📦 Material de embalaje (cajas, cinta, mantas)</label></div>
+      <div style="display:flex;align-items:center;gap:6px"><span style="color:#1D9E75;font-weight:700">+$</span><input type="number" id="p-embalaje" value="25" min="0" step="5" style="width:80px;padding:5px 8px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="calcTotal()"></div>
+    </div>
+    <div class="checkbox-row">
+      <div style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="s-piano" onchange="calcTotal()"><label for="s-piano">🎹 Piano u objeto especial/muy pesado</label></div>
+      <div style="display:flex;align-items:center;gap:6px"><span style="color:#1D9E75;font-weight:700">+$</span><input type="number" id="p-piano" value="50" min="0" step="5" style="width:80px;padding:5px 8px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="calcTotal()"></div>
+    </div>
+    <div class="checkbox-row">
+      <div style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="s-storage" onchange="calcTotal()"><label for="s-storage">🏪 Almacenaje temporal (por día)</label></div>
+      <div style="display:flex;align-items:center;gap:6px"><span style="color:#1D9E75;font-weight:700">+$</span><input type="number" id="p-storage" value="15" min="0" step="5" style="width:80px;padding:5px 8px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="calcTotal()"></div>
+    </div>
+    <div class="checkbox-row">
+      <div style="display:flex;align-items:center;gap:10px;flex:1">
+        <input type="checkbox" id="s-cargo" onchange="calcTotal()">
+        <label for="s-cargo">➕ Cargo adicional</label>
+        <input type="text" id="desc-cargo" placeholder="Ej: Trabajo físico extra, cargo por volumen..." style="flex:1;font-size:12px;padding:5px 8px;border:1px solid #ccc;border-radius:6px">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px"><span style="color:#1D9E75;font-weight:700">+$</span><input type="number" id="p-cargo" value="0" min="0" step="5" style="width:80px;padding:5px 8px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="calcTotal()"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💵 Tarifa y total estimado</div>
+    <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:10px">
+      <div>
+        <label>Tipo de trabajo (ajusta la tarifa base)</label>
+        <select id="c-tipo-trabajo" onchange="aplicarTipoTrabajo()">
+          <option value="">— Seleccionar tipo —</option>
+          <option value="90">📦 1-3 piezas / mueble solo — $90</option>
+          <option value="120">🧊 Refrigerador / artículo pesado — $120</option>
+          <option value="160">🏠 Estudio / cuarto solo — $160</option>
+          <option value="220">🛏️ 1 Recámara — $220</option>
+          <option value="320">🛏️🛏️ 2 Recámaras — $320</option>
+          <option value="420">🏡 3 Recámaras — $420</option>
+          <option value="550">🏘️ 4+ Recámaras / casa grande — $550</option>
+          <option value="190">🏋️ Labor Only 2h (sin camión) — $190</option>
+          <option value="0">✏️ Precio libre (escribir manualmente)</option>
+        </select>
+      </div>
+      <div><label>Tarifa base del servicio ($)</label><input id="c-base" type="number" value="150" step="5" min="0" oninput="calcTotal()"></div>
+    </div>
+    <div class="form-row three">
+      <div><label>Horas estimadas</label><input id="c-horas" type="number" value="3" step="0.5" min="1" oninput="calcTotal()"></div>
+      <div><label>Descuento ($)</label><input id="c-descuento" type="number" value="0" min="0" oninput="calcTotal()"></div>
+      <div><label>Forma de pago aceptada</label>
+        <select id="c-pago"><option>Efectivo</option><option>Zelle</option><option>Tarjeta de crédito/débito</option><option>Cheque</option><option>Efectivo o Zelle</option></select>
+      </div>
+    </div>
+
+    <!-- ══ FUENTE / CANAL DE ORIGEN DEL CLIENTE ══ -->
+    <div class="form-row" style="margin-bottom:4px">
+      <div>
+        <label>📣 ¿De dónde vino este cliente? <span style="color:#888;font-weight:400">(para comparar campañas)</span></label>
+        <select id="c-canal" onchange="toggleCanalNombre()">
+          <option value="">— Sin especificar —</option>
+          <optgroup label="📘 Facebook Ads (campañas pagadas)">
+            <option value="fb_zonas_premium">FB Ads · Zonas Premium Bilingüe (ago 2025)</option>
+            <option value="fb_wa_v2_campaña">FB Ads · MUDANZAS LA MENSAJE WHATSAPP v2 CAMPAÑA</option>
+            <option value="fb_wa_v2_escal20">FB Ads · MUDANZAS LA -WHATSAPP v2 ESCALAMIENTO 20 USD</option>
+            <option value="fb_otra_campana">FB Ads · Otra campaña</option>
+          </optgroup>
+          <optgroup label="💬 WhatsApp">
+            <option value="wa_organico">WhatsApp orgánico (te escribió directo, sin anuncio)</option>
+            <option value="wa_ads">WhatsApp desde anuncio de Meta</option>
+          </optgroup>
+          <optgroup label="🌐 Otros canales">
+            <option value="referido">Referido (cliente o conocido recomendó)</option>
+            <option value="google">Google / búsqueda</option>
+            <option value="web">Formulario web</option>
+            <option value="llamada">Llamada telefónica directa</option>
+            <option value="otro">Otro</option>
+          </optgroup>
+        </select>
+      </div>
+      <div id="c-canal-nombre-wrap" style="display:none">
+        <label>Nombre de campaña / detalle adicional</label>
+        <input type="text" id="c-canal-nombre" placeholder="Ej: nombre exacto del anuncio, quién refirió...">
+      </div>
+    </div>
+    <div class="notice notice-blue" style="font-size:11.5px;margin-bottom:12px;padding:8px 12px">
+      💡 Llenar esto te permite ver en Terminados cuánto generó cada campaña vs lo que gastaste en ella.
+    </div>
+    <hr class="divider">
+    <div class="total-row"><span>Tarifa base del servicio</span><span id="t-base" style="font-weight:600">$0.00</span></div>
+    <div class="total-row"><span>Costo de viaje (millas)</span><span id="t-millas" style="font-weight:600">$0.00</span></div>
+    <div class="total-row"><span>Servicios adicionales</span><span id="t-extras" style="font-weight:600">$0.00</span></div>
+    <div class="total-row"><span style="color:#E24B4A">Descuento aplicado</span><span id="t-descuento" style="color:#E24B4A;font-weight:600">- $0.00</span></div>
+    <div class="total-row big"><span>TOTAL ESTIMADO</span><span id="t-total">$0.00</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📸 Fotos del inventario (enviadas por el cliente)</div>
+    <div style="font-size:12px;color:#888;margin-bottom:10px">Sube las fotos que el cliente te mandó por WhatsApp. El ayudante las verá en su app.</div>
+    <input type="file" id="fotos-inventario" accept="image/*" multiple style="display:none" onchange="procesarFotosInventario(event)">
+    <button class="btn" type="button" onclick="document.getElementById('fotos-inventario').click()">📷 Agregar fotos del inventario</button>
+    <div id="grid-fotos-inventario" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📝 Notas e inventario del trabajo</div>
+    <div class="form-row full"><div>
+      <label>Inventario de muebles y artículos a mover</label>
+      <textarea id="c-notas" placeholder="Ej: 1 sala completa (sofá 3 piezas), 2 recámaras king/queen, refrigerador, estufa, lavadora, aprox. 20 cajas medianas..."></textarea>
+    </div></div>
+    <div class="form-row full"><div>
+      <label>Términos y condiciones (se incluyen en la cotización)</label>
+      <textarea id="c-terminos" style="min-height:90px">1. El pago completo debe realizarse ANTES de iniciar la descarga en destino. 2. Mudanzas Express LA no se responsabiliza por artículos frágiles no declarados ni empacados por el cliente. 3. Cancelación con menos de 24 horas de anticipación: se cobra depósito del 20% del total. 4. Todos los pagos por Zelle generan confirmación automática que sirve como comprobante de pago. 5. Cualquier reclamo por daños debe notificarse el mismo día del servicio antes de que nos retiremos. 6. El cliente declara conocer y aceptar estas condiciones al contratar el servicio.</textarea>
+    </div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📸 Fotos ANTES del trabajo (evidencia de estado previo)</div>
+    <div class="notice notice-amber">⚠️ IMPORTANTE: Estas fotos son su protección legal. Documenten el estado de muebles ANTES de moverlos. Si un cliente reclama daños, estas fotos son su evidencia.</div>
+    <div class="photo-grid" id="foto-grid-cot">
+      <div class="photo-slot" onclick="document.getElementById('file-cot').click()">📷<span>+ Foto</span></div>
+      <div class="photo-slot" onclick="document.getElementById('file-cot').click()">📷<span>+ Foto</span></div>
+      <div class="photo-slot" onclick="document.getElementById('file-cot').click()">📷<span>+ Foto</span></div>
+      <div class="photo-slot" onclick="document.getElementById('file-cot').click()">📷<span>+ Foto</span></div>
+    </div>
+    <input type="file" id="file-cot" accept="image/*" multiple style="display:none" onchange="handlePhotos(event,'cot')">
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="guardarCotizacion()">💾 Guardar Cotización</button>
+    <button class="btn" onclick="previewCotizacion()">👁️ Vista previa PDF</button>
+    <button class="btn" onclick="limpiarForm()">🗑️ Limpiar formulario</button>
+  </div>
+</div>
+
+<!-- ======================== COTIZACIONES ======================== -->
+<div id="tab-cotizaciones" class="tab-content">
+  <div class="section-header">
+    <div class="section-title">📋 Cotizaciones pendientes</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-secondary btn-sm" onclick="sincronizarSolicitudesWeb()" id="btn-sync-web" title="Revisar solicitudes del sitio web">🌐 Solicitudes web</button>
+      <button class="btn btn-primary btn-sm" onclick="showTab('nueva-cot')">➕ Nueva cotización</button>
+    </div>
+  </div>
+  <!-- Solicitudes del sitio web -->
+  <div id="solicitudes-web-section" style="display:none;margin-bottom:20px">
+    <div style="font-size:13px;font-weight:700;color:#143F74;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+      🌐 Solicitudes desde el sitio web <span id="badge-solicitudes-web" style="background:#E24B4A;color:#fff;border-radius:999px;padding:2px 8px;font-size:11px"></span>
+    </div>
+    <div id="lista-solicitudes-web"></div>
+  </div>
+  <div class="search-box-wrap"><span class="search-icon">🔍</span><input type="text" id="buscar-cotizaciones" placeholder="Buscar por número COT o nombre del cliente..." oninput="renderCots()"></div>
+  <div id="lista-cotizaciones">
+    <div class="empty-state"><div class="icon">📋</div><p>No hay cotizaciones pendientes</p></div>
+  </div>
+</div>
+
+<!-- ======================== AGENDA ======================== -->
+<div id="tab-agenda" class="tab-content">
+  <div class="section-header">
+    <div class="section-title">📅 Agenda de trabajos</div>
+  </div>
+  <div class="btn-row" style="margin-bottom:14px">
+    <button class="btn btn-primary btn-sm" id="agenda-view-lista-btn" onclick="cambiarVistaAgenda('lista')">📋 Lista</button>
+    <button class="btn btn-sm" id="agenda-view-cal-btn" onclick="cambiarVistaAgenda('calendario')">📅 Calendario</button>
+  </div>
+  <div class="search-box-wrap"><span class="search-icon">🔍</span><input type="text" id="buscar-agenda" placeholder="Buscar por número COT o nombre del cliente..." oninput="renderAgenda()"></div>
+  <div id="lista-agenda">
+    <div class="empty-state"><div class="icon">📅</div><p>No hay trabajos agendados</p></div>
+  </div>
+  <div id="calendario-agenda" style="display:none">
+    <div class="card">
+      <div class="no-print" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <button class="btn btn-sm" onclick="cambiarMesCalendario(-1)">◀</button>
+        <div style="font-size:17px;font-weight:800" id="cal-mes-titulo-control"></div>
+        <div class="btn-row" style="margin:0">
+          <button class="btn btn-sm" onclick="irHoyCalendario()">Hoy</button>
+          <button class="btn btn-sm" onclick="cambiarMesCalendario(1)">▶</button>
+          <button class="btn btn-primary btn-sm" onclick="imprimirCalendario()">🖨️ Imprimir</button>
+        </div>
+      </div>
+      <div id="cal-mes-titulo-print" style="display:none;font-size:19px;font-weight:800;text-align:center;margin-bottom:10px"></div>
+      <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px"></div>
+      <div class="no-print" style="font-size:12px;color:#888;margin-top:12px">
+        <span class="badge badge-blue">Agendado</span> &nbsp;
+        <span class="badge badge-orange">En trabajo</span> &nbsp;
+        Da clic en un día para agendar un trabajo nuevo, o en un trabajo existente para editarlo.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== TRABAJOS ======================== -->
+<div id="tab-trabajos" class="tab-content">
+  <div class="section-header">
+    <div class="section-title">🚛 Trabajos en proceso</div>
+  </div>
+  <button class="btn btn-primary btn-sm" style="margin-bottom:14px" onclick="revisarCampoManual()">🔄 Revisar app de campo ahora</button>
+  <div class="search-box-wrap"><span class="search-icon">🔍</span><input type="text" id="buscar-trabajos" placeholder="Buscar por número COT o nombre del cliente..." oninput="renderTrabajos()"></div>
+  <div id="lista-trabajos">
+    <div class="empty-state"><div class="icon">🚛</div><p>No hay trabajos en proceso</p></div>
+  </div>
+</div>
+
+<!-- ======================== TERMINADOS ======================== -->
+<div id="tab-terminados" class="tab-content">
+  <div class="export-banner">
+    <h3>📊 Exportar a Microsoft Excel (.xlsx)</h3>
+    <p>Genera un archivo Excel real con múltiples hojas: Trabajos terminados, Cotizaciones, Gasolina, Gastos generales, Ayudantes y Resumen financiero</p>
+    <div class="export-btn-row">
+      <button class="export-btn" onclick="exportarExcel('completo')">📥 Excel completo (todas las hojas)</button>
+      <button class="export-btn" onclick="exportarExcel('terminados')">✅ Solo trabajos terminados</button>
+      <button class="export-btn" onclick="exportarExcel('gastos')">💸 Solo gastos</button>
+    </div>
+  </div>
+  <div class="section-header">
+    <div class="section-title">✅ Historial de trabajos terminados</div>
+    <div id="term-total" style="font-size:14px;font-weight:700;color:#1D9E75"></div>
+  </div>
+  <div class="search-box-wrap"><span class="search-icon">🔍</span><input type="text" id="buscar-terminados" placeholder="Buscar por folio REC, número COT o nombre del cliente..." oninput="buscarTerminadosCambio()"></div>
+  <div id="term-resumen-canal"></div>
+  <div id="lista-terminados">
+    <div class="empty-state"><div class="icon">✅</div><p>Aún no hay trabajos terminados</p></div>
+  </div>
+</div>
+
+<!-- ======================== CANCELADOS ======================== -->
+<div id="tab-cancelados" class="tab-content">
+  <div class="section-header">
+    <div class="section-title">🗑️ Cancelados</div>
+  </div>
+  <div class="notice notice-blue" style="font-size:12.5px;margin-bottom:14px">
+    Aquí queda el historial completo de todo lo que canceles — pero NO cuenta en ningún total, dashboard ni gasto del negocio. Es solo para consulta.
+  </div>
+  <div class="search-box-wrap"><span class="search-icon">🔍</span><input type="text" id="buscar-cancelados" placeholder="Buscar por número COT o nombre del cliente..." oninput="buscarCanceladosCambio()"></div>
+  <div id="lista-cancelados">
+    <div class="empty-state"><div class="icon">🗑️</div><p>No hay trabajos cancelados</p></div>
+  </div>
+</div>
+
+<!-- ======================== GASTOS ======================== -->
+<div id="tab-gastos" class="tab-content">
+  <div class="tabs-inner">
+    <button class="tab-inner-btn active" onclick="showGTab('gasolina',this)">⛽ Gasolina</button>
+    <button class="tab-inner-btn" onclick="showGTab('general',this)">💸 Gastos generales</button>
+    <button class="tab-inner-btn" onclick="showGTab('ayudantes',this)">👷 Ayudantes</button>
+    <button class="tab-inner-btn" onclick="showGTab('sueldos',this)">🧑‍💼 Sueldos / Retiros</button>
+    <button class="tab-inner-btn" onclick="showGTab('capital',this)">🏦 Capital aportado</button>
+    <button class="tab-inner-btn" onclick="showGTab('resumen',this)">📊 Resumen anual</button>
+  </div>
+
+  <div id="gt-gasolina">
+    <div class="card">
+      <div class="card-title">⛽ Registrar gasto de gasolina</div>
+      <div class="form-row four">
+        <div><label>Fecha</label><input type="date" id="g-fecha"></div>
+        <div><label>Monto total ($)</label><input type="number" id="g-monto" placeholder="85.00" step="0.01" oninput="calcGas()"></div>
+        <div><label>Galones</label><input type="number" id="g-galones" placeholder="22" step="0.1" oninput="calcGas()"></div>
+        <div><label>Estación de gasolina</label><input type="text" id="g-estacion" placeholder="Shell, Arco, Chevron..."></div>
+      </div>
+      <div class="form-row">
+        <div><label>Trabajos aproximados con este tanque lleno</label><input type="number" id="g-trabajos" value="4" min="1" max="30" oninput="calcGas()"></div>
+        <div><label>Notas</label><input type="text" id="g-notas" placeholder="Notas opcionales..."></div>
+      </div>
+      <div class="notice notice-blue" id="g-calc">Ingresa el monto para calcular costo por trabajo</div>
+      <button class="btn btn-primary" onclick="guardarGas()">💾 Guardar registro</button>
+    </div>
+    <div id="lista-gas"></div>
+  </div>
+
+  <div id="gt-general" style="display:none">
+    <div class="card">
+      <div class="card-title">💸 Registrar gasto general</div>
+      <div class="form-row">
+        <div><label>Fecha</label><input type="date" id="gg-fecha"></div>
+        <div><label>Categoría del gasto</label>
+          <select id="gg-cat">
+            <option>Materiales y suministros</option>
+            <option>Seguro del vehículo</option>
+            <option>Licencia comercial / DOT</option>
+            <option>Mantenimiento del camión</option>
+            <option>Herramientas y equipo</option>
+            <option>Marketing y publicidad</option>
+            <option>Teléfono / internet</option>
+            <option>Renta / almacén</option>
+            <option>Impuestos</option>
+            <option>Otro</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div><label>Descripción del gasto</label><input type="text" id="gg-desc" placeholder="Cajas de mudanza, cinta de embalaje, etc."></div>
+        <div><label>Monto ($)</label><input type="number" id="gg-monto" placeholder="0.00" step="0.01"></div>
+      </div>
+      <div class="form-row full"><div><label>Comprobante / recibo (opcional)</label><input type="text" id="gg-recibo" placeholder="Número de recibo o referencia"></div></div>
+      <button class="btn btn-primary" onclick="guardarGG()">💾 Guardar gasto</button>
+    </div>
+    <div id="lista-gg"></div>
+  </div>
+
+  <div id="gt-ayudantes" style="display:none">
+    <div class="card">
+      <div class="card-title">👷 Registrar pago a ayudante</div>
+      <div class="notice notice-blue" style="font-size:12px">La tarifa por hora se configura en ⚙️ Configuración. El pago acumulado de la semana se muestra en <strong>Sueldos</strong> (solo referencia, sin duplicarse).</div>
+
+      <!-- RESUMEN PAGO AYUDANTE -->
+      <div style="background:linear-gradient(135deg,#0F4C35,#0a3325);border-radius:12px;padding:16px;margin-bottom:14px;border:1px solid rgba(29,158,117,0.3)">
+        <div style="font-size:13px;font-weight:800;color:#1D9E75;margin-bottom:10px">👷 Pago sugerido — Gelacio esta semana</div>
+        <div id="sueldos-resumen-ayudante" style="font-size:13px;color:rgba(255,255,255,0.7)">Cargando...</div>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+          <div style="flex:1">
+            <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:3px">Tarifa/hora</div>
+            <input type="number" id="sueldo-tarifa-hora" value="23" min="0" step="1"
+              style="width:80px;padding:6px 8px;font-size:14px;font-weight:700;color:#1D9E75;border:1px solid rgba(29,158,117,0.4);border-radius:8px;background:rgba(255,255,255,0.08)"
+              oninput="calcularPagoAyudanteSemana()">
+            <span style="color:rgba(255,255,255,0.5);font-size:12px">/hr</span>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:3px">TOTAL A PAGAR</div>
+            <div id="sueldo-total-ayudante" style="font-size:28px;font-weight:900;color:#1D9E75">$0.00</div>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div><label>Nombre del ayudante</label><input type="text" id="ay-nombre" placeholder="Gelacio Huerta López"></div>
+        <div><label>Tipo de contratación</label>
+          <select id="ay-tipo"><option>Temporal (por trabajo)</option><option>Permanente (empleado)</option></select>
+        </div>
+      </div>
+      <div class="form-row three">
+        <div><label>Fecha de pago</label><input type="date" id="ay-fecha"></div>
+        <div><label>Trabajo asociado (ID)</label><input type="text" id="ay-trabajo" placeholder="COT-001"></div>
+        <div><label>Forma de pago</label><select id="ay-forma-pago"><option>Efectivo</option><option>Zelle</option><option>Cheque</option><option>Otro</option></select></div>
+      </div>
+      <div class="form-row four" style="align-items:end">
+        <div>
+          <label>⏱️ Horas trabajadas</label>
+          <input type="number" id="ay-horas" placeholder="0.0" step="0.25" min="0" oninput="calcAyudanteMonto()">
+          <div style="font-size:11px;color:#888;margin-top:3px">Del cronómetro · ej: 3.5 = 3hr 30min</div>
+        </div>
+        <div>
+          <label>💵 Tarifa/hr (auto)</label>
+          <input type="number" id="ay-tarifa-hr" step="0.50" min="0" oninput="calcAyudanteMonto()" style="color:#1D9E75;font-weight:700">
+          <div style="font-size:11px;color:#888;margin-top:3px">Tomado de Configuración</div>
+        </div>
+        <div>
+          <label>➕ Extra / Bono ($)</label>
+          <input type="number" id="ay-bono" placeholder="0.00" step="0.50" min="0" oninput="calcAyudanteMonto()">
+        </div>
+        <div>
+          <label>💰 Total a pagar</label>
+          <input type="number" id="ay-monto" placeholder="0.00" step="0.01" style="font-weight:700;color:#1D9E75;font-size:15px">
+        </div>
+      </div>
+      <div class="form-row">
+        <div><label>Razón del extra / bono (opcional)</label><input type="text" id="ay-bono-nota" placeholder="Ej: Custodia del camión, escaleras, trabajo pesado..."></div>
+        <div><label>Notas adicionales</label><input type="text" id="ay-notas" placeholder="Notas del trabajo..."></div>
+      </div>
+      <button class="btn btn-primary" onclick="guardarAy()">💾 Guardar pago a ayudante</button>
+    </div>
+    <div id="lista-ay"></div>
+  </div>
+
+  <div id="gt-sueldos" style="display:none">
+    <div class="card">
+      <div class="card-title">🧑‍💼 Registrar sueldo / retiro de utilidades</div>
+      <div class="notice notice-blue">Esto es dinero que TÚ (el dueño) u otro empleado fijo se lleva de las ganancias del negocio. Se muestra separado de los gastos operativos (gasolina, ayudantes por trabajo, materiales), porque no es un costo de operar — es una distribución de la utilidad.</div>
+      <div class="form-row">
+        <div><label>¿Quién retira?</label>
+          <select id="sl-quien"><option>Propietario</option><option>Empleado fijo</option></select>
+        </div>
+        <div><label>Nombre (si es empleado fijo)</label><input type="text" id="sl-nombre" placeholder="Dejar vacío si eres tú"></div>
+      </div>
+      <div class="form-row three">
+        <div><label>Fecha</label><input type="date" id="sl-fecha"></div>
+        <div><label>Monto ($)</label><input type="number" id="sl-monto" placeholder="0.00" step="0.01"></div>
+        <div><label>Forma de pago</label>
+          <select id="sl-pago"><option>Zelle</option><option>Efectivo</option><option>Transferencia</option><option>Cheque</option></select>
+        </div>
+      </div>
+      <div class="form-row full"><div><label>Notas</label><input type="text" id="sl-notas" placeholder="Notas opcionales..."></div></div>
+      <button class="btn btn-primary" onclick="guardarSueldo()">💾 Guardar retiro</button>
+    </div>
+    <div id="lista-sl"></div>
+  </div>
+
+  <div id="gt-capital" style="display:none">
+    <div class="card">
+      <div class="card-title">🏦 Registrar aportación de capital</div>
+      <div class="notice notice-blue" style="margin-bottom:12px">
+        💡 Aquí registras dinero <strong>tuyo personal</strong> que pusiste en el negocio (ahorros, préstamos propios, herencia, etc.). Esto NO es ingreso del negocio — es capital del dueño. Importante para impuestos y para que el IRS no lo cuestione.
+      </div>
+      <div class="form-row">
+        <div><label>Fecha</label><input type="date" id="cap-fecha"></div>
+        <div><label>Monto ($)</label><input type="number" id="cap-monto" placeholder="4000.00" step="0.01" min="0"></div>
+      </div>
+      <div class="form-row">
+        <div><label>Origen del dinero</label>
+          <select id="cap-origen">
+            <option>Ahorros personales (México)</option>
+            <option>Ahorros personales (USA)</option>
+            <option>Préstamo personal (de familiar)</option>
+            <option>Venta de bienes personales</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div><label>Destino / uso</label><input type="text" id="cap-destino" placeholder="Ej: Capital inicial al abrir cuenta de negocios"></div>
+      </div>
+      <div><label>Notas para el contador</label><textarea id="cap-notas" placeholder="Ej: Dinero de ahorros personales acumulados antes de iniciar el negocio. No relacionado con ingresos de Mudanzas Express LA." style="width:100%;border-radius:8px;padding:8px;font-size:13px;min-height:60px"></textarea></div>
+      <button class="btn btn-primary" style="margin-top:10px" onclick="guardarCapital()">💾 Guardar aportación</button>
+    </div>
+    <div id="lista-capital"></div>
+  </div>
+
+  <div id="gt-resumen" style="display:none">
+    <div id="resumen-anual"></div>
+  </div>
+</div>
+
+<!-- ======================== VEHÍCULOS ======================== -->
+<div id="tab-vehiculos" class="tab-content">
+  <div class="section-header">
+    <div class="section-title">🚛 Flota de vehículos</div>
+    <button class="btn btn-primary btn-sm" onclick="abrirModalVehiculo()">➕ Agregar vehículo</button>
+  </div>
+
+  <!-- Odómetro diario -->
+  <div class="card" style="border-left:4px solid #1F5EA8">
+    <div class="card-title">📊 Registro de odómetro diario</div>
+    <div class="notice notice-blue">Registra las millas al inicio y al final del día para llevar el control real de tu flota.</div>
+    <div class="form-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
+      <div>
+        <label>Vehículo</label>
+        <select id="odo-vehiculo"><option value="">— Seleccionar —</option></select>
+      </div>
+      <div><label>Fecha</label><input type="date" id="odo-fecha"></div>
+      <div><label>Millas inicio del día</label><input type="number" id="odo-inicio" placeholder="45230" oninput="calcOdo()"></div>
+      <div><label>Millas fin del día</label><input type="number" id="odo-fin" placeholder="45310" oninput="calcOdo()"></div>
+    </div>
+    <div class="form-row full">
+      <div><label>Notas del día (opcional)</label><input type="text" id="odo-notas" placeholder="Ej: 3 trabajos, ruta completa LA a Pasadena"></div>
+    </div>
+    <div id="odo-calc" class="notice notice-green" style="display:none"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="guardarOdometro()">💾 Guardar registro de millas</button>
+    </div>
+  </div>
+
+  <!-- Lista de vehículos -->
+  <div id="lista-vehiculos-nueva">
+    <div class="empty-state"><div class="icon">🚛</div><p>Sin vehículos registrados. Agrega uno con el botón de arriba.</p></div>
+  </div>
+</div>
+
+<!-- Modal agregar/editar vehículo -->
+<div class="modal-overlay" id="m-vehiculo">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title" id="m-veh-title">🚛 Agregar vehículo</div>
+    <input type="hidden" id="veh-edit-id">
+    <div class="form-row">
+      <div><label>Nombre / Apodo *</label><input type="text" id="veh-nombre" placeholder="Troca Grande"></div>
+      <div><label>Placa *</label><input type="text" id="veh-placa" placeholder="ABC-1234" style="text-transform:uppercase"></div>
+    </div>
+    <div class="form-row three">
+      <div><label>Tipo</label>
+        <select id="veh-tipo">
+          <option>Camión de mudanza</option>
+          <option>Van</option>
+          <option>Pickup</option>
+          <option>Remolque</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <div><label>Año</label><input type="number" id="veh-anio" placeholder="2020" min="1990" max="2030"></div>
+      <div><label>Marca / Modelo</label><input type="text" id="veh-modelo" placeholder="Ford F-650"></div>
+    </div>
+    <div class="form-row">
+      <div><label>🔧 Próximo servicio (en millas totales)</label><input type="number" id="veh-servicio" placeholder="Ej: 50000"></div>
+      <div><label>Millas actuales del odómetro</label><input type="number" id="veh-millas-actuales" placeholder="Ej: 48500"></div>
+    </div>
+    <div class="form-row full"><div><label>Notas</label><textarea id="veh-notas" placeholder="Observaciones del vehículo..." style="min-height:60px"></textarea></div></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="guardarVehiculo()">💾 Guardar</button>
+      <button class="btn" onclick="cerrar('m-vehiculo')">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal historial vehículo -->
+<div class="modal-overlay" id="m-historial-veh">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title" id="m-hist-title">📋 Historial del vehículo</div>
+    <div id="m-hist-content"></div>
+    <div class="btn-row"><button class="btn" onclick="cerrar('m-historial-veh')">✕ Cerrar</button></div>
+  </div>
+</div>
+
+<!-- ======================== GIGS / BROKERS ======================== -->
+<div id="tab-gigs" class="tab-content">
+  <div class="section-header">
+    <div class="section-title">📦 Gigs / Brokers</div>
+    <div id="gigs-total" style="font-size:14px;font-weight:700;color:#1D9E75"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">➕ Registrar gig</div>
+    <div class="form-row">
+      <div><label>Broker / Plataforma</label>
+        <select id="gig-broker">
+          <option>GoShare</option>
+          <option>Curri</option>
+          <option>Dolly</option>
+          <option>Lugg</option>
+          <option>TaskRabbit</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <div><label>Fecha</label><input type="date" id="gig-fecha"></div>
+    </div>
+    <div class="form-row full"><div><label>Origen</label><input type="text" id="gig-origen" placeholder="123 Main St, Los Angeles, CA" autocomplete="off"></div></div>
+    <div class="form-row full"><div><label>Destino</label><input type="text" id="gig-destino" placeholder="456 Oak Ave, Pasadena, CA" autocomplete="off"></div></div>
+    <div class="form-row four">
+      <div><label>Millas recorridas</label><input type="number" id="gig-millas" placeholder="25" step="0.5" min="0"></div>
+      <div><label>Tiempo (horas)</label><input type="number" id="gig-tiempo" placeholder="2.5" step="0.5" min="0"></div>
+      <div><label>Cobrado ($)</label><input type="number" id="gig-cobrado" placeholder="0.00" step="0.01" oninput="calcGig()"></div>
+      <div><label>Propina ($)</label><input type="number" id="gig-propina" placeholder="0.00" step="0.01" oninput="calcGig()"></div>
+    </div>
+    <div class="form-row">
+      <div><label>Vehículo usado</label>
+        <select id="gig-vehiculo"><option value="">— Sin asignar —</option></select>
+      </div>
+      <div><label>Notas</label><input type="text" id="gig-notas" placeholder="Tipo de carga, observaciones..."></div>
+    </div>
+    <div id="gig-calc" class="notice notice-green" style="display:none"></div>
+    <button class="btn btn-primary" onclick="guardarGig()">💾 Guardar gig</button>
+  </div>
+
+  <!-- Resumen por broker -->
+  <div id="gigs-resumen-brokers" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px"></div>
+
+  <!-- Lista de gigs -->
+  <div id="lista-gigs">
+    <div class="empty-state"><div class="icon">📦</div><p>No hay gigs registrados todavía</p></div>
+  </div>
+</div>
+
+<div id="tab-config" class="tab-content">
+  <div class="section-title" style="margin-bottom:16px">⚙️ Configuración</div>
+  <div class="card">
+    <div class="card-title">🔒 Seguridad</div>
+    <div class="form-row">
+      <div><label>PIN de seguridad (para cancelar trabajos terminados)</label><input type="password" id="cfg-pin" placeholder="PIN actual: 1234" maxlength="8"></div>
+      <div><label>Confirmar nuevo PIN</label><input type="password" id="cfg-pin2" placeholder="Repetir PIN"></div>
+    </div>
+    <button class="btn btn-primary" onclick="cambiarPin()">🔒 Cambiar PIN</button>
+  </div>
+  <div class="card">
+    <div class="card-title">🏢 Datos del negocio</div>
+    <div class="form-row">
+      <div><label>Nombre del negocio</label><input type="text" id="cfg-nombre" value="Mudanzas Express LA"></div>
+      <div><label>Teléfono principal</label><input type="tel" id="cfg-tel" value="(323) 946-2008"></div>
+    </div>
+    <div class="form-row">
+      <div><label>Email del negocio</label><input type="email" id="cfg-email" value="mudanzasexpressla@gmail.com"></div>
+      <div><label>Tarifa por milla predeterminada ($)</label><input type="number" id="cfg-milla" value="2.50" step="0.25"></div>
+      <div><label>💵 Tarifa por hora — ayudantes ($/hr)</label><input type="number" id="cfg-tarifa-ayudante" value="22.50" step="0.50" min="0" placeholder="22.50"><div style="font-size:11px;color:#888;margin-top:3px">La app usa este valor para calcular el pago automático al terminar el cronómetro.</div></div>
+    </div>
+    <div class="form-row full"><div>
+      <label>🏠 Dirección de TU CASA (punto de partida para calcular millas)</label>
+      <input type="text" id="cfg-casa" placeholder="Ej: 1234 W 30th St, Los Angeles, CA 90007" autocomplete="off">
+      <div style="font-size:11px;color:#888;margin-top:4px">Se usa para calcular automáticamente las millas desde tu casa al origen del cliente.</div>
+    </div></div>
+    <button class="btn btn-primary" onclick="guardarConfig()">💾 Guardar configuración</button>
+  </div>
+  <div class="card">
+    <div class="card-title">📲 Sincronizar con la app de la troca (Google Drive)</div>
+    <div class="notice notice-blue">Importa automáticamente los registros, fotos del trabajo y fotos de muebles dañados que tu ayudante capturó desde el celular en la troca.</div>
+    <div id="drive-sync-status" style="margin-bottom:12px"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-sync-drive" onclick="sincronizarDrive()">☁️ Sincronizar desde Drive</button>
+      <button class="btn btn-sm" onclick="reimportarTodoDrive()" style="margin-left:8px">🔄 Volver a traer todo desde Drive</button>
+    </div>
+    <div id="drive-sync-log" style="font-size:12px;color:#666;margin-top:10px;line-height:1.6"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">🛟 Respaldo automático en la nube</div>
+    <div class="notice notice-green">Mientras estés conectado a Google Drive, cada vez que guardes algo (cotización, trabajo, gasto), la app sube automáticamente una copia de seguridad a tu Drive. Así nunca dependes solo de este navegador.</div>
+    <div id="backup-status-indicator" style="font-size:13px;font-weight:600;margin-bottom:12px;color:#888">Sin respaldos todavía en esta sesión</div>
+    <div class="btn-row">
+      <button class="btn" onclick="restaurarDesdeDrive()">📥 Restaurar desde Drive</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">💾 Respaldo de datos</div>
+    <div class="notice notice-blue">⚠️ Exporta tus datos regularmente para no perderlos. El archivo JSON contiene TODOS tus registros.</div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="exportarBackup()">📥 Descargar respaldo completo (.json)</button>
+      <button class="btn" onclick="document.getElementById('file-restore').click()">📤 Restaurar desde respaldo</button>
+      <input type="file" id="file-restore" accept=".json" style="display:none" onchange="restaurarBackup(event)">
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title" style="color:#E24B4A">⚠️ Zona de peligro</div>
+    <div class="notice notice-red">Borrar todos los datos es permanente e irreversible. Exporta un respaldo antes de continuar.</div>
+    <button class="btn btn-danger" onclick="borrarTodo()">🗑️ Borrar TODOS los datos</button>
+  </div>
+</div>
+
+<!-- ======================== MODALES ======================== -->
+<div class="modal-overlay" id="m-pin">
+  <div class="modal" style="text-align:center;max-width:380px">
+    <div class="modal-title">🔒 PIN de seguridad requerido</div>
+    <p style="color:#666;font-size:13px;margin-bottom:16px">Este trabajo ya está terminado. Ingresa el PIN para cancelarlo.</p>
+    <input type="password" class="pin-input" id="pin-input" placeholder="••••" maxlength="8">
+    <div id="pin-error" style="color:#E24B4A;font-size:12px;margin-top:8px;min-height:18px"></div>
+    <div class="btn-row" style="justify-content:center;margin-top:14px">
+      <button class="btn btn-primary" onclick="verificarPin()">✓ Confirmar</button>
+      <button class="btn" onclick="cerrar('m-pin')">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="m-agendar">
+  <div class="modal">
+    <div class="modal-title">📅 Agendar este trabajo</div>
+    <div class="notice notice-green">El cliente aceptó. Selecciona fecha y hora para confirmar el servicio.</div>
+    <div class="form-row"><div><label>Fecha del trabajo *</label><input type="date" id="ag-fecha"></div><div><label>Hora de inicio *</label><input type="time" id="ag-hora" value="08:00"></div></div>
+    <div class="form-row full"><div><label>Notas adicionales para este trabajo</label><textarea id="ag-notas" placeholder="Instrucciones especiales, acceso al edificio, estacionamiento..."></textarea></div></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="confirmarAgendar()">✓ Confirmar agenda</button>
+      <button class="btn" onclick="cerrar('m-agendar')">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="m-agendar-rapido">
+  <div class="modal">
+    <div class="modal-title">📅 Agendar trabajo rápido</div>
+    <div class="notice notice-blue">Para un trabajo que ya tienes acordado y quieres poner directo en el calendario. Después puedes editarlo para agregar más detalle.</div>
+    <div class="form-row">
+      <div><label>Fecha *</label><input type="date" id="ar-fecha"></div>
+      <div><label>Hora de inicio</label><input type="time" id="ar-hora" value="08:00"></div>
+    </div>
+    <div class="form-row">
+      <div><label>Nombre del cliente *</label><input type="text" id="ar-nombre" placeholder="Nombre completo"></div>
+      <div><label>Teléfono / WhatsApp</label><input type="text" id="ar-tel" placeholder="(323) 000-0000"></div>
+    </div>
+    <div class="form-row">
+      <div><label>Origen</label><input type="text" id="ar-origen" placeholder="Dirección de origen"></div>
+      <div><label>Destino</label><input type="text" id="ar-destino" placeholder="Dirección de destino"></div>
+    </div>
+    <div class="form-row">
+      <div><label>Monto acordado ($)</label><input type="number" id="ar-monto" placeholder="0.00" step="0.01"></div>
+    </div>
+    <div class="form-row full"><div><label>Notas</label><textarea id="ar-notas" placeholder="Detalles del trabajo..."></textarea></div></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="guardarAgendaRapida()">✓ Agregar al calendario</button>
+      <button class="btn" onclick="cerrar('m-agendar-rapido')">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Cambiar fecha/hora de trabajo agendado o en proceso -->
+<div class="modal-overlay" id="m-cambiar-fecha">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">📅 Cambiar fecha y hora del trabajo</div>
+    <div class="notice notice-blue" style="font-size:12px">Solo cambia la fecha, hora y notas del trabajo. No afecta el monto ni los demás datos.</div>
+    <div class="form-row">
+      <div><label>Nueva fecha *</label><input type="date" id="cf-fecha"></div>
+      <div><label>Nueva hora de inicio *</label><input type="time" id="cf-hora"></div>
+    </div>
+    <div class="form-row full"><div><label>Notas / instrucciones especiales</label><textarea id="cf-notas" placeholder="Instrucciones especiales, acceso al edificio, estacionamiento..." style="min-height:70px"></textarea></div></div>
+    <input type="hidden" id="cf-id">
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="guardarCambioFecha()">💾 Guardar nueva fecha</button>
+      <button class="btn" onclick="cerrar('m-cambiar-fecha')">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="m-terminar">
+  <div class="modal">
+    <div class="modal-title">✅ Registrar trabajo terminado</div>
+    <div class="notice notice-green">Al marcar como terminado se habilitará la generación del recibo PDF oficial.</div>
+
+    <div class="form-row">
+      <div><label>📅 Fecha real del servicio *</label><input type="date" id="tm-fecha-real"></div>
+    </div>
+    <div class="notice notice-blue" style="font-size:12px">Esta es la fecha que se guarda como "Fecha Terminado" en tus reportes. Ajústala si estás capturando un trabajo de días anteriores.</div>
+
+    <div class="card" style="background:var(--bg3);margin-bottom:16px">
+      <div class="card-title">⏱️ Horas trabajadas</div>
+      <div class="notice notice-blue" style="font-size:12px">Base incluida: 3 horas. Cada hora extra se cobra a $35/hr al cliente. El ayudante se paga a $20/hr real + bono de $15 si hubo escaleras o muebles pesados. Usa el cronómetro en la app de campo (modo Ayudante).</div>
+      <div style="display:none">
+        <div id="crono-display">00:00:00</div>
+      </div>
+      <div class="form-row">
+        <div><label>Horas trabajadas (auto o manual)</label><input type="number" id="crono-horas" placeholder="3.0" step="0.1" min="0" oninput="calcResumenTerminar()"></div>
+        <div style="display:flex;align-items:flex-end;gap:8px;padding-bottom:11px"><input type="checkbox" id="crono-dificil" style="width:18px;height:18px" onchange="calcResumenTerminar()"><label for="crono-dificil" style="margin:0">🪜 Hubo escaleras o muebles pesados (bono +$15 al ayudante)</label></div>
+      </div>
+      <div id="crono-extra-cliente" class="notice notice-blue" style="display:none;font-size:13px"></div>
+    </div>
+
+    <div class="form-row">
+      <div><label>Monto FINAL cobrado ($) *</label><input type="number" id="tm-monto" placeholder="0.00" step="0.01" oninput="calcResumenTerminar()"></div>
+      <div><label>Propina recibida ($)</label><input type="number" id="tm-propina" placeholder="0.00" step="0.01" oninput="calcResumenTerminar()"></div>
+    </div>
+    <div class="form-row">
+      <div><label>Forma de pago recibida *</label><select id="tm-pago"><option>Efectivo</option><option>Zelle</option><option>Tarjeta</option><option>Cheque</option></select></div>
+      <div><label>🔖 Referencia / Zelle (importante)</label><input type="text" id="tm-ref" placeholder="Ej: ZL2024-789456"></div>
+    </div>
+    <div class="form-row">
+      <div><label>🚛 Vehículo usado</label>
+        <select id="tm-vehiculo"><option value="">— Sin asignar —</option></select>
+      </div>
+      <div><label>📦 ¿Rentaste camión? (Uhaul, etc.)</label>
+        <select id="tm-rento-vehiculo" onchange="toggleRentaVehiculo()">
+          <option value="no">No</option>
+          <option value="si">Sí, renté camión</option>
+        </select>
+      </div>
+    </div>
+    <div id="tm-renta-wrap" style="display:none">
+      <div class="form-row">
+        <div><label>Tipo de renta (Uhaul 10ft, 15ft...)</label><input type="text" id="tm-renta-tipo" placeholder="Ej: Uhaul 15ft"></div>
+        <div><label>💵 Costo de renta ($)</label><input type="number" id="tm-renta-costo" placeholder="0.00" step="0.01" oninput="calcResumenTerminar()"></div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div><label>👷 ¿Usaste ayudante?</label>
+        <select id="tm-ayudante" onchange="toggleAyudanteFields()">
+          <option value="no">No, trabajé solo</option>
+          <option value="si">Sí, con ayudante</option>
+        </select>
+      </div>
+      <div id="tm-ayudante-monto-wrap"><label>💵 Pago al ayudante ($) — auto: $20/hr + bono, editable</label><input type="number" id="tm-ayudante-monto" placeholder="0.00" step="0.01" oninput="calcResumenTerminar()"></div>
+    </div>
+    <div id="tm-ayudante-extra" style="display:none">
+      <div class="form-row">
+        <div><label>👤 Nombre del ayudante</label><input type="text" id="tm-ayudante-nombre" placeholder="Nombre del ayudante"></div>
+      </div>
+    </div>
+    <div id="tm-resumen" class="notice notice-blue" style="display:none"></div>
+    <div class="form-row full"><div><label>Observaciones finales del trabajo</label><textarea id="tm-obs" placeholder="Estado en que se entregó, incidentes, notas importantes..."></textarea></div></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="confirmarTerminar()">✅ Marcar como terminado</button>
+      <button class="btn" onclick="cerrar('m-terminar')">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════ COTIZACIÓN RÁPIDA ═══════════════ -->
+<div id="tab-cotizacion-rapida" class="tab-content">
+
+  <div style="background:rgba(29,158,117,0.15);border:1px solid rgba(29,158,117,0.3);border-radius:14px;padding:16px 20px;margin-bottom:16px;color:#fff;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="font-size:17px;font-weight:800">⚡ Cotización Rápida</div>
+      <div style="font-size:12px;opacity:.85;margin-top:2px">Captura datos mientras chateas → genera estimado → manda por WhatsApp</div>
+    </div>
+    <button onclick="resetCotRapida()" class="btn" style="background:rgba(255,255,255,0.2);color:#fff;border-color:rgba(255,255,255,0.3);font-size:12px">🔄 Nueva</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+    <!-- COLUMNA IZQUIERDA: datos -->
+    <div>
+
+      <!-- Cliente -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">👤 Cliente</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div><label>Nombre</label><input id="qr-nombre" type="text" placeholder="Juan García" style="font-size:15px;font-weight:600"></div>
+          <div><label>WhatsApp</label><input id="qr-tel" type="tel" placeholder="(323) 000-0000" style="font-size:15px"></div>
+          <div><label>Fecha preferida</label><input id="qr-fecha" type="date"></div>
+          <div><label>Hora</label><input id="qr-hora" type="time" value="08:00"></div>
+        </div>
+      </div>
+
+      <!-- Direcciones -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">📍 Direcciones</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div><label>Origen (recoge)</label><input id="qr-origen" type="text" placeholder="Calle, Ciudad, CA" oninput="qrCalcMillas()"></div>
+          <div><label>Destino (entrega)</label><input id="qr-destino" type="text" placeholder="Calle, Ciudad, CA" oninput="qrCalcMillas()"></div>
+          <button class="btn btn-blue btn-sm" onclick="qrCalcularMillas()">📍 Calcular millas</button>
+          <div id="qr-millas-info" style="display:none;background:#EEF9F4;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;color:#1D9E75"></div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1"><label>Millas</label><input id="qr-millas" type="number" placeholder="15" min="0" step="0.5" oninput="qrCalcTotal()"></div>
+            <div style="flex:1"><label>$/milla</label><input id="qr-tarifa-milla" type="number" value="3.00" step="0.25" oninput="qrCalcTotal()"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tamaño y tipo -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">🏠 Tamaño de mudanza</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="qr-size-btn" onclick="qrSetSize(this,'1mueble')">📦 1-3 piezas</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'estudio')">🏠 Estudio</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'1rec')">🛏️ 1 Recámara</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'2rec')">🛏️🛏️ 2 Recámaras</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'3rec')">🏡 3 Recámaras</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'4rec')">🏘️ 4+ Recámaras</button>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <div style="flex:1"><label>Horas estimadas</label><input id="qr-horas" type="number" value="3" min="1" max="16" step="0.5" oninput="qrCalcTotal()"><div id="qr-horas-sugeridas" style="display:none;font-size:11px;color:#1D9E75;margin-top:4px;font-weight:600"></div></div>
+          <div style="flex:1"><label>Tarifa/hora ($)</label><input id="qr-tarifa-hora" type="number" value="45" min="0" step="5" oninput="qrCalcTotal()"></div>
+        </div>
+      </div>
+
+      <!-- Extras rápidos -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">🔧 Extras</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);cursor:pointer">
+            <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500"><input type="checkbox" id="qr-ayudante" onchange="qrCalcTotal()"> 👷 Ayudante adicional</span>
+            <span style="display:flex;align-items:center;gap:4px;color:#1D9E75;font-weight:700">+$<input type="number" id="qrp-ayudante" value="40" min="0" step="5" style="width:65px;padding:4px 6px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
+          </label>
+          <label style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);cursor:pointer">
+            <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500"><input type="checkbox" id="qr-escaleras" onchange="qrCalcTotal()"> 🪜 Escaleras</span>
+            <span style="display:flex;align-items:center;gap:4px;color:#1D9E75;font-weight:700">+$<input type="number" id="qrp-escaleras" value="20" min="0" step="5" style="width:65px;padding:4px 6px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
+          </label>
+          <div style="background:rgba(255,255,255,0.05);padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1)">
+            <label style="font-size:12px;font-weight:600;margin-bottom:6px;display:block">🚛 Tipo de camion</label>
+            <select id="qr-camion-tipo" onchange="qrCalcTotal()" style="width:100%;font-size:13px;padding:6px 8px">
+              <option value="propio">✅ Mi camion 14 pies (sin costo extra)</option>
+              <option value="uhaul">🚛 U-Haul rentado (+$130)</option>
+              <option value="tacoma">🛻 Solo Tacoma (carga pequeña)</option>
+            </select>
+          </div>
+          <label style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);cursor:pointer">
+            <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500"><input type="checkbox" id="qr-armar" onchange="qrCalcTotal()"> 🛋️ Armar/Desarmar muebles</span>
+            <span style="display:flex;align-items:center;gap:4px;color:#1D9E75;font-weight:700">+$<input type="number" id="qrp-armar" value="20" min="0" step="5" style="width:65px;padding:4px 6px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Artículos rápidos -->
+      <div class="card">
+        <div class="card-title">📋 Artículos principales</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px" id="qr-articulos-grid">
+          <!-- generado por JS -->
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <input id="qr-art-custom" type="text" placeholder="Otro artículo..." style="flex:1;font-size:13px">
+          <button class="btn btn-sm btn-primary" onclick="qrAddCustomArt()">+ Agregar</button>
+        </div>
+        <div id="qr-art-custom-list" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+
+    </div>
+
+    <!-- COLUMNA DERECHA: resumen y acciones -->
+    <div>
+
+      <!-- Precio estimado -->
+      <div class="card" style="margin-bottom:12px;border:1px solid rgba(29,158,117,0.4)">
+        <div class="card-title" style="color:#1D9E75">💰 Estimado</div>
+        <div id="qr-desglose" style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:12px"></div>
+        <div style="background:rgba(29,158,117,0.12);border:1px solid rgba(29,158,117,0.3);border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:13px;color:rgba(29,158,117,0.8);font-weight:600;margin-bottom:4px">TOTAL ESTIMADO</div>
+          <div id="qr-total" style="font-size:36px;font-weight:900;color:#1D9E75">$0.00</div>
+        </div>
+        <div style="margin-top:10px">
+          <label style="font-size:12px;color:var(--ink-soft);font-weight:600">Nota adicional (opcional)</label>
+          <textarea id="qr-nota" rows="2" placeholder="Ej: Precio puede variar si hay más artículos..."></textarea>
+        </div>
+      </div>
+
+      <!-- Mensaje WhatsApp preview -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">💬 Mensaje para WhatsApp</div>
+        <div id="qr-wa-preview" style="background:rgba(255,255,255,0.05);border-radius:10px;padding:14px;font-size:12.5px;line-height:1.7;white-space:pre-wrap;color:var(--ink-soft,#ccc);max-height:320px;overflow-y:auto;border:1px solid rgba(255,255,255,0.1)"></div>
+      </div>
+
+      <!-- Acciones -->
+      <div class="card">
+        <div class="card-title">🚀 Acciones</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;font-size:14px" onclick="qrEnviarWhatsApp()">
+            📲 Enviar por WhatsApp
+          </button>
+          <button class="btn" style="width:100%;justify-content:center;background:#25D366;color:#fff;border-color:#25D366;padding:11px" onclick="qrCopiarMensaje()">
+            📋 Copiar mensaje
+          </button>
+          <button class="btn btn-blue" style="width:100%;justify-content:center;padding:11px" onclick="qrPasarACotizacion()">
+            📄 Pasar a cotización formal (PDF)
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ GALERÍA ═══════════════════════════════ -->
+<div id="tab-galeria" class="tab-content">
+  <div class="section-header">
+    <div class="section-title">📸 Galería de Trabajos</div>
+    <button class="btn btn-primary" onclick="abrirModalFoto()">➕ Agregar Fotos</button>
+  </div>
+
+  <div class="notice notice-blue">
+    Las fotos que subas aquí aparecerán automáticamente en la página web pública. Agrega una nota o descripción para cada trabajo.
+  </div>
+
+  <!-- Filtros -->
+  <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+    <input type="text" id="gal-search" placeholder="🔍 Buscar por descripción..." style="max-width:260px" oninput="renderGaleria()">
+    <select id="gal-filter" onchange="renderGaleria()" style="max-width:180px">
+      <option value="">Todos los trabajos</option>
+      <option value="camion">🚛 Camion</option>
+      <option value="tacoma">🛻 Tacoma</option>
+      <option value="antes">📦 Antes</option>
+      <option value="despues">✅ Despues</option>
+    </select>
+  </div>
+
+  <!-- Grid de fotos -->
+  <div id="gal-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:20px"></div>
+  <p id="gal-empty" style="color:var(--ink-faint);text-align:center;padding:40px;display:none">No hay fotos todavia. ¡Agrega la primera!</p>
+</div>
+
+<!-- MODAL AGREGAR FOTO -->
+<div class="modal-overlay" id="modal-foto">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">📸 Agregar Fotos al Trabajo</div>
+
+    <div class="form-row full">
+      <label>Descripcion / Nota del trabajo</label>
+      <textarea id="gf-desc" rows="3" placeholder="Ej: Mudanza en Bell Gardens, 2 recamaras, cliente muy amable..."></textarea>
+    </div>
+
+    <div class="form-row">
+      <div>
+        <label>Categoria</label>
+        <select id="gf-cat">
+          <option value="camion">🚛 Camion</option>
+          <option value="tacoma">🛻 Tacoma</option>
+          <option value="antes">📦 Antes de cargar</option>
+          <option value="despues">✅ Despues / Entregado</option>
+          <option value="equipo">👷 Equipo trabajando</option>
+        </select>
+      </div>
+      <div>
+        <label>Fecha del trabajo</label>
+        <input type="date" id="gf-fecha">
+      </div>
+    </div>
+
+    <div class="form-row full">
+      <label>Fotos (puedes seleccionar varias)</label>
+      <label style="display:flex;align-items:center;gap:10px;background:#F6F9FD;border:2px dashed var(--brand);border-radius:10px;padding:16px;cursor:pointer;font-weight:600;color:var(--brand)">
+        📷 Seleccionar fotos
+        <input type="file" id="gf-files" accept="image/*" multiple style="display:none" onchange="previsualizarFotos(event)">
+      </label>
+    </div>
+
+    <div id="gf-preview" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin-top:10px"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="guardarFotos()">💾 Guardar fotos</button>
+      <button class="btn" onclick="cerrarModalFoto()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX ADMIN -->
+<div id="admin-lb" onclick="cerrarAdminLB()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
+  <button onclick="cerrarAdminLB()" style="position:fixed;top:16px;right:20px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer">✕</button>
+  <img id="admin-lb-img" src="" style="max-width:90vw;max-height:80vh;border-radius:10px;object-fit:contain">
+  <p id="admin-lb-desc" style="color:#fff;margin-top:12px;font-size:14px;max-width:600px;text-align:center"></p>
+</div>
+
+
+
 <style>
 #app-campo{font-family:Arial,sans-serif;background:#f0f4f2;min-height:100vh}
 #app-campo .campo-header{background:#143F74;padding:16px;text-align:center;color:#fff;position:sticky;top:0;z-index:50}
@@ -7880,6 +9131,81 @@ function imprimirComprobanteHistorico(wkId) {
 
     <br>
     <button class="no-print" onclick="window.print()" style="display:block;margin:0 auto;padding:10px 28px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">🖨️ Imprimir / Guardar PDF</button>
+  </body></html>`);
+  win.document.close();
+}
+
+function toggleAy(id) {
+  const el = document.getElementById(id);
+  const arr = document.getElementById('arr_'+id);
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  if (arr) arr.textContent = open ? '▼' : '▲';
+}
+
+function imprimirComprobanteHistorico2(wkId) {
+  let data;
+  try { data = JSON.parse(localStorage.getItem('wk2_'+wkId)); } catch(e) {}
+  if (!data || !data.items) { alert('Recarga la página e intenta de nuevo.'); return; }
+  const { semana, nombre, items, total } = data;
+
+  const filas = items.map(c => `
+    <tr>
+      <td>${c.id||'—'}</td>
+      <td>${c.cliente&&c.cliente.nombre?c.cliente.nombre:(c.cliente||'—')}</td>
+      <td>${c.fechaTerminadoISO||c.fechaAgendada||'—'}</td>
+      <td style="text-align:center">${c.horasTrabajadas?c.horasTrabajadas.toFixed(1)+'h':'—'}</td>
+      <td style="text-align:right;font-weight:700;color:#c00">$${(c.pagoAyudante||0).toFixed(2)}</td>
+    </tr>`).join('');
+
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Comprobante ${nombre} — ${semana}</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:30px;color:#1a1a1a;max-width:650px;margin:0 auto}
+      h2{font-size:18px;margin-bottom:4px;text-align:center}
+      .sub{color:#555;font-size:12px;margin-bottom:20px;text-align:center}
+      .info-box{background:#f5f5f5;padding:12px 16px;border-radius:8px;margin-bottom:20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:13px}
+      table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px}
+      th{background:#1a1a1a;color:#fff;padding:8px 10px;text-align:left}
+      td{padding:8px 10px;border-bottom:1px solid #eee}
+      .total-row{background:#fff3f3;font-weight:700}
+      .firma-section{display:flex;gap:40px;margin-top:40px}
+      .firma-line{flex:1;border-top:1px solid #333;padding-top:6px;font-size:11px;color:#555;text-align:center}
+      .footer{margin-top:24px;font-size:10px;color:#aaa;text-align:center}
+      @media print{.no-print{display:none}}
+    </style>
+  </head><body>
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:22px">🚚</div>
+      <h2>MUDANZAS EXPRESS LA</h2>
+      <div class="sub">Comprobante de Pago · Ayudante<br>(323) 946-2008 · mudanzasexpressla@gmail.com</div>
+    </div>
+    <div class="info-box">
+      <div><strong>👷 Ayudante:</strong> ${nombre}</div>
+      <div><strong>📅 Semana:</strong> ${semana}</div>
+      <div><strong>📆 Generado:</strong> ${new Date().toLocaleDateString('es-US')}</div>
+    </div>
+    <table>
+      <thead><tr><th>Folio</th><th>Cliente</th><th>Fecha</th><th>Horas</th><th style="text-align:right">Pagado</th></tr></thead>
+      <tbody>
+        ${filas}
+        <tr class="total-row">
+          <td colspan="4" style="padding:10px">TOTAL — ${items.length} trabajo(s)</td>
+          <td style="text-align:right;padding:10px;color:#c00">$${(total||0).toFixed(2)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="firma-section">
+      <div class="firma-line">Recibí conforme<br><br>____________________<br>${nombre}</div>
+      <div class="firma-line">Fecha de pago<br><br>____________________</div>
+      <div class="firma-line">Forma de pago<br><br>____________________</div>
+    </div>
+    <div class="footer">Comprobante interno · Mudanzas Express LA</div>
+    <br>
+    <button class="no-print" onclick="window.print()" style="display:block;margin:0 auto;padding:10px 28px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">🖨️ Imprimir / PDF</button>
   </body></html>`);
   win.document.close();
 }
