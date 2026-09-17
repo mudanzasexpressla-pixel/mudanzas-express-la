@@ -379,12 +379,14 @@ table.data-table tr:hover td{background:#1A2A42!important}
         <label>Tipo de trabajo (ajusta la tarifa base)</label>
         <select id="c-tipo-trabajo" onchange="aplicarTipoTrabajo()">
           <option value="">— Seleccionar tipo —</option>
-          <option value="100">🏠 Estudio / cuarto solo — $100</option>
-          <option value="150">🛏️ 1 Recámara — $150</option>
-          <option value="200">🛏️🛏️ 2 Recámaras — $200</option>
-          <option value="250">🏡 3 Recámaras — $250</option>
-          <option value="320">🏘️ 4+ Recámaras / casa grande — $320</option>
-          <option value="80">🏋️ Labor Loading Only (solo carga, sin camión) — $80</option>
+          <option value="90">📦 1-3 piezas / mueble solo — $90</option>
+          <option value="120">🧊 Refrigerador / artículo pesado — $120</option>
+          <option value="160">🏠 Estudio / cuarto solo — $160</option>
+          <option value="220">🛏️ 1 Recámara — $220</option>
+          <option value="320">🛏️🛏️ 2 Recámaras — $320</option>
+          <option value="420">🏡 3 Recámaras — $420</option>
+          <option value="550">🏘️ 4+ Recámaras / casa grande — $550</option>
+          <option value="190">🏋️ Labor Only 2h (sin camión) — $190</option>
           <option value="0">✏️ Precio libre (escribir manualmente)</option>
         </select>
       </div>
@@ -2585,16 +2587,33 @@ function renderGastos() {
         return mon.toLocaleDateString('es-US',fmt) + ' – ' + sun.toLocaleDateString('es-US',fmt);
       }
 
-      const weeks = {};
-      terminadosAy.sort((a,b)=>(b.fechaTerminadoISO||b.fechaAgendada||'')>(a.fechaTerminadoISO||a.fechaAgendada||'')?1:-1).forEach(c => {
+      // Get unique ayudante names for filter
+      const ayudantesUnicos = [...new Set(terminadosAy.map(c => c.nombreAyudante).filter(Boolean))].sort();
+      const filtroActual = window._filtroAyudante || '';
+
+      ayHtml += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">';
+      ayHtml += '<div style="font-weight:700;font-size:12px;color:#555">📋 Historial por semana</div>';
+      ayHtml += '<select onchange="window._filtroAyudante=this.value;renderGastos()" style="font-size:12px;padding:5px 10px;border-radius:8px;border:1px solid #ccc;background:var(--card,#fff);color:var(--ink,#333)">';
+      ayHtml += '<option value="">👥 Todos los ayudantes</option>';
+      ayudantesUnicos.forEach(n => {
+        ayHtml += '<option value="'+n+'"'+(filtroActual===n?' selected':'')+'>👷 '+n+'</option>';
+      });
+      ayHtml += '</select></div>';
+
+      // Apply filter
+      const terminadosFiltrados = filtroActual
+        ? terminadosAy.filter(c => c.nombreAyudante === filtroActual)
+        : terminadosAy;
+
+      // Regroup with filter applied
+      const weeksFiltradas = {};
+      terminadosFiltrados.sort((a,b)=>(b.fechaTerminadoISO||b.fechaAgendada||'')>(a.fechaTerminadoISO||a.fechaAgendada||'')?1:-1).forEach(c => {
         const wk = getWkKey(c.fechaTerminadoISO || c.fechaAgendada);
-        if (!weeks[wk]) weeks[wk] = [];
-        weeks[wk].push(c);
+        if (!weeksFiltradas[wk]) weeksFiltradas[wk] = [];
+        weeksFiltradas[wk].push(c);
       });
 
-      ayHtml += '<div style="font-weight:700;font-size:12px;color:#555;margin-bottom:12px;margin-top:8px">📋 Historial por semana</div>';
-
-      Object.entries(weeks).forEach(([semana, items]) => {
+      Object.entries(weeksFiltradas).forEach(([semana, items]) => {
         const totalSemana = items.reduce((s,c)=>s+(c.pagoAyudante||0),0);
         const ayNombre = items.find(c=>c.nombreAyudante)?.nombreAyudante || 'Ayudante';
         const wkId = semana.replace(/[^a-z0-9]/gi,'_');
