@@ -127,11 +127,12 @@ table.data-table tr:hover td{background:var(--brand-tint)}
 .status-arrow{color:#C4CDD8;font-size:16px}
 .nav-btn span[id^="badge-"]:empty{display:none}
 
-.qr-size-btn{padding:10px 8px;border:2px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);cursor:pointer;font-size:12px;font-weight:600;transition:.15s;text-align:center}
+.qr-size-btn{padding:10px 8px;border:1px solid rgba(255,255,255,0.15);border-radius:10px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.8);cursor:pointer;font-size:12px;font-weight:600;transition:.15s;text-align:center}
 .qr-size-btn:hover{border-color:#1D9E75;color:#1D9E75}
 .qr-size-btn.active{border-color:#1D9E75;background:#EEF9F4;color:#1D9E75}
 .qr-art-chip{display:inline-flex;align-items:center;gap:5px;background:#EEF9F4;border:1px solid #1D9E75;color:#1D9E75;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600}
 .qr-art-chip button{background:none;border:none;color:#E24B4A;cursor:pointer;font-size:14px;line-height:1;padding:0}
+.nav-btn[onclick*="cotizacion-rapida"]{color:#1D9E75}
 .qr-art-chk{display:flex;align-items:center;gap:6px;background:#F8FAFC;border:1px solid var(--line-soft);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:12px;font-weight:500;transition:.15s}
 .qr-art-chk:hover{border-color:#1D9E75}
 .qr-art-chk input{accent-color:#1D9E75;width:14px;height:14px}
@@ -226,7 +227,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
 
 <nav class="nav">
   <button class="nav-btn active" data-tab="dashboard" onclick="showTab('dashboard')">📊 Dashboard</button>
-  <button class="nav-btn" onclick="showTab('cotizacion-rapida')" style="background:linear-gradient(135deg,#1D9E75,#127453);color:#fff;border-radius:20px;margin:4px">⚡ Cotizar Rápido</button>
+  <button class="nav-btn" onclick="showTab('cotizacion-rapida')">⚡ Cotizar Rápido</button>
 <button class="nav-btn" data-tab="nueva-cot" onclick="showTab('nueva-cot')">➕ Nueva Cotización</button>
   <button class="nav-btn" data-tab="cotizaciones" onclick="showTab('cotizaciones')">📋 Cotizaciones <span id="badge-cot" style="background:#EF9F27;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
   <button class="nav-btn" data-tab="agenda" onclick="showTab('agenda')">📅 Agenda <span id="badge-ag" style="background:#2F74C0;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
@@ -1078,7 +1079,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
 <!-- ═══════════════ COTIZACIÓN RÁPIDA ═══════════════ -->
 <div id="tab-cotizacion-rapida" class="tab-content">
 
-  <div style="background:linear-gradient(135deg,#1D9E75,#127453);border-radius:14px;padding:16px 20px;margin-bottom:16px;color:#fff;display:flex;justify-content:space-between;align-items:center">
+  <div style="background:rgba(29,158,117,0.15);border:1px solid rgba(29,158,117,0.3);border-radius:14px;padding:16px 20px;margin-bottom:16px;color:#fff;display:flex;justify-content:space-between;align-items:center">
     <div>
       <div style="font-size:17px;font-weight:800">⚡ Cotización Rápida</div>
       <div style="font-size:12px;opacity:.85;margin-top:2px">Captura datos mientras chateas → genera estimado → manda por WhatsApp</div>
@@ -1138,15 +1139,15 @@ table.data-table tr:hover td{background:#1A2A42!important}
       <div class="card" style="margin-bottom:12px">
         <div class="card-title">🔧 Extras</div>
         <div style="display:flex;flex-direction:column;gap:8px">
-          <label style="display:flex;align-items:center;justify-content:space-between;background:#F8FAFC;padding:9px 12px;border-radius:8px;border:1px solid var(--line-soft);cursor:pointer">
+          <label style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);cursor:pointer">
             <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500"><input type="checkbox" id="qr-ayudante" onchange="qrCalcTotal()"> 👷 Ayudante adicional</span>
             <span style="display:flex;align-items:center;gap:4px;color:#1D9E75;font-weight:700">+$<input type="number" id="qrp-ayudante" value="40" min="0" step="5" style="width:65px;padding:4px 6px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
           </label>
-          <label style="display:flex;align-items:center;justify-content:space-between;background:#F8FAFC;padding:9px 12px;border-radius:8px;border:1px solid var(--line-soft);cursor:pointer">
+          <label style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);cursor:pointer">
             <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500"><input type="checkbox" id="qr-escaleras" onchange="qrCalcTotal()"> 🪜 Escaleras</span>
             <span style="display:flex;align-items:center;gap:4px;color:#1D9E75;font-weight:700">+$<input type="number" id="qrp-escaleras" value="20" min="0" step="5" style="width:65px;padding:4px 6px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
           </label>
-          <div style="background:#F8FAFC;padding:9px 12px;border-radius:8px;border:1px solid var(--line-soft)">
+          <div style="background:rgba(255,255,255,0.05);padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1)">
             <label style="font-size:12px;font-weight:600;margin-bottom:6px;display:block">🚛 Tipo de camion</label>
             <select id="qr-camion-tipo" onchange="qrCalcTotal()" style="width:100%;font-size:13px;padding:6px 8px">
               <option value="propio">✅ Mi camion 14 pies (sin costo extra)</option>
@@ -1154,7 +1155,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
               <option value="tacoma">🛻 Solo Tacoma (carga pequeña)</option>
             </select>
           </div>
-          <label style="display:flex;align-items:center;justify-content:space-between;background:#F8FAFC;padding:9px 12px;border-radius:8px;border:1px solid var(--line-soft);cursor:pointer">
+          <label style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);cursor:pointer">
             <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500"><input type="checkbox" id="qr-armar" onchange="qrCalcTotal()"> 🛋️ Armar/Desarmar muebles</span>
             <span style="display:flex;align-items:center;gap:4px;color:#1D9E75;font-weight:700">+$<input type="number" id="qrp-armar" value="20" min="0" step="5" style="width:65px;padding:4px 6px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
           </label>
@@ -1180,11 +1181,11 @@ table.data-table tr:hover td{background:#1A2A42!important}
     <div>
 
       <!-- Precio estimado -->
-      <div class="card" style="margin-bottom:12px;border:2px solid #1D9E75">
+      <div class="card" style="margin-bottom:12px;border:1px solid rgba(29,158,117,0.4)">
         <div class="card-title" style="color:#1D9E75">💰 Estimado</div>
-        <div id="qr-desglose" style="font-size:13px;color:var(--ink-soft);margin-bottom:12px"></div>
-        <div style="background:#EEF9F4;border-radius:10px;padding:14px;text-align:center">
-          <div style="font-size:13px;color:#1D9E75;font-weight:600;margin-bottom:4px">TOTAL ESTIMADO</div>
+        <div id="qr-desglose" style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:12px"></div>
+        <div style="background:rgba(29,158,117,0.12);border:1px solid rgba(29,158,117,0.3);border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:13px;color:rgba(29,158,117,0.8);font-weight:600;margin-bottom:4px">TOTAL ESTIMADO</div>
           <div id="qr-total" style="font-size:36px;font-weight:900;color:#1D9E75">$0.00</div>
         </div>
         <div style="margin-top:10px">
@@ -1196,7 +1197,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
       <!-- Mensaje WhatsApp preview -->
       <div class="card" style="margin-bottom:12px">
         <div class="card-title">💬 Mensaje para WhatsApp</div>
-        <div id="qr-wa-preview" style="background:#ECF8F1;border-radius:10px;padding:14px;font-size:12.5px;line-height:1.7;white-space:pre-wrap;color:#1a1a1a;max-height:320px;overflow-y:auto;border:1px solid #c3e6cb"></div>
+        <div id="qr-wa-preview" style="background:rgba(255,255,255,0.05);border-radius:10px;padding:14px;font-size:12.5px;line-height:1.7;white-space:pre-wrap;color:var(--ink-soft,#ccc);max-height:320px;overflow-y:auto;border:1px solid rgba(255,255,255,0.1)"></div>
       </div>
 
       <!-- Acciones -->
