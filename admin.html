@@ -2496,20 +2496,130 @@ function renderGastos() {
   if(ayEl) {
     const ay = d.ay||[];
     const terminadosAy = (d.cots||[]).filter(c=>c.estatus==='terminado' && (c.pagoAyudante||0)>0);
-    const totManual = ay.reduce((a,g)=>a+(g.monto||0),0);
+    const totManual = ay.filter(a=>!a.esAutoComprobante).reduce((a,g)=>a+(g.monto||0),0);
     const totTrab = terminadosAy.reduce((a,c)=>a+(c.pagoAyudante||0),0);
     const tot = totManual + totTrab;
-    let ayHtml = '<div class="card"><div style="font-weight:700;color:#E24B4A;font-size:16px;margin-bottom:12px">Total pagado a ayudantes: $'+tot.toFixed(2)+'</div>';
-    if(terminadosAy.length) {
-      ayHtml += '<div style="font-weight:700;font-size:12px;color:#555;margin-bottom:6px;margin-top:8px">📋 Por trabajo terminado</div>';
-      ayHtml += '<table class="data-table" style="margin-bottom:14px"><thead><tr><th>Trabajo</th><th>Cliente</th><th>Ayudante</th><th>Fecha</th><th>Monto</th></tr></thead><tbody>';
-      ayHtml += terminadosAy.sort((a,b)=>a.fechaAgendada>b.fechaAgendada?-1:1).map(c=>'<tr><td>'+c.id+'</td><td>'+c.cliente.nombre+'</td><td>'+(c.nombreAyudante||'—')+'</td><td>'+(c.fechaAgendada||'')+'</td><td style="color:#E24B4A;font-weight:700">$'+(c.pagoAyudante||0).toFixed(2)+'</td></tr>').join('');
-      ayHtml += '</tbody></table>';
+
+    // Auto-comprobantes from completed jobs
+    const autoComp = ay.filter(a=>a.esAutoComprobante);
+
+    // Group auto-comprobantes by week
+    function getWeekKey(dateStr) {
+      const d2 = new Date(dateStr);
+      const day = d2.getDay();
+      const mon = new Date(d2); mon.setDate(d2.getDate() - (day===0?6:day-1));
+      const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+      return mon.toLocaleDateString('es-US',{month:'short',day:'numeric'}) + ' – ' + sun.toLocaleDateString('es-US',{month:'short',day:'numeric'});
     }
-    if(ay.length) {
+
+    let ayHtml = '<div class="card">';
+
+    // ── COMPROBANTES SEMANALES ─────────────────────────────
+    ayHtml += '<div style="font-weight:800;font-size:15px;color:#1D9E75;margin-bottom:14px">🧾 Comprobantes de pago — Ayudantes</div>';
+
+    if(autoComp.length === 0) {
+      ayHtml += '<div style="color:#999;font-size:13px;padding:12px;background:#f8f9fa;border-radius:8px;margin-bottom:16px">Aún no hay comprobantes. Se generan automáticamente al terminar cada trabajo.</div>';
+    } else {
+      // Group by week
+      const weeks = {};
+      autoComp.forEach(a => {
+        const wk = getWeekKey(a.fecha);
+        if (!weeks[wk]) weeks[wk] = [];
+        weeks[wk].push(a);
+      });
+
+      Object.entries(weeks).reverse().forEach(([semana, items]) => {
+        const totalSemana = items.reduce((s,a)=>s+(a.monto||0),0);
+        const totalHoras = items.reduce((s,a)=>s+(a.horas||0),0);
+        const ayudanteNombre = items[0].nombre;
+
+        ayHtml += `<div style="border:1px solid #1D9E7540;border-radius:12px;overflow:hidden;margin-bottom:14px">
+          <div style="background:#1D9E7515;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:800;font-size:14px">📅 Semana: ${semana}</div>
+              <div style="font-size:12px;color:#555;margin-top:2px">👷 ${ayudanteNombre} · ${items.length} trabajo(s) · ${totalHoras.toFixed(1)} hrs total</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:20px;font-weight:900;color:#1D9E75">$${totalSemana.toFixed(2)}</div>
+              <button onclick="imprimirComprobante('${semana.replace(/'/g,'')}')" style="margin-top:4px;padding:5px 12px;background:#1D9E75;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir</button>
+            </div>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr style="background:#f8f9fa">
+              <th style="padding:8px 12px;text-align:left">Trabajo</th>
+              <th style="padding:8px 12px;text-align:left">Cliente</th>
+              <th style="padding:8px 12px;text-align:center">Horas</th>
+              <th style="padding:8px 12px;text-align:center">Tarifa</th>
+              <th style="padding:8px 12px;text-align:center">Bono</th>
+              <th style="padding:8px 12px;text-align:right">Sugerido</th>
+              <th style="padding:8px 12px;text-align:right">Pagado</th>
+            </tr></thead>
+            <tbody>
+              ${items.map(a=>`<tr style="border-top:1px solid #eee">
+                <td style="padding:8px 12px;font-weight:700">${a.trabajo||'—'}</td>
+                <td style="padding:8px 12px">${a.cliente||'—'}</td>
+                <td style="padding:8px 12px;text-align:center">${(a.horas||0).toFixed(1)}</td>
+                <td style="padding:8px 12px;text-align:center">$${(a.tarifaHr||23).toFixed(0)}/hr</td>
+                <td style="padding:8px 12px;text-align:center;color:#E24B4A">${a.bono?'+$'+a.bono:'—'}</td>
+                <td style="padding:8px 12px;text-align:right;font-weight:700;color:#1D9E75">$${(a.monto||0).toFixed(2)}</td>
+                <td style="padding:8px 12px;text-align:right;color:#E24B4A;font-weight:700">$${(a.pagoReal||0).toFixed(2)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+      });
+    }
+
+    // ── TOTAL Y HISTORIAL ───────────────────────────────────
+    ayHtml += '<div style="font-weight:700;color:#E24B4A;font-size:16px;margin:16px 0 12px">Total pagado a ayudantes: $'+tot.toFixed(2)+'</div>';
+    if(terminadosAy.length) {
+      // Group terminados by week
+      function getWkKey(dateStr) {
+        if (!dateStr) return 'Sin fecha';
+        const d2 = new Date(dateStr);
+        if (isNaN(d2)) return dateStr;
+        const day = d2.getDay();
+        const mon = new Date(d2); mon.setDate(d2.getDate() - (day===0?6:day-1));
+        const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+        const fmt = {month:'short',day:'numeric'};
+        return mon.toLocaleDateString('es-US',fmt) + ' – ' + sun.toLocaleDateString('es-US',fmt);
+      }
+
+      const weeks = {};
+      terminadosAy.sort((a,b)=>(b.fechaTerminadoISO||b.fechaAgendada||'')>(a.fechaTerminadoISO||a.fechaAgendada||'')?1:-1).forEach(c => {
+        const wk = getWkKey(c.fechaTerminadoISO || c.fechaAgendada);
+        if (!weeks[wk]) weeks[wk] = [];
+        weeks[wk].push(c);
+      });
+
+      ayHtml += '<div style="font-weight:700;font-size:12px;color:#555;margin-bottom:12px;margin-top:8px">📋 Historial por semana</div>';
+
+      Object.entries(weeks).forEach(([semana, items]) => {
+        const totalSemana = items.reduce((s,c)=>s+(c.pagoAyudante||0),0);
+        const ayNombre = items.find(c=>c.nombreAyudante)?.nombreAyudante || 'Ayudante';
+        const wkId = semana.replace(/[^a-z0-9]/gi,'_');
+
+        ayHtml += '<div style="border:1px solid rgba(29,158,117,0.3);border-radius:12px;overflow:hidden;margin-bottom:12px">';
+        ayHtml += '<div style="background:rgba(29,158,117,0.1);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">';
+        ayHtml += '<div><div style="font-weight:800;font-size:13px">📅 ' + semana + '</div>';
+        ayHtml += '<div style="font-size:11px;color:#888;margin-top:2px">' + items.length + ' trabajo(s) · ' + ayNombre + '</div></div>';
+        ayHtml += '<div style="text-align:right">';
+        ayHtml += '<div style="font-size:18px;font-weight:900;color:#E24B4A">$' + totalSemana.toFixed(2) + '</div>';
+        ayHtml += '<button onclick="imprimirComprobanteHistorico(\''+wkId+'\')" style="margin-top:4px;padding:4px 12px;background:#1D9E75;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir</button>';
+        ayHtml += '</div></div>';
+        ayHtml += '<table class="data-table"><thead><tr><th>Trabajo</th><th>Cliente</th><th>Ayudante</th><th>Fecha</th><th>Pagado</th></tr></thead><tbody>';
+        ayHtml += items.map(c=>'<tr><td>'+c.id+'</td><td>'+(c.cliente&&c.cliente.nombre?c.cliente.nombre:(c.cliente||''))+'</td><td>'+(c.nombreAyudante||'—')+'</td><td>'+(c.fechaTerminadoISO||c.fechaAgendada||'')+'</td><td style="color:#E24B4A;font-weight:700">$'+(c.pagoAyudante||0).toFixed(2)+'</td></tr>').join('');
+        ayHtml += '</tbody></table></div>';
+
+        // Store week data for printing
+        try { localStorage.setItem('wk_'+wkId, JSON.stringify({semana, items, ayNombre, totalSemana})); } catch(e) {}
+      });
+    }
+    const manualAy = ay.filter(a=>!a.esAutoComprobante);
+    if(manualAy.length) {
       ayHtml += '<div style="font-weight:700;font-size:12px;color:#555;margin-bottom:6px">📝 Pagos manuales adicionales</div>';
       ayHtml += '<table class="data-table"><thead><tr><th>Fecha</th><th>Nombre</th><th>Trabajo</th><th>Monto</th></tr></thead><tbody>';
-      ayHtml += ay.slice().reverse().map(a=>'<tr><td>'+a.fecha+'</td><td><strong>'+a.nombre+'</strong></td><td>'+(a.trabajo||'—')+'</td><td style="color:#E24B4A;font-weight:700">$'+a.monto.toFixed(2)+'</td></tr>').join('');
+      ayHtml += manualAy.slice().reverse().map(a=>'<tr><td>'+a.fecha+'</td><td><strong>'+a.nombre+'</strong></td><td>'+(a.trabajo||'—')+'</td><td style="color:#E24B4A;font-weight:700">$'+a.monto.toFixed(2)+'</td></tr>').join('');
       ayHtml += '</tbody></table>';
     }
     if(!terminadosAy.length && !ay.length) ayHtml += '<div class="empty-state" style="padding:20px"><p>Sin pagos a ayudantes registrados</p></div>';
@@ -3081,6 +3191,38 @@ function confirmarTerminar() {
   cot.horasExtra       = horasExtra;
   cot.cargoExtraHoras  = cargoExtraHoras;
   cot.gananciaReal     = monto + propina - pagoAyudante - rentaCosto;
+
+  // ── AUTO-COMPROBANTE AYUDANTE ──────────────────────────────
+  // Si hubo horas trabajadas, crear registro automático en ayudantes
+  // como comprobante imprimible (no suma a gastos, solo es registro)
+  if (horasTrabajadas > 0 && nombreAyudante && nombreAyudante.trim()) {
+    const tarifa = getCfg().tarifaAyudanteHr || 23;
+    const bono   = huboDificultad ? 15 : 0;
+    const montoSugerido = Math.round(horasTrabajadas * tarifa) + bono;
+    if (!d.ay) d.ay = [];
+    // Solo crear si no existe ya uno para este trabajo
+    const yaExiste = d.ay.some(a => a.trabajo === cot.id && a.esAutoComprobante);
+    if (!yaExiste) {
+      d.ay.push({
+        id: 'AY-AUTO-' + Date.now(),
+        nombre: nombreAyudante,
+        trabajo: cot.id,
+        cliente: cot.cliente || cot.nombre || '',
+        fecha: new Date().toISOString().split('T')[0],
+        horas: horasTrabajadas,
+        tarifaHr: tarifa,
+        bono: bono,
+        bonoNota: huboDificultad ? 'Escaleras / muebles pesados' : '',
+        monto: montoSugerido,
+        pagoReal: pagoAyudante, // lo que realmente se pagó
+        tipo: 'Por trabajo terminado',
+        esAutoComprobante: true,
+        pagadoEnSemana: false
+      });
+    }
+  }
+  // ──────────────────────────────────────────────────────────
+
   // Guardar también pago doble si vino de campo
   if(dc && dc.formaPago2) { cot.formaPago2=dc.formaPago2; cot.montoPago1=dc.montoPago1; cot.montoPago2=dc.montoPago2; cot.refPago2=dc.refPago2||''; }
   const fechaRealVal = document.getElementById('tm-fecha-real') ? document.getElementById('tm-fecha-real').value : '';
@@ -7551,6 +7693,177 @@ function calcularPagoAyudanteSemana() {
 }
 
 // Run when sueldos tab opens
+
+// ══════════════ IMPRIMIR COMPROBANTE AYUDANTE ══════════════
+function imprimirComprobante(semana) {
+  const d = getData();
+  const ay = (d.ay||[]).filter(a => a.esAutoComprobante);
+
+  // Filter by week
+  function getWeekKey(dateStr) {
+    const d2 = new Date(dateStr);
+    const day = d2.getDay();
+    const mon = new Date(d2); mon.setDate(d2.getDate() - (day===0?6:day-1));
+    const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+    return mon.toLocaleDateString('es-US',{month:'short',day:'numeric'}) + ' – ' + sun.toLocaleDateString('es-US',{month:'short',day:'numeric'});
+  }
+
+  const items = ay.filter(a => getWeekKey(a.fecha) === semana);
+  if (!items.length) return;
+
+  const ayudante = items[0].nombre;
+  const totalHoras = items.reduce((s,a)=>s+(a.horas||0),0);
+  const totalMonto = items.reduce((s,a)=>s+(a.monto||0),0);
+  const totalPagado = items.reduce((s,a)=>s+(a.pagoReal||0),0);
+
+  const filas = items.map(a => `
+    <tr>
+      <td>${a.trabajo||'—'}</td>
+      <td>${a.cliente||'—'}</td>
+      <td>${a.fecha||'—'}</td>
+      <td style="text-align:center">${(a.horas||0).toFixed(1)} hrs</td>
+      <td style="text-align:center">$${(a.tarifaHr||23)}/hr${a.bono?' +$'+a.bono+' bono':''}</td>
+      <td style="text-align:right;font-weight:700">$${(a.monto||0).toFixed(2)}</td>
+      <td style="text-align:right;font-weight:700;color:#c00">$${(a.pagoReal||0).toFixed(2)}</td>
+    </tr>`).join('');
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Comprobante — ${ayudante}</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 30px; color: #1a1a1a; max-width: 700px; margin: 0 auto; }
+      h1 { font-size: 20px; margin-bottom: 4px; }
+      .sub { color: #555; font-size: 13px; margin-bottom: 20px; }
+      .info { display: flex; justify-content: space-between; background: #f5f5f5; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th { background: #1a1a1a; color: #fff; padding: 8px 10px; text-align: left; }
+      td { padding: 8px 10px; border-bottom: 1px solid #eee; }
+      .total-row { background: #f0faf5; font-weight: 700; font-size: 15px; }
+      .firma { margin-top: 40px; display: flex; gap: 60px; }
+      .firma-line { flex: 1; border-top: 1px solid #333; padding-top: 6px; font-size: 12px; color: #555; }
+      @media print { button { display: none; } }
+    </style>
+  </head><body>
+    <div style="text-align:center;margin-bottom:20px">
+      <h1>🚚 MUDANZAS EXPRESS LA</h1>
+      <div class="sub">Comprobante de Pago — Ayudante<br>(323) 946-2008 · mudanzasexpressla@gmail.com</div>
+    </div>
+
+    <div class="info">
+      <div><strong>👷 Ayudante:</strong> ${ayudante}</div>
+      <div><strong>📅 Semana:</strong> ${semana}</div>
+      <div><strong>Generado:</strong> ${new Date().toLocaleDateString('es-US')}</div>
+    </div>
+
+    <table>
+      <thead><tr>
+        <th>Trabajo</th><th>Cliente</th><th>Fecha</th><th>Horas</th><th>Tarifa</th><th>Sugerido</th><th>Pagado</th>
+      </tr></thead>
+      <tbody>
+        ${filas}
+        <tr class="total-row">
+          <td colspan="3">TOTALES</td>
+          <td style="text-align:center">${totalHoras.toFixed(1)} hrs</td>
+          <td></td>
+          <td style="text-align:right">$${totalMonto.toFixed(2)}</td>
+          <td style="text-align:right;color:#c00">$${totalPagado.toFixed(2)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="firma">
+      <div class="firma-line">Firma del ayudante: __________________</div>
+      <div class="firma-line">Fecha de pago: __________________</div>
+      <div class="firma-line">Forma de pago: __________________</div>
+    </div>
+
+    <div style="margin-top:30px;font-size:11px;color:#999;text-align:center">
+      Este comprobante es solo de referencia interna · Mudanzas Express LA
+    </div>
+
+    <br><button onclick="window.print()" style="padding:10px 24px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">🖨️ Imprimir</button>
+  </body></html>`);
+  win.document.close();
+}
+
+
+// ══════════ IMPRIMIR COMPROBANTE HISTÓRICO (trabajos anteriores) ══════════
+function imprimirComprobanteHistorico(wkId) {
+  let data;
+  try { data = JSON.parse(localStorage.getItem('wk_'+wkId)); } catch(e) {}
+  if (!data) { alert('No se encontraron datos. Recarga la página e intenta de nuevo.'); return; }
+
+  const { semana, items, ayNombre, totalSemana } = data;
+
+  const filas = items.map(c => `
+    <tr>
+      <td>${c.id||'—'}</td>
+      <td>${c.cliente&&c.cliente.nombre?c.cliente.nombre:(c.cliente||'—')}</td>
+      <td>${c.fechaTerminadoISO||c.fechaAgendada||'—'}</td>
+      <td style="text-align:right;font-weight:700;color:#c00">$${(c.pagoAyudante||0).toFixed(2)}</td>
+    </tr>`).join('');
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Comprobante — ${ayNombre} — ${semana}</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:30px;color:#1a1a1a;max-width:650px;margin:0 auto}
+      h2{font-size:18px;margin-bottom:4px}
+      .sub{color:#555;font-size:12px;margin-bottom:20px}
+      .info-box{background:#f5f5f5;padding:12px 16px;border-radius:8px;margin-bottom:20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+      .info-box div{font-size:13px}
+      table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px}
+      th{background:#1a1a1a;color:#fff;padding:8px 10px;text-align:left}
+      td{padding:8px 10px;border-bottom:1px solid #eee}
+      .total-row{background:#fff3f3;font-weight:700;font-size:15px}
+      .firma-section{display:flex;gap:40px;margin-top:40px}
+      .firma-line{flex:1;border-top:1px solid #333;padding-top:6px;font-size:11px;color:#555;text-align:center}
+      .footer{margin-top:24px;font-size:10px;color:#aaa;text-align:center}
+      @media print{.no-print{display:none}}
+    </style>
+  </head><body>
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:22px">🚚</div>
+      <h2>MUDANZAS EXPRESS LA</h2>
+      <div class="sub">Comprobante de Pago · Ayudante<br>(323) 946-2008 · mudanzasexpressla@gmail.com</div>
+    </div>
+
+    <div class="info-box">
+      <div><strong>👷 Ayudante:</strong> ${ayNombre}</div>
+      <div><strong>📅 Semana:</strong> ${semana}</div>
+      <div><strong>📆 Generado:</strong> ${new Date().toLocaleDateString('es-US')}</div>
+    </div>
+
+    <table>
+      <thead><tr>
+        <th>Folio</th><th>Cliente</th><th>Fecha</th><th style="text-align:right">Pagado</th>
+      </tr></thead>
+      <tbody>
+        ${filas}
+        <tr class="total-row">
+          <td colspan="3" style="padding:10px">TOTAL SEMANA — ${items.length} trabajo(s)</td>
+          <td style="text-align:right;padding:10px;color:#c00">$${totalSemana.toFixed(2)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="firma-section">
+      <div class="firma-line">Recibí conforme<br><br>____________________<br>${ayNombre}</div>
+      <div class="firma-line">Fecha de pago<br><br>____________________</div>
+      <div class="firma-line">Forma de pago<br><br>____________________ </div>
+    </div>
+
+    <div class="footer">
+      Comprobante interno · Mudanzas Express LA · Este documento confirma el pago al ayudante por los trabajos de la semana indicada.
+    </div>
+
+    <br>
+    <button class="no-print" onclick="window.print()" style="display:block;margin:0 auto;padding:10px 28px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">🖨️ Imprimir / Guardar PDF</button>
+  </body></html>`);
+  win.document.close();
+}
 </script>
 </body>
 </html>
