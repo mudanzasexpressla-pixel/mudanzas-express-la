@@ -126,6 +126,19 @@ table.data-table tr:hover td{background:var(--brand-tint)}
 .status-step.pending{background:#F1F3F6;color:var(--ink-faint);border-color:var(--line)}
 .status-arrow{color:#C4CDD8;font-size:16px}
 .nav-btn span[id^="badge-"]:empty{display:none}
+
+.qr-size-btn{padding:10px 8px;border:2px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);cursor:pointer;font-size:12px;font-weight:600;transition:.15s;text-align:center}
+.qr-size-btn:hover{border-color:#1D9E75;color:#1D9E75}
+.qr-size-btn.active{border-color:#1D9E75;background:#EEF9F4;color:#1D9E75}
+.qr-art-chip{display:inline-flex;align-items:center;gap:5px;background:#EEF9F4;border:1px solid #1D9E75;color:#1D9E75;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.qr-art-chip button{background:none;border:none;color:#E24B4A;cursor:pointer;font-size:14px;line-height:1;padding:0}
+.qr-art-chk{display:flex;align-items:center;gap:6px;background:#F8FAFC;border:1px solid var(--line-soft);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:12px;font-weight:500;transition:.15s}
+.qr-art-chk:hover{border-color:#1D9E75}
+.qr-art-chk input{accent-color:#1D9E75;width:14px;height:14px}
+.qr-art-chk.checked{background:#EEF9F4;border-color:#1D9E75;color:#1D9E75}
+@media(max-width:700px){
+  #tab-cotizacion-rapida > div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+}
 </style>
 
 <style id="dark-style" disabled>
@@ -213,7 +226,8 @@ table.data-table tr:hover td{background:#1A2A42!important}
 
 <nav class="nav">
   <button class="nav-btn active" data-tab="dashboard" onclick="showTab('dashboard')">📊 Dashboard</button>
-  <button class="nav-btn" data-tab="nueva-cot" onclick="showTab('nueva-cot')">➕ Nueva Cotización</button>
+  <button class="nav-btn" onclick="showTab('cotizacion-rapida')" style="background:linear-gradient(135deg,#1D9E75,#127453);color:#fff;border-radius:20px;margin:4px">⚡ Cotizar Rápido</button>
+<button class="nav-btn" data-tab="nueva-cot" onclick="showTab('nueva-cot')">➕ Nueva Cotización</button>
   <button class="nav-btn" data-tab="cotizaciones" onclick="showTab('cotizaciones')">📋 Cotizaciones <span id="badge-cot" style="background:#EF9F27;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
   <button class="nav-btn" data-tab="agenda" onclick="showTab('agenda')">📅 Agenda <span id="badge-ag" style="background:#2F74C0;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
   <button class="nav-btn" data-tab="trabajos" onclick="showTab('trabajos')">🚛 Trabajos <span id="badge-trab" style="background:#EF9F27;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
@@ -222,6 +236,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <button class="nav-btn" data-tab="gastos" onclick="showTab('gastos')">💰 Gastos</button>
   <button class="nav-btn" data-tab="vehiculos" onclick="showTab('vehiculos')">🚛 Vehículos</button>
   <button class="nav-btn" data-tab="gigs" onclick="showTab('gigs')">📦 Gigs/Brokers <span id="badge-gigs" style="background:#2F74C0;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
+<button class="nav-btn" onclick="showTab('galeria')">📸 Galería</button>
   <button class="nav-btn" data-tab="config" onclick="showTab('config')">⚙️ Configuración</button>
 </nav>
 
@@ -1058,6 +1073,231 @@ table.data-table tr:hover td{background:#1A2A42!important}
     </div>
   </div>
 </div>
+
+
+<!-- ═══════════════ COTIZACIÓN RÁPIDA ═══════════════ -->
+<div id="tab-cotizacion-rapida" class="tab-content">
+
+  <div style="background:linear-gradient(135deg,#1D9E75,#127453);border-radius:14px;padding:16px 20px;margin-bottom:16px;color:#fff;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="font-size:17px;font-weight:800">⚡ Cotización Rápida</div>
+      <div style="font-size:12px;opacity:.85;margin-top:2px">Captura datos mientras chateas → genera estimado → manda por WhatsApp</div>
+    </div>
+    <button onclick="resetCotRapida()" class="btn" style="background:rgba(255,255,255,0.2);color:#fff;border-color:rgba(255,255,255,0.3);font-size:12px">🔄 Nueva</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+    <!-- COLUMNA IZQUIERDA: datos -->
+    <div>
+
+      <!-- Cliente -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">👤 Cliente</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div><label>Nombre</label><input id="qr-nombre" type="text" placeholder="Juan García" style="font-size:15px;font-weight:600"></div>
+          <div><label>WhatsApp</label><input id="qr-tel" type="tel" placeholder="(323) 000-0000" style="font-size:15px"></div>
+          <div><label>Fecha preferida</label><input id="qr-fecha" type="date"></div>
+          <div><label>Hora</label><input id="qr-hora" type="time" value="08:00"></div>
+        </div>
+      </div>
+
+      <!-- Direcciones -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">📍 Direcciones</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div><label>Origen (recoge)</label><input id="qr-origen" type="text" placeholder="Calle, Ciudad, CA" oninput="qrCalcMillas()"></div>
+          <div><label>Destino (entrega)</label><input id="qr-destino" type="text" placeholder="Calle, Ciudad, CA" oninput="qrCalcMillas()"></div>
+          <button class="btn btn-blue btn-sm" onclick="qrCalcularMillas()">📍 Calcular millas</button>
+          <div id="qr-millas-info" style="display:none;background:#EEF9F4;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;color:#1D9E75"></div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1"><label>Millas</label><input id="qr-millas" type="number" placeholder="15" min="0" step="0.5" oninput="qrCalcTotal()"></div>
+            <div style="flex:1"><label>$/milla</label><input id="qr-tarifa-milla" type="number" value="3.00" step="0.25" oninput="qrCalcTotal()"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tamaño y tipo -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">🏠 Tamaño de mudanza</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="qr-size-btn" onclick="qrSetSize(this,'1mueble')">📦 1-3 piezas</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'estudio')">🏠 Estudio</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'1rec')">🛏️ 1 Recámara</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'2rec')">🛏️🛏️ 2 Recámaras</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'3rec')">🏡 3 Recámaras</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'4rec')">🏘️ 4+ Recámaras</button>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <div style="flex:1"><label>Horas estimadas</label><input id="qr-horas" type="number" value="3" min="1" max="16" step="0.5" oninput="qrCalcTotal()"><div id="qr-horas-sugeridas" style="display:none;font-size:11px;color:#1D9E75;margin-top:4px;font-weight:600"></div></div>
+          <div style="flex:1"><label>Tarifa/hora ($)</label><input id="qr-tarifa-hora" type="number" value="45" min="0" step="5" oninput="qrCalcTotal()"></div>
+        </div>
+      </div>
+
+      <!-- Extras rápidos -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">🔧 Extras</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label style="display:flex;align-items:center;justify-content:space-between;background:#F8FAFC;padding:9px 12px;border-radius:8px;border:1px solid var(--line-soft);cursor:pointer">
+            <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500"><input type="checkbox" id="qr-ayudante" onchange="qrCalcTotal()"> 👷 Ayudante adicional</span>
+            <span style="display:flex;align-items:center;gap:4px;color:#1D9E75;font-weight:700">+$<input type="number" id="qrp-ayudante" value="40" min="0" step="5" style="width:65px;padding:4px 6px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
+          </label>
+          <label style="display:flex;align-items:center;justify-content:space-between;background:#F8FAFC;padding:9px 12px;border-radius:8px;border:1px solid var(--line-soft);cursor:pointer">
+            <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500"><input type="checkbox" id="qr-escaleras" onchange="qrCalcTotal()"> 🪜 Escaleras</span>
+            <span style="display:flex;align-items:center;gap:4px;color:#1D9E75;font-weight:700">+$<input type="number" id="qrp-escaleras" value="20" min="0" step="5" style="width:65px;padding:4px 6px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
+          </label>
+          <div style="background:#F8FAFC;padding:9px 12px;border-radius:8px;border:1px solid var(--line-soft)">
+            <label style="font-size:12px;font-weight:600;margin-bottom:6px;display:block">🚛 Tipo de camion</label>
+            <select id="qr-camion-tipo" onchange="qrCalcTotal()" style="width:100%;font-size:13px;padding:6px 8px">
+              <option value="propio">✅ Mi camion 14 pies (sin costo extra)</option>
+              <option value="uhaul">🚛 U-Haul rentado (+$130)</option>
+              <option value="tacoma">🛻 Solo Tacoma (carga pequeña)</option>
+            </select>
+          </div>
+          <label style="display:flex;align-items:center;justify-content:space-between;background:#F8FAFC;padding:9px 12px;border-radius:8px;border:1px solid var(--line-soft);cursor:pointer">
+            <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500"><input type="checkbox" id="qr-armar" onchange="qrCalcTotal()"> 🛋️ Armar/Desarmar muebles</span>
+            <span style="display:flex;align-items:center;gap:4px;color:#1D9E75;font-weight:700">+$<input type="number" id="qrp-armar" value="20" min="0" step="5" style="width:65px;padding:4px 6px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Artículos rápidos -->
+      <div class="card">
+        <div class="card-title">📋 Artículos principales</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px" id="qr-articulos-grid">
+          <!-- generado por JS -->
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <input id="qr-art-custom" type="text" placeholder="Otro artículo..." style="flex:1;font-size:13px">
+          <button class="btn btn-sm btn-primary" onclick="qrAddCustomArt()">+ Agregar</button>
+        </div>
+        <div id="qr-art-custom-list" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+
+    </div>
+
+    <!-- COLUMNA DERECHA: resumen y acciones -->
+    <div>
+
+      <!-- Precio estimado -->
+      <div class="card" style="margin-bottom:12px;border:2px solid #1D9E75">
+        <div class="card-title" style="color:#1D9E75">💰 Estimado</div>
+        <div id="qr-desglose" style="font-size:13px;color:var(--ink-soft);margin-bottom:12px"></div>
+        <div style="background:#EEF9F4;border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:13px;color:#1D9E75;font-weight:600;margin-bottom:4px">TOTAL ESTIMADO</div>
+          <div id="qr-total" style="font-size:36px;font-weight:900;color:#1D9E75">$0.00</div>
+        </div>
+        <div style="margin-top:10px">
+          <label style="font-size:12px;color:var(--ink-soft);font-weight:600">Nota adicional (opcional)</label>
+          <textarea id="qr-nota" rows="2" placeholder="Ej: Precio puede variar si hay más artículos..."></textarea>
+        </div>
+      </div>
+
+      <!-- Mensaje WhatsApp preview -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">💬 Mensaje para WhatsApp</div>
+        <div id="qr-wa-preview" style="background:#ECF8F1;border-radius:10px;padding:14px;font-size:12.5px;line-height:1.7;white-space:pre-wrap;color:#1a1a1a;max-height:320px;overflow-y:auto;border:1px solid #c3e6cb"></div>
+      </div>
+
+      <!-- Acciones -->
+      <div class="card">
+        <div class="card-title">🚀 Acciones</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;font-size:14px" onclick="qrEnviarWhatsApp()">
+            📲 Enviar por WhatsApp
+          </button>
+          <button class="btn" style="width:100%;justify-content:center;background:#25D366;color:#fff;border-color:#25D366;padding:11px" onclick="qrCopiarMensaje()">
+            📋 Copiar mensaje
+          </button>
+          <button class="btn btn-blue" style="width:100%;justify-content:center;padding:11px" onclick="qrPasarACotizacion()">
+            📄 Pasar a cotización formal (PDF)
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ GALERÍA ═══════════════════════════════ -->
+<div id="tab-galeria" class="tab-content">
+  <div class="section-header">
+    <div class="section-title">📸 Galería de Trabajos</div>
+    <button class="btn btn-primary" onclick="abrirModalFoto()">➕ Agregar Fotos</button>
+  </div>
+
+  <div class="notice notice-blue">
+    Las fotos que subas aquí aparecerán automáticamente en la página web pública. Agrega una nota o descripción para cada trabajo.
+  </div>
+
+  <!-- Filtros -->
+  <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+    <input type="text" id="gal-search" placeholder="🔍 Buscar por descripción..." style="max-width:260px" oninput="renderGaleria()">
+    <select id="gal-filter" onchange="renderGaleria()" style="max-width:180px">
+      <option value="">Todos los trabajos</option>
+      <option value="camion">🚛 Camion</option>
+      <option value="tacoma">🛻 Tacoma</option>
+      <option value="antes">📦 Antes</option>
+      <option value="despues">✅ Despues</option>
+    </select>
+  </div>
+
+  <!-- Grid de fotos -->
+  <div id="gal-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:20px"></div>
+  <p id="gal-empty" style="color:var(--ink-faint);text-align:center;padding:40px;display:none">No hay fotos todavia. ¡Agrega la primera!</p>
+</div>
+
+<!-- MODAL AGREGAR FOTO -->
+<div class="modal-overlay" id="modal-foto">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">📸 Agregar Fotos al Trabajo</div>
+
+    <div class="form-row full">
+      <label>Descripcion / Nota del trabajo</label>
+      <textarea id="gf-desc" rows="3" placeholder="Ej: Mudanza en Bell Gardens, 2 recamaras, cliente muy amable..."></textarea>
+    </div>
+
+    <div class="form-row">
+      <div>
+        <label>Categoria</label>
+        <select id="gf-cat">
+          <option value="camion">🚛 Camion</option>
+          <option value="tacoma">🛻 Tacoma</option>
+          <option value="antes">📦 Antes de cargar</option>
+          <option value="despues">✅ Despues / Entregado</option>
+          <option value="equipo">👷 Equipo trabajando</option>
+        </select>
+      </div>
+      <div>
+        <label>Fecha del trabajo</label>
+        <input type="date" id="gf-fecha">
+      </div>
+    </div>
+
+    <div class="form-row full">
+      <label>Fotos (puedes seleccionar varias)</label>
+      <label style="display:flex;align-items:center;gap:10px;background:#F6F9FD;border:2px dashed var(--brand);border-radius:10px;padding:16px;cursor:pointer;font-weight:600;color:var(--brand)">
+        📷 Seleccionar fotos
+        <input type="file" id="gf-files" accept="image/*" multiple style="display:none" onchange="previsualizarFotos(event)">
+      </label>
+    </div>
+
+    <div id="gf-preview" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin-top:10px"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="guardarFotos()">💾 Guardar fotos</button>
+      <button class="btn" onclick="cerrarModalFoto()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX ADMIN -->
+<div id="admin-lb" onclick="cerrarAdminLB()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
+  <button onclick="cerrarAdminLB()" style="position:fixed;top:16px;right:20px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer">✕</button>
+  <img id="admin-lb-img" src="" style="max-width:90vw;max-height:80vh;border-radius:10px;object-fit:contain">
+  <p id="admin-lb-desc" style="color:#fff;margin-top:12px;font-size:14px;max-width:600px;text-align:center"></p>
+</div>
+
 
 <script>
 // ===================== STORAGE =====================
@@ -6651,6 +6891,524 @@ window.addEventListener('load', () => {
   }
 });
 
+
+
+// ═══════════════════════ GALERÍA JS ═══════════════════════
+
+let galeriaFotos = JSON.parse(localStorage.getItem('gal_fotos') || '[]');
+let pendingFotos = []; // base64 images pending save
+
+function abrirModalFoto() {
+  document.getElementById('modal-foto').classList.add('open');
+  document.getElementById('gf-fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('gf-preview').innerHTML = '';
+  document.getElementById('gf-desc').value = '';
+  pendingFotos = [];
+}
+
+function cerrarModalFoto() {
+  document.getElementById('modal-foto').classList.remove('open');
+  pendingFotos = [];
+}
+
+function previsualizarFotos(e) {
+  const files = Array.from(e.target.files);
+  const preview = document.getElementById('gf-preview');
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      // Compress image
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 900;
+        let w = img.width, h = img.height;
+        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const b64 = canvas.toDataURL('image/jpeg', 0.72);
+        pendingFotos.push(b64);
+        const imgEl = document.createElement('img');
+        imgEl.src = b64;
+        imgEl.style.cssText = 'width:100%;height:80px;object-fit:cover;border-radius:8px;border:2px solid var(--brand)';
+        preview.appendChild(imgEl);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function guardarFotos() {
+  if (pendingFotos.length === 0) { alert('Selecciona al menos una foto'); return; }
+  const desc = document.getElementById('gf-desc').value.trim();
+  const cat = document.getElementById('gf-cat').value;
+  const fecha = document.getElementById('gf-fecha').value;
+
+  pendingFotos.forEach(b64 => {
+    galeriaFotos.unshift({
+      id: Date.now() + Math.random(),
+      src: b64,
+      desc,
+      cat,
+      fecha,
+      visible: true
+    });
+  });
+
+  localStorage.setItem('gal_fotos', JSON.stringify(galeriaFotos));
+  cerrarModalFoto();
+  renderGaleria();
+  alert('✅ ' + pendingFotos.length + ' foto(s) guardada(s)!');
+}
+
+function renderGaleria() {
+  const grid = document.getElementById('gal-grid');
+  const empty = document.getElementById('gal-empty');
+  const search = (document.getElementById('gal-search').value || '').toLowerCase();
+  const filter = document.getElementById('gal-filter').value;
+
+  let fotos = galeriaFotos.filter(f => {
+    const matchSearch = !search || (f.desc || '').toLowerCase().includes(search);
+    const matchFilter = !filter || f.cat === filter;
+    return matchSearch && matchFilter;
+  });
+
+  if (fotos.length === 0) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const catLabels = { camion:'🚛 Camion', tacoma:'🛻 Tacoma', antes:'📦 Antes', despues:'✅ Despues', equipo:'👷 Equipo' };
+
+  grid.innerHTML = fotos.map(f => `
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(16,24,40,.07)">
+      <div style="position:relative">
+        <img src="${f.src}" onclick="abrirAdminLB('${f.id}')" style="width:100%;height:170px;object-fit:cover;cursor:pointer;display:block">
+        <span style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.6);color:#fff;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700">${catLabels[f.cat] || f.cat}</span>
+        <button onclick="eliminarFoto('${f.id}')" style="position:absolute;top:6px;right:6px;background:rgba(226,75,74,0.9);border:none;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">✕</button>
+      </div>
+      <div style="padding:10px">
+        <p style="font-size:12px;color:var(--ink-soft);margin-bottom:4px">${f.fecha || ''}</p>
+        <p style="font-size:13px;color:var(--ink);line-height:1.5">${f.desc || '<em style="color:var(--ink-faint)">Sin descripcion</em>'}</p>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;cursor:pointer">
+          <input type="checkbox" ${f.visible ? 'checked' : ''} onchange="toggleVisible('${f.id}', this.checked)" style="accent-color:var(--brand)">
+          Visible en web publica
+        </label>
+      </div>
+    </div>
+  `).join('');
+}
+
+function eliminarFoto(id) {
+  if (!confirm('¿Eliminar esta foto?')) return;
+  galeriaFotos = galeriaFotos.filter(f => String(f.id) !== String(id));
+  localStorage.setItem('gal_fotos', JSON.stringify(galeriaFotos));
+  renderGaleria();
+}
+
+function toggleVisible(id, visible) {
+  galeriaFotos = galeriaFotos.map(f => String(f.id) === String(id) ? {...f, visible} : f);
+  localStorage.setItem('gal_fotos', JSON.stringify(galeriaFotos));
+}
+
+function abrirAdminLB(id) {
+  const foto = galeriaFotos.find(f => String(f.id) === String(id));
+  if (!foto) return;
+  document.getElementById('admin-lb-img').src = foto.src;
+  document.getElementById('admin-lb-desc').textContent = foto.desc || '';
+  const lb = document.getElementById('admin-lb');
+  lb.style.display = 'flex';
+}
+
+function cerrarAdminLB() {
+  document.getElementById('admin-lb').style.display = 'none';
+}
+
+// Render galeria when tab opens
+const _origShowTab = typeof showTab === 'function' ? showTab : null;
+
+
+// ═══════════════════ COTIZACIÓN RÁPIDA JS ═══════════════════
+
+const QR_ARTICULOS = [
+  {label:'🛋️ Sofa 3pl',v:'Sofa 3 plazas'},{label:'🛋️ Sofa 2pl',v:'Sofa 2 plazas'},
+  {label:'🛏️ Cama King',v:'Cama King'},{label:'🛏️ Cama Queen',v:'Cama Queen'},
+  {label:'🛏️ Cama Full',v:'Cama Full/Twin'},{label:'🛏️ Colchon',v:'Colchon solo'},
+  {label:'🧊 Refrigerador',v:'Refrigerador'},{label:'🍳 Estufa',v:'Estufa'},
+  {label:'🫧 Lavadora',v:'Lavadora'},{label:'🌀 Secadora',v:'Secadora'},
+  {label:'❄️ Freezer',v:'Freezer'},{label:'🪞 Dresser',v:'Tocador / Dresser'},
+  {label:'🚪 Closet',v:'Closet / Ropero'},{label:'📺 TV',v:'Television'},
+  {label:'📦 Cajas 1-10',v:'Cajas (1-10)'},{label:'📦 Cajas 10-30',v:'Cajas (10-30)'},
+  {label:'📦 Cajas 30+',v:'Cajas (30+)'},{label:'🖥️ Escritorio',v:'Escritorio'},
+  {label:'🪑 Comedor',v:'Mesa de comedor'},{label:'🛋️ Sillon',v:'Sillon / Reclinable'},
+];
+
+let qrSelectedArts = new Set();
+let qrCustomArts = [];
+let qrSizeLabel = '';
+let qrHoras = 3;
+
+function initQR() {
+  const grid = document.getElementById('qr-articulos-grid');
+  if (!grid || grid.children.length > 0) return;
+  grid.innerHTML = QR_ARTICULOS.map(a => `
+    <label class="qr-art-chk" id="qrc-${a.v.replace(/[^a-z]/gi,'_')}" onclick="qrToggleArt(this,'${a.v}')">
+      <input type="checkbox" onclick="event.stopPropagation()"> ${a.label}
+    </label>
+  `).join('');
+  qrCalcTotal();
+}
+
+function qrToggleArt(el, val) {
+  if (qrSelectedArts.has(val)) {
+    qrSelectedArts.delete(val);
+    el.classList.remove('checked');
+    el.querySelector('input').checked = false;
+  } else {
+    qrSelectedArts.add(val);
+    el.classList.add('checked');
+    el.querySelector('input').checked = true;
+  }
+  qrCalcTotal();
+  qrUpdatePreview();
+}
+
+function qrAddCustomArt() {
+  const input = document.getElementById('qr-art-custom');
+  const val = input.value.trim();
+  if (!val) return;
+  qrCustomArts.push(val);
+  input.value = '';
+  qrRenderCustomArts();
+  qrCalcTotal();
+  qrUpdatePreview();
+}
+
+function qrRenderCustomArts() {
+  const list = document.getElementById('qr-art-custom-list');
+  list.innerHTML = qrCustomArts.map((a,i) => `
+    <span class="qr-art-chip">${a} <button onclick="qrRemoveCustomArt(${i})">×</button></span>
+  `).join('');
+}
+
+function qrRemoveCustomArt(i) {
+  qrCustomArts.splice(i,1);
+  qrRenderCustomArts();
+  qrCalcTotal();
+  qrUpdatePreview();
+}
+
+function qrSetSize(btn, label, horas, fullLabel) {
+  document.querySelectorAll('.qr-size-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  qrSizeLabel = fullLabel;
+  document.getElementById('qr-horas').value = horas;
+  qrHoras = horas;
+  qrCalcTotal();
+  qrUpdatePreview();
+}
+
+
+// ════════════ CALCULADORA INTELIGENTE ════════════
+
+// Pesos por articulo para estimar horas
+const PESO_ARTICULOS = {
+  'Refrigerador': 1.2, 'Freezer': 1.0, 'Lavadora': 0.8, 'Secadora': 0.8,
+  'Estufa': 0.6, 'Cama King': 1.0, 'Cama Queen': 0.8, 'Cama Full/Twin': 0.6,
+  'Colchon solo': 0.5, 'Tocador / Dresser': 0.7, 'Closet / Ropero': 1.0,
+  'Sofa 3 plazas': 1.0, 'Sofa 2 plazas': 0.8, 'Sofa cama': 1.2,
+  'Sillon / Reclinable': 0.5, 'Mesa de comedor': 0.6, 'Television': 0.4,
+  'Escritorio': 0.5, 'Cajas (1-10)': 0.3, 'Cajas (10-30)': 0.6, 'Cajas (30+)': 1.0,
+};
+const PESO_DEFAULT = 0.4; // articulos no listados
+
+// Tarifas base (tu camion de 14 pies incluido)
+const TARIFAS = {
+  tuPorHora: 50,        // lo que te quedas tú
+  ayudantePorHora: 23,  // Gelacio
+  camionPropio: 0,      // tu camion = $0 costo
+  camionUHaul: 130,     // si rentas U-Haul
+  millaLibre: 15,       // millas sin cobro extra
+  tarifaPorMillaExtra: 3.00, // por milla sobre el limite
+  minimoGanancia: 200,  // mínimo que te debe quedar a ti
+};
+
+// Precios base por tamaño (con tu camion incluido)
+const PRECIOS_BASE = {
+  '1mueble':  { min: 100, label: '1 mueble / pieza suelta',    horas: 1.5 },
+  'refri':    { min: 140, label: 'Refrigerador / pesado',       horas: 2   },
+  'labor':    { min: 220, label: 'Labor Only 2h (sin camion)',  horas: 2   },
+  'estudio':  { min: 280, label: 'Estudio / 1 cuarto',          horas: 3   },
+  '1rec':     { min: 350, label: '1 Recámara',                  horas: 4   },
+  '2rec':     { min: 480, label: '2 Recámaras',                 horas: 5.5 },
+  '3rec':     { min: 600, label: '3 Recámaras',                 horas: 7   },
+  '4rec':     { min: 750, label: '4+ Recámaras / Casa grande',  horas: 9   },
+};
+
+let qrSizeKey = '';
+let qrMilasBase = 0; // millas base calculadas por Google Maps
+let qrMillasMiBase = 0; // millas de mi base al origen (para calcular si es zona lejana)
+
+function qrSetSize(btn, key) {
+  document.querySelectorAll('.qr-size-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  qrSizeKey = key;
+  const t = PRECIOS_BASE[key];
+  if (t) {
+    document.getElementById('qr-horas').value = t.horas;
+    qrSizeLabel = t.label;
+  }
+  qrCalcTotal();
+}
+
+function qrCalcTotal() {
+  const millas = parseFloat(document.getElementById('qr-millas').value) || 0;
+  const horas = parseFloat(document.getElementById('qr-horas').value) || 0;
+  const usaCamionUHaul = document.getElementById('qr-camion-tipo') ?
+    document.getElementById('qr-camion-tipo').value === 'uhaul' : false;
+
+  // 1. Calcular horas sugeridas por artículos
+  let pesoTotal = 0;
+  qrSelectedArts.forEach(art => {
+    pesoTotal += (PESO_ARTICULOS[art] || PESO_DEFAULT);
+  });
+  qrCustomArts.forEach(() => { pesoTotal += PESO_DEFAULT; });
+
+  // Sugerir horas si hay artículos marcados
+  let horasSugeridas = horas;
+  if (pesoTotal > 0) {
+    horasSugeridas = Math.max(2, Math.round(pesoTotal * 1.8 * 2) / 2); // redondea a 0.5
+    // Mostrar sugerencia
+    const sugerEl = document.getElementById('qr-horas-sugeridas');
+    if (sugerEl) {
+      sugerEl.textContent = pesoTotal > 0 ? `⏱️ Sugerido por artículos: ${horasSugeridas}h` : '';
+      sugerEl.style.display = pesoTotal > 0 ? 'block' : 'none';
+    }
+  }
+
+  // 2. Costo base por tamaño
+  let precioBase = 0;
+  if (qrSizeKey && PRECIOS_BASE[qrSizeKey]) {
+    precioBase = PRECIOS_BASE[qrSizeKey].min;
+  } else {
+    // Sin tamaño seleccionado: calcular por horas
+    const costoLabor = horas * (TARIFAS.tuPorHora + TARIFAS.ayudantePorHora);
+    precioBase = costoLabor;
+  }
+
+  // 3. Costo de millas (solo si excede zona libre)
+  let costoMillas = 0;
+  const millasExtra = Math.max(0, millas - TARIFAS.millaLibre);
+  if (millasExtra > 0) {
+    costoMillas = millasExtra * TARIFAS.tarifaPorMillaExtra;
+  }
+
+  // 4. Camion
+  const costoCamion = usaCamionUHaul ? TARIFAS.camionUHaul : 0;
+
+  // 5. Extras
+  let extras = 0;
+  let extrasDetalle = [];
+  const checks = [
+    {id:'qr-ayudante', pid:'qrp-ayudante', label:'👷 Ayudante'},
+    {id:'qr-escaleras', pid:'qrp-escaleras', label:'🪜 Escaleras'},
+    {id:'qr-armar', pid:'qrp-armar', label:'🛋️ Armar/Desarmar'},
+  ];
+  checks.forEach(c => {
+    const el = document.getElementById(c.id);
+    if (el && el.checked) {
+      const p = parseFloat(document.getElementById(c.pid).value) || 0;
+      extras += p;
+      extrasDetalle.push(`${c.label}: +$${p.toFixed(2)}`);
+    }
+  });
+
+  // 6. Total
+  let total = precioBase + costoMillas + costoCamion + extras;
+
+  // 7. Verificar ganancia mínima
+  const costoAyudante = document.getElementById('qr-ayudante').checked ?
+    horas * TARIFAS.ayudantePorHora : 0;
+  const costoTotal = costoCamion + costoAyudante;
+  const gananciaEstimada = total - costoTotal;
+  const gananciaBaja = gananciaEstimada < TARIFAS.minimoGanancia;
+
+  // Desglose
+  let desglose = [];
+  desglose.push(`🏠 Tarifa base (${qrSizeLabel || horas+'h'}): <strong>$${precioBase.toFixed(2)}</strong>`);
+  if (costoMillas > 0) desglose.push(`📍 Millas extra (${millasExtra.toFixed(1)}mi × $${TARIFAS.tarifaPorMillaExtra}): <strong>+$${costoMillas.toFixed(2)}</strong>`);
+  if (costoCamion > 0) desglose.push(`🚛 U-Haul: <strong>+$${costoCamion.toFixed(2)}</strong>`);
+  extrasDetalle.forEach(e => desglose.push(e));
+  desglose.push(`<hr style="border:none;border-top:1px solid #ddd;margin:6px 0">`);
+
+  // Ganancia estimada
+  const gananciaColor = gananciaBaja ? '#E24B4A' : '#1D9E75';
+  desglose.push(`<span style="color:${gananciaColor};font-weight:700">💰 Tu ganancia est.: ~$${gananciaEstimada.toFixed(0)}</span>`);
+  if (gananciaBaja) desglose.push(`<span style="color:#E24B4A;font-size:11px">⚠️ Por debajo de tu mínimo ($${TARIFAS.minimoGanancia}). Considera subir precio.</span>`);
+
+  document.getElementById('qr-total').textContent = '$' + total.toFixed(2);
+  document.getElementById('qr-desglose').innerHTML = desglose.join('<br>');
+
+  // Color del total según ganancia
+  document.getElementById('qr-total').style.color = gananciaBaja ? '#E24B4A' : '#1D9E75';
+
+  qrUpdatePreview();
+}
+
+
+function qrUpdatePreview() {
+  const nombre = document.getElementById('qr-nombre').value || 'Cliente';
+  const fecha = document.getElementById('qr-fecha').value;
+  const hora = document.getElementById('qr-hora').value;
+  const origen = document.getElementById('qr-origen').value;
+  const destino = document.getElementById('qr-destino').value;
+  const millas = document.getElementById('qr-millas').value;
+  const total = document.getElementById('qr-total').textContent;
+  const nota = document.getElementById('qr-nota').value;
+  const horas = document.getElementById('qr-horas').value;
+
+  const allArts = [...qrSelectedArts, ...qrCustomArts];
+  const artsList = allArts.length > 0 ? allArts.map(a => '• ' + a).join('\n') : '• Por confirmar';
+
+  let fechaStr = '';
+  if (fecha) {
+    const d = new Date(fecha + 'T12:00:00');
+    fechaStr = d.toLocaleDateString('es-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  }
+
+  const msg = `🚚 *MUDANZAS EXPRESS LA*
+(323) 946-2008
+
+Hola ${nombre}! 👋
+
+Aquí tu *cotización estimada*:
+
+📍 *Origen:* ${origen || '—'}
+🏠 *Destino:* ${destino || '—'}
+📏 *Distancia:* ${millas || '—'} millas
+📅 *Fecha:* ${fechaStr || fecha || '—'}
+⏰ *Hora:* ${hora || '—'}
+⏱️ *Tiempo estimado:* ${horas} horas
+
+📦 *Artículos:*
+${artsList}
+
+${qrSizeLabel ? '🏠 *Tamaño:* ' + qrSizeLabel + '\n' : ''}
+💰 *TOTAL ESTIMADO: ${total}*
+
+✅ Incluye:
+• Mantas protectoras
+• Correas y diablito
+• Playo para muebles
+• Comunicación directa
+
+⚠️ _El precio final se confirma al ver todos los artículos. Sin cargos sorpresa._
+${nota ? '\n📝 ' + nota : ''}
+
+¿Te parece bien esta fecha? ¡Confirmamos y listo! 🙌`;
+
+  document.getElementById('qr-wa-preview').textContent = msg;
+  return msg;
+}
+
+function qrEnviarWhatsApp() {
+  const tel = document.getElementById('qr-tel').value.replace(/\D/g,'');
+  const msg = qrUpdatePreview();
+  if (!tel) { alert('Ingresa el número de WhatsApp del cliente'); return; }
+  window.open('https://wa.me/1' + tel + '?text=' + encodeURIComponent(msg), '_blank');
+}
+
+function qrCopiarMensaje() {
+  const msg = qrUpdatePreview();
+  navigator.clipboard.writeText(msg).then(() => {
+    alert('✅ Mensaje copiado al portapapeles');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = msg;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('✅ Mensaje copiado');
+  });
+}
+
+function qrPasarACotizacion() {
+  // Pre-fill the formal quote tab
+  const nombre = document.getElementById('qr-nombre').value;
+  const tel = document.getElementById('qr-tel').value;
+  const fecha = document.getElementById('qr-fecha').value;
+  const hora = document.getElementById('qr-hora').value;
+  const origen = document.getElementById('qr-origen').value;
+  const destino = document.getElementById('qr-destino').value;
+  const millas = document.getElementById('qr-millas').value;
+
+  if (document.getElementById('c-nombre')) document.getElementById('c-nombre').value = nombre;
+  if (document.getElementById('c-tel')) document.getElementById('c-tel').value = tel;
+  if (document.getElementById('c-fecha-pref')) document.getElementById('c-fecha-pref').value = fecha;
+  if (document.getElementById('c-hora')) document.getElementById('c-hora').value = hora;
+  if (document.getElementById('c-origen')) document.getElementById('c-origen').value = origen;
+  if (document.getElementById('c-destino')) document.getElementById('c-destino').value = destino;
+  if (document.getElementById('c-millas')) document.getElementById('c-millas').value = millas;
+
+  showTab('nueva-cot');
+  alert('✅ Datos pasados a cotización formal. ¡Revisa y genera el PDF!');
+}
+
+function qrCalcularMillas() {
+  const origen = document.getElementById('qr-origen').value;
+  const destino = document.getElementById('qr-destino').value;
+  if (!origen || !destino) { alert('Ingresa origen y destino'); return; }
+
+  const service = new google.maps.DistanceMatrixService();
+  service.getDistanceMatrix({
+    origins: [origen], destinations: [destino],
+    travelMode: 'DRIVING', unitSystem: google.maps.UnitSystem.IMPERIAL
+  }, (res, status) => {
+    if (status === 'OK' && res.rows[0].elements[0].status === 'OK') {
+      const distText = res.rows[0].elements[0].distance.text;
+      const miles = parseFloat(distText.replace(/[^0-9.]/g,''));
+      document.getElementById('qr-millas').value = miles.toFixed(1);
+      const info = document.getElementById('qr-millas-info');
+      info.style.display = 'block';
+      info.textContent = '📍 ' + distText + ' — ' + res.rows[0].elements[0].duration.text;
+      qrCalcTotal();
+    } else {
+      alert('No se pudo calcular. Ingresa las millas manualmente.');
+    }
+  });
+}
+
+function resetCotRapida() {
+  if (!confirm('¿Limpiar todos los datos?')) return;
+  ['qr-nombre','qr-tel','qr-fecha','qr-hora','qr-origen','qr-destino','qr-millas','qr-nota'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('qr-hora').value = '08:00';
+  document.getElementById('qr-horas').value = '3';
+  document.getElementById('qr-tarifa-hora').value = '45';
+  document.getElementById('qr-tarifa-milla').value = '3.00';
+  ['qr-ayudante','qr-escaleras','qr-camion','qr-armar'].forEach(id => {
+    document.getElementById(id).checked = false;
+  });
+  qrSelectedArts = new Set();
+  qrCustomArts = [];
+  qrSizeLabel = '';
+  document.querySelectorAll('.qr-size-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.qr-art-chk').forEach(el => {
+    el.classList.remove('checked');
+    el.querySelector('input').checked = false;
+  });
+  document.getElementById('qr-art-custom-list').innerHTML = '';
+  document.getElementById('qr-millas-info').style.display = 'none';
+  qrCalcTotal();
+}
+
+// Init QR when tab opens (hook into showTab)
 </script>
 </body>
 </html>
