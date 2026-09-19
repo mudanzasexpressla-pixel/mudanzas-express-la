@@ -1002,7 +1002,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
 
     <div class="card" style="background:var(--bg3);margin-bottom:16px">
       <div class="card-title">⏱️ Horas trabajadas</div>
-      <div class="notice notice-blue" style="font-size:12px">Base incluida: 3 horas. Cada hora extra se cobra a $35/hr al cliente. El ayudante se paga a $20/hr real + bono de $15 si hubo escaleras o muebles pesados. Usa el cronómetro en la app de campo (modo Ayudante).</div>
+      <div class="notice notice-blue" style="font-size:12px">Base incluida: 3 horas. Cada hora extra se cobra a $35/hr al cliente. El ayudante se paga a la tarifa configurada/hr real + bono de $15 si hubo escaleras o muebles pesados. Usa el cronómetro en la app de campo (modo Ayudante).</div>
       <div style="display:none">
         <div id="crono-display">00:00:00</div>
       </div>
@@ -1045,7 +1045,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
           <option value="si">Sí, con ayudante</option>
         </select>
       </div>
-      <div id="tm-ayudante-monto-wrap"><label>💵 Pago al ayudante ($) — auto: $20/hr + bono, editable</label><input type="number" id="tm-ayudante-monto" placeholder="0.00" step="0.01" oninput="calcResumenTerminar()"></div>
+      <div id="tm-ayudante-monto-wrap"><label>💵 Pago al ayudante ($) — auto: $<span id="lbl-tarifa-ay">23</span>/hr + bono, editable</label><input type="number" id="tm-ayudante-monto" placeholder="0.00" step="0.01" oninput="calcResumenTerminar()"></div>
     </div>
     <div id="tm-ayudante-extra" style="display:none">
       <div class="form-row">
@@ -2687,12 +2687,14 @@ function abrirTerminar(id) {
 
   cronoReset();
   abrir('m-terminar');
+  // Auto-calcular pago al abrir el modal
+  setTimeout(calcResumenTerminar, 100);
 }
 
 // ===================== CRONÓMETRO DEL TRABAJO =====================
 const CRONO_HORAS_BASE = 3;
 const CRONO_TARIFA_EXTRA_CLIENTE = 35; // $/hr extra al cliente
-const CRONO_TARIFA_AYUDANTE = 23;      // $/hr real al ayudante
+var CRONO_TARIFA_AYUDANTE = 23;      // $/hr real al ayudante — actualizado desde config
 const CRONO_BONO_DIFICIL = 15;         // bono si hubo escaleras o muebles pesados
 
 let cronoStartTime = null;
@@ -2765,6 +2767,9 @@ function toggleAyudanteFields() {
 }
 
 function calcResumenTerminar() {
+  // Actualizar tarifa ayudante desde Configuración
+  var cfgTarifa = getCfg ? getCfg().tarifaAyudanteHr : null;
+  if (cfgTarifa && cfgTarifa > 0) CRONO_TARIFA_AYUDANTE = cfgTarifa;
   // Horas trabajadas (del cronómetro o ingresadas a mano) y cargo extra sugerido al cliente
   var horasEl = document.getElementById('crono-horas');
   var horas = horasEl ? (parseFloat(horasEl.value) || 0) : 0;
@@ -2781,7 +2786,7 @@ function calcResumenTerminar() {
     }
   }
 
-  // Pago automático al ayudante: $20/hr real + $15 de bono si hubo escaleras o muebles pesados
+  // Pago automático al ayudante: tarifa config/hr real + $15 de bono si hubo escaleras o muebles pesados
   var usaAyChk = document.getElementById('tm-ayudante');
   if (usaAyChk && usaAyChk.value === 'si' && horas > 0) {
     var pagoAutoAyudante = (horas * CRONO_TARIFA_AYUDANTE) + (dificil ? CRONO_BONO_DIFICIL : 0);
@@ -5251,6 +5256,10 @@ document.getElementById('c-tarifa-milla').value = CFG.tarifaMilla;
 // Tarifa ayudante
 const ayTarifaEl = document.getElementById('ay-tarifa-hr');
 if(ayTarifaEl) ayTarifaEl.value = CFG.tarifaAyudanteHr||22.50;
+// Update dynamic label in terminar form
+var lblTarifa = document.getElementById('lbl-tarifa-ay');
+if(lblTarifa) lblTarifa.textContent = CFG.tarifaAyudanteHr||23;
+CRONO_TARIFA_AYUDANTE = CFG.tarifaAyudanteHr||23;
 const cfgTarifaAyEl = document.getElementById('cfg-tarifa-ayudante');
 if(cfgTarifaAyEl) cfgTarifaAyEl.value = CFG.tarifaAyudanteHr||22.50;
 // Cargar dirección de casa guardada
@@ -5459,7 +5468,7 @@ initDarkMode();
     <!-- Cronómetro -->
     <div class="card">
       <div class="card-title">⏱️ Cronómetro del trabajo</div>
-      <div class="notice notice-blue" style="font-size:12px">Base: 3 hrs incluidas. Hora extra: $35/hr al cliente · $20/hr al ayudante + $15 bono si hubo escaleras.</div>
+      <div class="notice notice-blue" style="font-size:12px">Base: 3 hrs incluidas. Hora extra: $35/hr al cliente · tarifa config/hr al ayudante + $15 bono si hubo escaleras.</div>
       <div style="display:flex;align-items:center;gap:12px;margin:10px 0;flex-wrap:wrap">
         <button type="button" class="btn btn-primary" style="width:auto;padding:10px 16px;margin-bottom:0;font-size:14px" onclick="campoCronoIniciar()">▶️ Inicio</button>
         <button type="button" class="btn btn-secondary" style="width:auto;padding:10px 16px;margin-bottom:0;font-size:14px" onclick="campoCronoDetener()">⏹️ Fin</button>
@@ -6403,7 +6412,7 @@ function imprimirRecibo(idioma) {
   const otroIdioma = idioma === 'es' ? 'en' : 'es';
 
   const pagoIconos = {
-    'Efectivo': '💵', 'Zelle': '💜', 'Tarjeta': '💳', 'Cheque': '📄',
+    'Efectivo': '💵', 'Zelle': '🔵', 'Tarjeta': '💳', 'Cheque': '📄',
     'Cash': '💵', 'Card': '💳', 'Check': '📄'
   };
   const icono = pagoIconos[pago] || '💳';
