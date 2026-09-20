@@ -222,6 +222,8 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <button class="nav-btn" data-tab="gastos" onclick="showTab('gastos')">💰 Gastos</button>
   <button class="nav-btn" data-tab="vehiculos" onclick="showTab('vehiculos')">🚛 Vehículos</button>
   <button class="nav-btn" data-tab="gigs" onclick="showTab('gigs')">📦 Gigs/Brokers <span id="badge-gigs" style="background:#2F74C0;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
+  <button class="nav-btn" data-tab="cotizacion-rapida" onclick="showTab('cotizacion-rapida')">⚡ Cotización Rápida</button>
+  <button class="nav-btn" data-tab="galeria" onclick="showTab('galeria')">📸 Galería</button>
   <button class="nav-btn" data-tab="config" onclick="showTab('config')">⚙️ Configuración</button>
 </nav>
 
@@ -630,9 +632,12 @@ table.data-table tr:hover td{background:#1A2A42!important}
   </div>
 
   <div id="gt-ayudantes" style="display:none">
-    <div class="card">
-      <div class="card-title">👷 Registrar pago a ayudante</div>
-      <div class="notice notice-blue" style="font-size:12px">La tarifa por hora se configura en ⚙️ Configuración. El pago acumulado de la semana se muestra en <strong>Sueldos</strong> (solo referencia, sin duplicarse).</div>
+    <!-- Formulario de registro -->
+    <div class="card" style="border-left:4px solid #4A7FA5;background:var(--card)">
+      <div class="card-title" style="color:#2C5F7A">👷 Registrar pago a ayudante</div>
+      <div style="background:#EAF2F8;border:1px solid #B8D4E8;border-radius:9px;padding:11px 14px;font-size:12px;color:#2C5F7A;margin-bottom:12px;line-height:1.6">
+        💡 La tarifa por hora se configura en ⚙️ Configuración. El historial acumulado por ayudante aparece abajo para facilitar el pago dominical.
+      </div>
       <div class="form-row">
         <div><label>Nombre del ayudante</label><input type="text" id="ay-nombre" placeholder="Gelacio Huerta López"></div>
         <div><label>Tipo de contratación</label>
@@ -648,12 +653,12 @@ table.data-table tr:hover td{background:#1A2A42!important}
         <div>
           <label>⏱️ Horas trabajadas</label>
           <input type="number" id="ay-horas" placeholder="0.0" step="0.25" min="0" oninput="calcAyudanteMonto()">
-          <div style="font-size:11px;color:#888;margin-top:3px">Del cronómetro · ej: 3.5 = 3hr 30min</div>
+          <div style="font-size:11px;color:var(--ink-faint);margin-top:3px">Del cronómetro · ej: 3.5 = 3hr 30min</div>
         </div>
         <div>
-          <label>💵 Tarifa/hr (auto)</label>
-          <input type="number" id="ay-tarifa-hr" step="0.50" min="0" oninput="calcAyudanteMonto()" style="color:#1D9E75;font-weight:700">
-          <div style="font-size:11px;color:#888;margin-top:3px">Tomado de Configuración</div>
+          <label>💵 Tarifa/hr</label>
+          <input type="number" id="ay-tarifa-hr" step="0.50" min="0" oninput="calcAyudanteMonto()" style="color:#2C7A4B;font-weight:700">
+          <div style="font-size:11px;color:var(--ink-faint);margin-top:3px">De Configuración</div>
         </div>
         <div>
           <label>➕ Extra / Bono ($)</label>
@@ -661,15 +666,24 @@ table.data-table tr:hover td{background:#1A2A42!important}
         </div>
         <div>
           <label>💰 Total a pagar</label>
-          <input type="number" id="ay-monto" placeholder="0.00" step="0.01" style="font-weight:700;color:#1D9E75;font-size:15px">
+          <input type="number" id="ay-monto" placeholder="0.00" step="0.01" style="font-weight:700;color:#2C7A4B;font-size:15px;background:#F0FAF5;border-color:#A8D5BC">
         </div>
       </div>
       <div class="form-row">
         <div><label>Razón del extra / bono (opcional)</label><input type="text" id="ay-bono-nota" placeholder="Ej: Custodia del camión, escaleras, trabajo pesado..."></div>
         <div><label>Notas adicionales</label><input type="text" id="ay-notas" placeholder="Notas del trabajo..."></div>
       </div>
-      <button class="btn btn-primary" onclick="guardarAy()">💾 Guardar pago a ayudante</button>
+      <button class="btn btn-primary" onclick="guardarAy()" style="background:#2C5F7A;border-color:#2C5F7A">💾 Guardar pago a ayudante</button>
     </div>
+
+    <!-- Historial acumulado por ayudante (para pagar los domingos) -->
+    <div class="card" style="border-left:4px solid #4A7FA5">
+      <div class="card-title" style="color:#2C5F7A">📊 Historial y acumulado por ayudante <span style="font-size:11px;font-weight:400;color:var(--ink-faint)">(para pagar los domingos)</span></div>
+      <div id="ay-historial-tabla">
+        <div class="empty-state" style="padding:24px"><p>Sin registros de ayudantes todavía</p></div>
+      </div>
+    </div>
+
     <div id="lista-ay"></div>
   </div>
 
@@ -1173,6 +1187,8 @@ function showTab(t) {
   if(t==='config') { const cfEl = document.getElementById('cfg-casa'); if(cfEl) cfEl.value = getCfg().dirCasa || ''; }
   if(t==='vehiculos') { renderVehiculos(); poblarSelectoresVehiculo(); }
   if(t==='gigs') { renderGigs(); poblarSelectoresVehiculo(); }
+  if(t==='galeria') renderGaleria();
+  if(t==='cotizacion-rapida') { qrInit(); }
   if(t==='nueva-cot') { setTimeout(() => { if(typeof google !== 'undefined') initMapsAutocomplete(); }, 300); }
 }
 
@@ -2422,6 +2438,7 @@ function renderGastos() {
       </div>` : '<div class="empty-state" style="padding:20px"><p>Sin retiros del propietario registrados</p></div>');
   }
   renderCapital();
+  renderAyHistorial();
 }
 
 function showGTab(t, btn) {
@@ -2429,6 +2446,126 @@ function showGTab(t, btn) {
   document.querySelectorAll('.tab-inner-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   if(t==='resumen') renderResumen();
+  if(t==='ayudantes') { const tHr=document.getElementById('ay-tarifa-hr'); if(tHr&&!tHr.value) tHr.value=(getCfg().tarifaAyudanteHr||22.50); const fec=document.getElementById('ay-fecha'); if(fec&&!fec.value) fec.value=new Date().toISOString().split('T')[0]; renderAyHistorial(); }
+}
+
+// ===================== HISTORIAL ACUMULADO AYUDANTES =====================
+function renderAyHistorial() {
+  const el = document.getElementById('ay-historial-tabla');
+  if(!el) return;
+  const d = getData();
+  const ay = d.ay || [];
+  // Combinar manuales + automáticos de trabajos terminados
+  const terminadosAy = (d.cots||[]).filter(c=>c.estatus==='terminado' && c.nombreAyudante && (c.pagoAyudante||0)>0);
+
+  // Agrupar por nombre
+  const porNombre = {};
+  // De trabajos terminados (auto)
+  terminadosAy.forEach(c => {
+    const n = c.nombreAyudante.trim();
+    if(!porNombre[n]) porNombre[n] = { registros:[], totalHoras:0, totalBono:0, totalPagado:0 };
+    const hrs = c.horasTrabajadas||0;
+    const tarifa = getCfg().tarifaAyudanteHr||22.50;
+    porNombre[n].registros.push({ fecha: c.fechaTerminadoISO||c.fechaAgendada||'—', trabajo:c.id, horas:hrs, tarifa, bono:0, monto:c.pagoAyudante||0, esAuto:true });
+    porNombre[n].totalHoras += hrs;
+    porNombre[n].totalPagado += c.pagoAyudante||0;
+  });
+  // De registros manuales
+  ay.filter(a=>!a.esAutoComprobante).forEach(a => {
+    const n = (a.nombre||'').trim();
+    if(!n) return;
+    if(!porNombre[n]) porNombre[n] = { registros:[], totalHoras:0, totalBono:0, totalPagado:0 };
+    const hrs = a.horas||0;
+    const bono = a.bono||0;
+    porNombre[n].registros.push({ fecha:a.fecha||'—', trabajo:a.trabajo||'—', horas:hrs, tarifa:a.tarifaHr||getCfg().tarifaAyudanteHr||22.50, bono, monto:a.monto||0, esAuto:false });
+    porNombre[n].totalHoras += hrs;
+    porNombre[n].totalBono += bono;
+    porNombre[n].totalPagado += a.monto||0;
+  });
+
+  const nombres = Object.keys(porNombre).sort();
+  if(!nombres.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:24px"><p>Sin registros todavía — guarda el primer pago arriba</p></div>';
+    return;
+  }
+
+  el.innerHTML = nombres.map(nombre => {
+    const info = porNombre[nombre];
+    const recsOrdenados = info.registros.slice().sort((a,b)=>(b.fecha||'')>(a.fecha||'')?1:-1);
+    const uid = 'ayhist_'+nombre.replace(/[^a-z0-9]/gi,'_');
+    return `
+    <div style="border:1px solid #B8D4E8;border-radius:12px;overflow:hidden;margin-bottom:14px">
+      <div onclick="toggleAyHist('${uid}')" style="background:#EAF2F8;padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:700;font-size:14px;color:#1C3A50">👷 ${nombre}</div>
+          <div style="font-size:12px;color:#4A7FA5;margin-top:3px">
+            ${info.totalHoras>0?`⏱️ ${info.totalHoras.toFixed(1)} hrs totales`:''}
+            ${info.totalBono>0?` · 🎁 Bonos: $${info.totalBono.toFixed(2)}`:''}
+            · ${recsOrdenados.length} registro${recsOrdenados.length!==1?'s':''}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:22px;font-weight:800;color:#2C7A4B">$${info.totalPagado.toFixed(2)}</div>
+          <div style="font-size:10px;color:#4A7FA5">ACUMULADO TOTAL</div>
+          <div id="arr_${uid}" style="font-size:12px;color:#4A7FA5;margin-top:2px">▼</div>
+        </div>
+      </div>
+      <div id="${uid}" style="display:none;padding:12px">
+        <table class="data-table" style="font-size:12px">
+          <thead><tr>
+            <th>Fecha</th><th>Trabajo</th><th>Horas</th><th>Tarifa/hr</th><th>Base</th><th>Bono</th><th style="color:#2C7A4B">Total pagado</th>
+          </tr></thead>
+          <tbody>
+            ${recsOrdenados.map(r=>`<tr>
+              <td>${r.fecha}</td>
+              <td><span style="font-family:monospace;font-weight:700">${r.trabajo}</span></td>
+              <td>${r.horas>0?r.horas.toFixed(1)+' h':'—'}</td>
+              <td>${r.horas>0?'$'+r.tarifa.toFixed(2):'—'}</td>
+              <td>${r.horas>0?'$'+(r.horas*r.tarifa).toFixed(2):'—'}</td>
+              <td>${r.bono>0?'<span style="color:#2C7A4B;font-weight:700">+$'+r.bono.toFixed(2)+'</span>':'—'}</td>
+              <td><strong style="color:#2C7A4B;font-size:13px">$${r.monto.toFixed(2)}</strong></td>
+            </tr>`).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background:#EAF2F8;font-weight:700">
+              <td colspan="2" style="color:#1C3A50">TOTALES</td>
+              <td style="color:#1C3A50">${info.totalHoras.toFixed(1)} h</td>
+              <td>—</td>
+              <td>$${(info.totalPagado - info.totalBono).toFixed(2)}</td>
+              <td style="color:#2C7A4B">$${info.totalBono.toFixed(2)}</td>
+              <td style="color:#2C7A4B;font-size:14px">$${info.totalPagado.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm" style="background:#2C5F7A;color:#fff;border-color:#2C5F7A" onclick='generarComprobanteNombreCompleto("${nombre}")'>📄 Comprobante PDF de ${nombre.split(' ')[0]}</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleAyHist(uid) {
+  const el = document.getElementById(uid);
+  const arr = document.getElementById('arr_'+uid);
+  if(!el) return;
+  const visible = el.style.display !== 'none';
+  el.style.display = visible ? 'none' : 'block';
+  if(arr) arr.textContent = visible ? '▼' : '▲';
+}
+
+function generarComprobanteNombreCompleto(nombre) {
+  const d = getData();
+  const ay = d.ay||[];
+  const terminadosAy = (d.cots||[]).filter(c=>c.estatus==='terminado' && c.nombreAyudante===nombre && (c.pagoAyudante||0)>0);
+  const regsAuto = terminadosAy.map(c=>({
+    nombre: c.nombreAyudante, trabajo:c.id, fecha:c.fechaTerminadoISO||c.fechaAgendada||'',
+    horas:c.horasTrabajadas||0, tarifaHr:getCfg().tarifaAyudanteHr||22.50, bono:0, monto:c.pagoAyudante||0
+  }));
+  const regsManuales = ay.filter(a=>a.nombre===nombre && !a.esAutoComprobante);
+  const todos = [...regsAuto, ...regsManuales].sort((a,b)=>(a.fecha||'')>(b.fecha||'')?1:-1);
+  if(!todos.length) { alert('Sin registros para '+nombre); return; }
+  generarComprobanteAyudante(nombre, 'Historial completo', todos);
 }
 
 function renderResumen() {
@@ -2631,9 +2768,27 @@ function abrirTerminar(id) {
     fechaRealEl.disabled = false; // fecha siempre editable por el jefe
   }
 
-  // ── Horas trabajadas (del campo si vinieron) ──
+  // ── Horas trabajadas (del campo si vinieron, si no, recuperar del cronómetro) ──
   const horasEl = document.getElementById('crono-horas');
-  if(horasEl) { horasEl.value = dc && dc.horasTrabajadas ? dc.horasTrabajadas.toFixed(2) : ''; horasEl.disabled = false; }
+  if(horasEl) {
+    if(dc && dc.horasTrabajadas) {
+      horasEl.value = dc.horasTrabajadas.toFixed(2);
+    } else {
+      // Recuperar horas del cronómetro persistidas (misma cotización)
+      try {
+        const cronoCotId = localStorage.getItem('crono_admin_cotId');
+        const cronoMs = parseFloat(localStorage.getItem('crono_admin_ms')||'0');
+        if(cronoCotId === id && cronoMs > 0) {
+          cronoElapsedMs = cronoMs;
+          horasEl.value = (cronoMs / 3600000).toFixed(2);
+          cronoActualizarDisplay();
+        } else {
+          horasEl.value = '';
+        }
+      } catch(e) { horasEl.value = ''; }
+    }
+    horasEl.disabled = false;
+  }
   const dificilEl = document.getElementById('crono-dificil');
   if(dificilEl) { dificilEl.checked = dc ? !!dc.huboDificultad : false; dificilEl.disabled = false; }
 
@@ -2731,7 +2886,10 @@ function cronoDetener() {
   clearInterval(cronoInterval);
   cronoActualizarDisplay();
   const horas = cronoElapsedMs / 3600000;
-  document.getElementById('crono-horas').value = horas.toFixed(2);
+  const horasEl = document.getElementById('crono-horas');
+  if(horasEl) horasEl.value = horas.toFixed(2);
+  // Persistir horas para que sobrevivan cierre/apertura del modal
+  try { localStorage.setItem('crono_admin_horas', horas.toFixed(2)); localStorage.setItem('crono_admin_ms', cronoElapsedMs); localStorage.setItem('crono_admin_cotId', currentId||''); } catch(e){}
   calcResumenTerminar();
 }
 
@@ -3065,6 +3223,7 @@ function guardarAy() {
   document.getElementById('ay-monto').value='';
   document.getElementById('ay-notas').value='';
   renderGastos();
+  renderAyHistorial();
 }
 
 function guardarSueldo() {
@@ -5115,6 +5274,43 @@ async function verificarTerminadosCampo() {
   // NO marcamos como terminado automáticamente — solo guardamos los datos
   // de campo en la cotización (datosCampo) y dejamos el trabajo en en_trabajo
   // para que el jefe complete Fase 2 (ayudante, camión) y confirme.
+
+  // ── MODO LOCAL (mismo dispositivo / sin Drive) ──
+  // Lee los datos guardados por enviarTerminado() en localStorage directamente
+  {
+    const dx = getData();
+    const enProcL = (dx.cots||[]).filter(c => c.estatus === 'en_trabajo' && !c.datosCampoRecibidos);
+    let cambioLocal = false;
+    enProcL.forEach(cot => {
+      try {
+        const raw = localStorage.getItem('terminado_' + cot.id);
+        if(!raw) return;
+        const t = JSON.parse(raw);
+        const idx = dx.cots.findIndex(c => c.id === cot.id);
+        if(idx < 0) return;
+        dx.cots[idx].datosCampoRecibidos = true;
+        dx.cots[idx].datosCampo = {
+          montoFinal:   t.montoFinal   || dx.cots[idx].total || 0,
+          propina:      t.propina      || 0,
+          formaPago:    t.formaPago    || 'Efectivo',
+          formaPago1:   t.formaPago1   || t.formaPago || 'Efectivo',
+          formaPago2:   t.formaPago2   || '',
+          montoPago1:   t.montoPago1   || 0,
+          montoPago2:   t.montoPago2   || 0,
+          refPago:      t.refPago      || '',
+          refPago2:     t.refPago2     || '',
+          observaciones: t.observaciones || '',
+          firmaCliente: t.firmaCliente || '',
+          horasTrabajadas: t.horasTrabajadas || 0,
+          huboDificultad:  t.huboDificultad  || false,
+          fechaTerminado:  t.fechaTerminado  || new Date().toISOString()
+        };
+        cambioLocal = true;
+      } catch(e) {}
+    });
+    if(cambioLocal) { saveData(dx); renderTrabajos(); updateBadges(); }
+  }
+
   if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('PEGA_AQUI')) return;
   const d = getData();
   const enProceso = (d.cots||[]).filter(c => c.estatus === 'en_trabajo' && c.enviadoCampo);
@@ -6709,6 +6905,428 @@ function toggleAy(id){var el=document.getElementById(id);var ar=document.getElem
 function imprimirComprobanteHistorico2(wkId){var data;try{data=JSON.parse(localStorage.getItem("wk2_"+wkId));}catch(e){}if(!data||!data.items){alert("Recarga la pagina.");return;}var nombre=data.nombre,semana=data.semana,items=data.items,total=data.total;var filas=items.map(function(c){var cli=c.cliente&&c.cliente.nombre?c.cliente.nombre:(c.cliente||"--");return "<tr><td>"+(c.id||"--")+"</td><td>"+cli+"</td><td>"+(c.fechaTerminadoISO||c.fechaAgendada||"--")+"</td><td>"+(c.horasTrabajadas?c.horasTrabajadas.toFixed(1)+"h":"--")+"</td><td>$"+(c.pagoAyudante||0).toFixed(2)+"</td></tr>";}).join("");var w=window.open("","_blank");w.document.write("<html><body><h3>MUDANZAS EXPRESS LA</h3><p>"+nombre+" | "+semana+"</p><table border=1 style=width:100%><tr><th>Folio</th><th>Cliente</th><th>Fecha</th><th>Horas</th><th>Pagado</th></tr>"+filas+"<tr><td colspan=4><b>TOTAL</b></td><td><b>$"+(total||0).toFixed(2)+"</b></td></tr></table><br><button onclick=window.print()>Imprimir</button></body></html>");w.document.close();}
 function campoCronoRestaurar(){try{var r=localStorage.getItem("crono_running"),el=parseFloat(localStorage.getItem("crono_elapsed")||0),st=parseFloat(localStorage.getItem("crono_startTime")||0);if(r==="true"&&st){campoCronoElapsedMs=0;campoCronoStartTime=st;campoCronoRunning=true;campoCronoInterval=setInterval(function(){campoCronoActualizarDisplay();try{localStorage.setItem("crono_startTime",campoCronoStartTime);}catch(e){}},1000);campoCronoActualizarDisplay();}else if(r==="false"&&el>0){campoCronoElapsedMs=el;campoCronoActualizarDisplay();var he=document.getElementById("campo-crono-horas");if(he)he.value=(el/3600000).toFixed(2);}}catch(e){}}
 window.addEventListener("DOMContentLoaded",function(){setTimeout(campoCronoRestaurar,500);});
+
+// ===================== GALERÍA =====================
+const GAL_KEY = KEY + '_galeria';
+function getGaleria(){ try{return JSON.parse(localStorage.getItem(GAL_KEY)||'[]');}catch(e){return [];} }
+function saveGaleria(g){ localStorage.setItem(GAL_KEY,JSON.stringify(g)); }
+
+let galPendientes = [];
+
+function abrirModalFoto(){
+  galPendientes = [];
+  document.getElementById('gf-desc').value='';
+  document.getElementById('gf-fecha').value=new Date().toISOString().split('T')[0];
+  document.getElementById('gf-preview').innerHTML='';
+  document.getElementById('modal-foto').classList.add('open');
+}
+function cerrarModalFoto(){ document.getElementById('modal-foto').classList.remove('open'); galPendientes=[]; }
+
+function previsualizarFotos(event){
+  const files = Array.from(event.target.files);
+  const prev = document.getElementById('gf-preview');
+  galPendientes = [];
+  prev.innerHTML = '';
+  files.forEach(file=>{
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxW = 900;
+        const ratio = Math.min(maxW/img.width, maxW/img.height, 1);
+        canvas.width = img.width*ratio; canvas.height = img.height*ratio;
+        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg',0.75);
+        galPendientes.push(dataUrl);
+        const div = document.createElement('div');
+        div.style.cssText='position:relative;display:inline-block';
+        div.innerHTML='<img src="'+dataUrl+'" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:2px solid #1F5EA8">';
+        prev.appendChild(div);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  event.target.value='';
+}
+
+function guardarFotos(){
+  if(!galPendientes.length){ alert('Selecciona al menos una foto'); return; }
+  const desc = document.getElementById('gf-desc').value.trim();
+  const cat = document.getElementById('gf-cat').value;
+  const fecha = document.getElementById('gf-fecha').value;
+  const g = getGaleria();
+  galPendientes.forEach(src => {
+    g.push({ id:'GAL-'+Date.now()+'-'+Math.random().toString(36).slice(2,6), src, desc, cat, fecha });
+  });
+  saveGaleria(g);
+  cerrarModalFoto();
+  renderGaleria();
+  alert('✅ '+galPendientes.length+' foto(s) guardadas en la galería.');
+}
+
+function renderGaleria(){
+  const g = getGaleria();
+  const search = (document.getElementById('gal-search')||{}).value||'';
+  const filter = (document.getElementById('gal-filter')||{}).value||'';
+  const grid = document.getElementById('gal-grid');
+  const empty = document.getElementById('gal-empty');
+  if(!grid) return;
+  let lista = g.slice().reverse();
+  if(filter) lista = lista.filter(f=>f.cat===filter);
+  if(search) lista = lista.filter(f=>(f.desc||'').toLowerCase().includes(search.toLowerCase())||(f.fecha||'').includes(search));
+  if(!lista.length){ grid.innerHTML=''; if(empty) empty.style.display=''; return; }
+  if(empty) empty.style.display='none';
+  const catLabel = {camion:'🚛 Camión',tacoma:'🛻 Tacoma',antes:'📦 Antes',despues:'✅ Después',equipo:'👷 Equipo'};
+  grid.innerHTML = lista.map(f=>`
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)">
+      <div style="position:relative;padding-top:75%;overflow:hidden;cursor:pointer" onclick="abrirAdminLB('${f.id}')">
+        <img src="${f.src}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" loading="lazy">
+        <span style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700">${catLabel[f.cat]||f.cat}</span>
+      </div>
+      <div style="padding:10px 12px">
+        <div style="font-size:12px;font-weight:600;color:var(--ink);line-height:1.4;margin-bottom:4px">${f.desc||'Sin descripción'}</div>
+        <div style="font-size:11px;color:var(--ink-faint)">${f.fecha||''}</div>
+        <button onclick="eliminarFotoGal('${f.id}')" style="margin-top:6px;background:none;border:none;color:#E24B4A;font-size:11px;cursor:pointer;padding:0">🗑️ Eliminar</button>
+      </div>
+    </div>`).join('');
+}
+
+function abrirAdminLB(id){
+  const g = getGaleria();
+  const f = g.find(x=>x.id===id);
+  if(!f) return;
+  const lb = document.getElementById('admin-lb');
+  document.getElementById('admin-lb-img').src = f.src;
+  document.getElementById('admin-lb-desc').textContent = (f.desc||'') + (f.fecha?' · '+f.fecha:'');
+  lb.style.display = 'flex';
+}
+function cerrarAdminLB(){ document.getElementById('admin-lb').style.display='none'; }
+
+function eliminarFotoGal(id){
+  if(!confirm('¿Eliminar esta foto de la galería?')) return;
+  let g = getGaleria();
+  g = g.filter(f=>f.id!==id);
+  saveGaleria(g);
+  renderGaleria();
+}
+
+// ===================== COTIZACIÓN RÁPIDA =====================
+const QR_ARTICULOS = ['📦 Cajas','🛋️ Sofá','🛏️ Cama matrimonial','🛏️ Cama individual','🖥️ Computadora','📺 Televisión','🍽️ Mesa comedor','🚿 Lavadora','🌀 Secadora','🧊 Refrigerador','🪑 Sillas','🗄️ Escritorio','🪞 Espejo','🌿 Plantas','🎸 Instrumentos','🏋️ Pesas/equipo','📚 Libreros','🧳 Maletas'];
+
+let qrArticulosCustom = [];
+let qrArticulosSeleccionados = new Set();
+
+const QR_PRECIOS_BASE = {
+  '1mueble':{ base:80, horas:1.5 }, 'refri':{ base:80, horas:1.5 },
+  'estudio':{ base:160, horas:2.5 }, '1rec':{ base:200, horas:3 },
+  '2rec':{ base:270, horas:4 }, '3rec':{ base:340, horas:5.5 },
+  '4rec':{ base:420, horas:7 }, 'labor':{ base:120, horas:2 }
+};
+
+function qrInit(){
+  const grid = document.getElementById('qr-articulos-grid');
+  if(!grid || grid.dataset.init) return;
+  grid.dataset.init = '1';
+  grid.innerHTML = QR_ARTICULOS.map(a=>`
+    <label style="display:flex;align-items:center;gap:6px;background:var(--bg,#f8f9fa);padding:7px 10px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer;font-size:12px">
+      <input type="checkbox" onchange="qrToggleArt('${a}',this.checked)" style="accent-color:#1D9E75"> ${a}
+    </label>`).join('');
+  const tarifaEl = document.getElementById('qr-tarifa-milla');
+  if(tarifaEl) tarifaEl.value = (getCfg().tarifaMilla||2.50).toFixed(2);
+  qrCalcTotal();
+}
+
+function qrToggleArt(a, checked){ if(checked) qrArticulosSeleccionados.add(a); else qrArticulosSeleccionados.delete(a); }
+
+function qrAddCustomArt(){
+  const inp = document.getElementById('qr-art-custom');
+  const v = inp.value.trim();
+  if(!v) return;
+  qrArticulosCustom.push(v);
+  inp.value='';
+  const list = document.getElementById('qr-art-custom-list');
+  list.innerHTML = qrArticulosCustom.map((x,i)=>`<span style="background:#EDF3FB;color:#143F74;border-radius:20px;padding:4px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px">${x} <button onclick="qrRemoveCustomArt(${i})" style="background:none;border:none;color:#E24B4A;cursor:pointer;font-size:14px;line-height:1;padding:0">×</button></span>`).join('');
+}
+function qrRemoveCustomArt(i){ qrArticulosCustom.splice(i,1); qrAddCustomArt(); /* re-render */ document.getElementById('qr-art-custom').value='x'; qrAddCustomArt(); }
+
+function qrSetSize(btn, size){
+  document.querySelectorAll('.qr-size-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const p = QR_PRECIOS_BASE[size];
+  if(p){ const horasEl=document.getElementById('qr-horas'); if(horasEl) horasEl.value=p.horas; }
+  const sug = document.getElementById('qr-horas-sugeridas');
+  if(sug && p){ sug.style.display=''; sug.textContent='Sugerido: '+p.horas+' hrs para este tamaño'; }
+  qrCalcTotal();
+}
+
+function qrCalcTotal(){
+  // Base por tamaño activo
+  const activeBtn = document.querySelector('.qr-size-btn.active');
+  let base = 0;
+  if(activeBtn){
+    const size = activeBtn.getAttribute('onclick').match(/qrSetSize\(this,'([^']+)'\)/);
+    if(size && QR_PRECIOS_BASE[size[1]]) base = QR_PRECIOS_BASE[size[1]].base;
+  }
+  const horas = parseFloat(document.getElementById('qr-horas')?.value)||3;
+  const camion = document.getElementById('qr-camion-tipo')?.value;
+  const millas = parseFloat(document.getElementById('qr-millas')?.value)||0;
+  const tarMilla = parseFloat(document.getElementById('qr-tarifa-milla')?.value)||3;
+  const ayudante = document.getElementById('qr-ayudante')?.checked;
+  const escaleras = document.getElementById('qr-escaleras')?.checked;
+  const armar = document.getElementById('qr-armar')?.checked;
+  const pAy = parseFloat(document.getElementById('qrp-ayudante')?.value)||40;
+  const pEsc = parseFloat(document.getElementById('qrp-escaleras')?.value)||20;
+  const pAr = parseFloat(document.getElementById('qrp-armar')?.value)||20;
+
+  // Si no hay botón activo, usar tarifa de horas directamente
+  if(!activeBtn) base = horas * 50;
+
+  let total = base;
+  if(camion==='uhaul') total += 130;
+  total += millas * tarMilla;
+  if(ayudante) total += pAy;
+  if(escaleras) total += pEsc;
+  if(armar) total += pAr;
+
+  const totalEl = document.getElementById('qr-total');
+  if(totalEl) totalEl.textContent = '$' + total.toFixed(2);
+
+  // Desglose
+  const items = [];
+  items.push({ lbl:'Servicio base ('+(activeBtn?activeBtn.textContent.trim():`${horas} hrs`)+')', val:base });
+  if(camion==='uhaul') items.push({ lbl:'🚛 U-Haul extra', val:130 });
+  if(millas>0) items.push({ lbl:`🛣️ ${millas} millas × $${tarMilla}`, val:millas*tarMilla });
+  if(ayudante) items.push({ lbl:'👷 Ayudante adicional', val:pAy });
+  if(escaleras) items.push({ lbl:'🪜 Escaleras', val:pEsc });
+  if(armar) items.push({ lbl:'🛋️ Armar/Desarmar', val:pAr });
+  const desEl = document.getElementById('qr-desglose');
+  if(desEl) desEl.innerHTML = items.map(i=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed rgba(128,128,128,0.2)"><span>${i.lbl}</span><strong>$${i.val.toFixed(2)}</strong></div>`).join('');
+
+  // WhatsApp preview
+  const cfg = getCfg();
+  const origen = document.getElementById('qr-origen')?.value||'tu origen';
+  const destino = document.getElementById('qr-destino')?.value||'tu destino';
+  const arts = [...qrArticulosSeleccionados, ...qrArticulosCustom];
+  const nota = document.getElementById('qr-nota')?.value||'';
+  let msg = `*${cfg.nombre || 'Mudanzas Express LA'}* 🚛\n`;
+  msg += `━━━━━━━━━━━━━━━━\n`;
+  msg += `📍 *${origen}* → *${destino}*\n`;
+  if(arts.length) msg += `📦 Artículos: ${arts.join(', ')}\n`;
+  msg += `\n💰 *ESTIMADO: $${total.toFixed(2)}*\n`;
+  msg += `━━━━━━━━━━━━━━━━\n`;
+  items.forEach(i => { msg += `• ${i.lbl}: $${i.val.toFixed(2)}\n`; });
+  msg += `━━━━━━━━━━━━━━━━\n`;
+  if(nota) msg += `📝 ${nota}\n`;
+  msg += `\n📞 ${cfg.tel||'(323) 946-2008'}\n💳 Efectivo · Zelle`;
+  const prev = document.getElementById('qr-wa-preview');
+  if(prev) prev.textContent = msg;
+  // Store msg for send
+  prev._msg = msg;
+}
+
+function qrEnviarWhatsApp(){
+  const prev = document.getElementById('qr-wa-preview');
+  const msg = prev?._msg || prev?.textContent || '';
+  if(!msg){ alert('Llena los datos primero'); return; }
+  const tel = document.getElementById('qr-tel')?.value.replace(/\D/g,'')||'';
+  const url = tel ? `https://wa.me/1${tel}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  window.open(url,'_blank');
+}
+
+function qrCopiarMensaje(){
+  const prev = document.getElementById('qr-wa-preview');
+  const msg = prev?._msg || prev?.textContent || '';
+  navigator.clipboard.writeText(msg).then(()=>alert('✅ Mensaje copiado')).catch(()=>{
+    const ta = document.createElement('textarea'); ta.value=msg; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); alert('✅ Copiado');
+  });
+}
+
+function qrPasarACotizacion(){
+  const origen = document.getElementById('qr-origen')?.value||'';
+  const destino = document.getElementById('qr-destino')?.value||'';
+  const millas = document.getElementById('qr-millas')?.value||'';
+  showTab('nueva-cot');
+  setTimeout(()=>{
+    if(origen && document.getElementById('c-origen')) document.getElementById('c-origen').value=origen;
+    if(destino && document.getElementById('c-destino')) document.getElementById('c-destino').value=destino;
+    if(millas && document.getElementById('c-millas')) document.getElementById('c-millas').value=millas;
+    if(typeof calcTotal==='function') calcTotal();
+  },400);
+}
+
+function resetCotRapida(){
+  if(!confirm('¿Limpiar todos los campos de la cotización rápida?')) return;
+  ['qr-origen','qr-destino','qr-tel','qr-millas','qr-nota'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+  document.getElementById('qr-horas').value='3';
+  document.getElementById('qr-camion-tipo').value='propio';
+  document.querySelectorAll('.qr-size-btn').forEach(b=>b.classList.remove('active'));
+  ['qr-ayudante','qr-escaleras','qr-armar'].forEach(id=>{ const e=document.getElementById(id); if(e) e.checked=false; });
+  qrArticulosCustom=[];
+  qrArticulosSeleccionados.clear();
+  document.querySelectorAll('#qr-articulos-grid input[type=checkbox]').forEach(c=>c.checked=false);
+  document.getElementById('qr-art-custom-list').innerHTML='';
+  qrCalcTotal();
+}
 </script>
+
+<!-- ═══════════════ COTIZACIÓN RÁPIDA ═══════════════ -->
+<div id="tab-cotizacion-rapida" class="tab-content">
+  <div style="background:rgba(29,158,117,0.15);border:1px solid rgba(29,158,117,0.3);border-radius:14px;padding:16px 20px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="font-size:17px;font-weight:800">⚡ Cotización Rápida</div>
+      <div style="font-size:12px;opacity:.85;margin-top:2px">Captura datos mientras chateas → genera estimado → manda por WhatsApp</div>
+    </div>
+    <button onclick="resetCotRapida()" class="btn" style="font-size:12px">🔄 Nueva</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div>
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">👤 Cliente</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div><label>Nombre</label><input id="qr-nombre" type="text" placeholder="Nombre del cliente"></div>
+          <div><label>WhatsApp</label><input id="qr-tel" type="tel" placeholder="(323) 000-0000"></div>
+          <div><label>Fecha preferida</label><input id="qr-fecha" type="date"></div>
+          <div><label>Hora</label><input id="qr-hora" type="time" value="08:00"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">📍 Direcciones</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div><label>Origen</label><input id="qr-origen" type="text" placeholder="Calle, Ciudad, CA"></div>
+          <div><label>Destino</label><input id="qr-destino" type="text" placeholder="Calle, Ciudad, CA"></div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1"><label>Millas</label><input id="qr-millas" type="number" placeholder="15" min="0" step="0.5" oninput="qrCalcTotal()"></div>
+            <div style="flex:1"><label>$/milla extra</label><input id="qr-tarifa-milla" type="number" value="3.00" step="0.25" oninput="qrCalcTotal()"></div>
+          </div>
+          <div id="qr-millas-info" style="display:none;background:rgba(29,158,117,0.1);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;color:#1D9E75"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">🏠 Tamaño de mudanza</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="qr-size-btn" onclick="qrSetSize(this,'1mueble')">📦 1-3 piezas</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'refri')">🧊 Refri/pesado</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'estudio')">🏠 Estudio</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'1rec')">🛏️ 1 Recámara</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'2rec')">🛏️🛏️ 2 Recámaras</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'3rec')">🏡 3 Recámaras</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'4rec')">🏘️ 4+ Recámaras</button>
+          <button class="qr-size-btn" onclick="qrSetSize(this,'labor')">🏋️ Labor Only</button>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <div style="flex:1"><label>Horas est.</label><input id="qr-horas" type="number" value="3" min="1" max="16" step="0.5" oninput="qrCalcTotal()"><div id="qr-horas-sugeridas" style="display:none;font-size:11px;color:#1D9E75;margin-top:4px;font-weight:600"></div></div>
+          <div style="flex:1"><label>Camión</label><select id="qr-camion-tipo" onchange="qrCalcTotal()"><option value="propio">✅ Mi camión 14 pies</option><option value="uhaul">🚛 U-Haul (+$130)</option><option value="tacoma">🛻 Solo Tacoma</option></select></div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">🔧 Extras</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#f8f9fa);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer">
+            <span style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="qr-ayudante" onchange="qrCalcTotal()"> 👷 Ayudante adicional</span>
+            <span>+$<input type="number" id="qrp-ayudante" value="40" min="0" step="5" style="width:60px;padding:4px 6px;font-size:13px;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
+          </label>
+          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#f8f9fa);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer">
+            <span style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="qr-escaleras" onchange="qrCalcTotal()"> 🪜 Escaleras</span>
+            <span>+$<input type="number" id="qrp-escaleras" value="20" min="0" step="5" style="width:60px;padding:4px 6px;font-size:13px;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
+          </label>
+          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#f8f9fa);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer">
+            <span style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="qr-armar" onchange="qrCalcTotal()"> 🛋️ Armar/Desarmar</span>
+            <span>+$<input type="number" id="qrp-armar" value="20" min="0" step="5" style="width:60px;padding:4px 6px;font-size:13px;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
+          </label>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📋 Artículos principales</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="qr-articulos-grid"></div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <input id="qr-art-custom" type="text" placeholder="Otro artículo..." style="flex:1;font-size:13px">
+          <button class="btn btn-primary btn-sm" onclick="qrAddCustomArt()">+ Agregar</button>
+        </div>
+        <div id="qr-art-custom-list" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:12px;border:1px solid rgba(29,158,117,0.4)">
+        <div class="card-title" style="color:#1D9E75">💰 Estimado</div>
+        <div id="qr-desglose" style="font-size:12px;color:var(--ink-soft,#888);margin-bottom:12px"></div>
+        <div style="background:rgba(29,158,117,0.1);border:1px solid rgba(29,158,117,0.3);border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:12px;color:rgba(29,158,117,0.8);font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">TOTAL ESTIMADO</div>
+          <div id="qr-total" style="font-size:36px;font-weight:900;color:#1D9E75">$0.00</div>
+        </div>
+        <div style="margin-top:10px">
+          <label style="font-size:12px;font-weight:600">Nota adicional</label>
+          <textarea id="qr-nota" rows="2" placeholder="Ej: Precio puede variar si hay más artículos..."></textarea>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">💬 Mensaje WhatsApp</div>
+        <div id="qr-wa-preview" style="background:rgba(255,255,255,0.05);border-radius:10px;padding:14px;font-size:12px;line-height:1.7;white-space:pre-wrap;color:var(--ink-soft,#888);max-height:300px;overflow-y:auto;border:1px solid rgba(255,255,255,0.1)"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🚀 Acciones</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="qrEnviarWhatsApp()">📲 Enviar por WhatsApp</button>
+          <button class="btn" style="width:100%;justify-content:center;padding:11px;background:#25D366;color:#fff;border-color:#25D366" onclick="qrCopiarMensaje()">📋 Copiar mensaje</button>
+          <button class="btn btn-blue" style="width:100%;justify-content:center;padding:11px" onclick="qrPasarACotizacion()">📄 Pasar a cotización formal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ GALERÍA ═══════════════ -->
+<div id="tab-galeria" class="tab-content">
+  <div class="section-header">
+    <div class="section-title">📸 Galería de Trabajos</div>
+    <button class="btn btn-primary" onclick="abrirModalFoto()">➕ Agregar Fotos</button>
+  </div>
+  <div class="notice notice-blue">Las fotos que subas aquí aparecerán en la página web pública automáticamente.</div>
+  <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <input type="text" id="gal-search" placeholder="🔍 Buscar..." style="max-width:240px" oninput="renderGaleria()">
+    <select id="gal-filter" onchange="renderGaleria()" style="max-width:180px">
+      <option value="">Todos</option>
+      <option value="camion">🚛 Camión</option>
+      <option value="tacoma">🛻 Tacoma</option>
+      <option value="antes">📦 Antes</option>
+      <option value="despues">✅ Después</option>
+      <option value="equipo">👷 Equipo</option>
+    </select>
+  </div>
+  <div id="gal-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:20px"></div>
+  <p id="gal-empty" style="color:var(--ink-faint,#888);text-align:center;padding:40px;display:none">No hay fotos todavía. ¡Agrega la primera!</p>
+</div>
+
+<!-- MODAL FOTO -->
+<div class="modal-overlay" id="modal-foto">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">📸 Agregar Fotos</div>
+    <div class="form-row full"><label>Descripción del trabajo</label><textarea id="gf-desc" rows="3" placeholder="Ej: Mudanza en Bell Gardens, 2 recamaras..."></textarea></div>
+    <div class="form-row">
+      <div><label>Categoría</label><select id="gf-cat"><option value="camion">🚛 Camión</option><option value="tacoma">🛻 Tacoma</option><option value="antes">📦 Antes</option><option value="despues">✅ Después</option><option value="equipo">👷 Equipo</option></select></div>
+      <div><label>Fecha</label><input type="date" id="gf-fecha"></div>
+    </div>
+    <div class="form-row full">
+      <label>Fotos (puedes seleccionar varias)</label>
+      <label style="display:flex;align-items:center;gap:10px;background:var(--bg,#f8f9fa);border:2px dashed var(--brand,#1F5EA8);border-radius:10px;padding:16px;cursor:pointer;font-weight:600;color:var(--brand,#1F5EA8)">
+        📷 Seleccionar fotos
+        <input type="file" id="gf-files" accept="image/*" multiple style="display:none" onchange="previsualizarFotos(event)">
+      </label>
+    </div>
+    <div id="gf-preview" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin-top:10px"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="guardarFotos()">💾 Guardar fotos</button>
+      <button class="btn" onclick="cerrarModalFoto()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX ADMIN -->
+<div id="admin-lb" onclick="if(event.target===this)cerrarAdminLB()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
+  <button onclick="cerrarAdminLB()" style="position:fixed;top:16px;right:20px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer">✕</button>
+  <img id="admin-lb-img" src="" style="max-width:90vw;max-height:80vh;border-radius:10px;object-fit:contain">
+  <p id="admin-lb-desc" style="color:#fff;margin-top:12px;font-size:14px;max-width:600px;text-align:center"></p>
+</div>
 </body>
 </html>
