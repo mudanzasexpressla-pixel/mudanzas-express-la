@@ -676,9 +676,33 @@ table.data-table tr:hover td{background:#1A2A42!important}
       <button class="btn btn-primary" onclick="guardarAy()" style="background:#2C5F7A;border-color:#2C5F7A">💾 Guardar pago a ayudante</button>
     </div>
 
-    <!-- Historial acumulado por ayudante (para pagar los domingos) -->
+    <!-- Pago semanal de ayudantes -->
     <div class="card" style="border-left:4px solid #4A7FA5">
-      <div class="card-title" style="color:#2C5F7A">📊 Historial y acumulado por ayudante <span style="font-size:11px;font-weight:400;color:var(--ink-faint)">(para pagar los domingos)</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--line-soft)">
+        <div>
+          <div style="font-size:13.5px;font-weight:700;color:#2C5F7A">📊 Pago semanal de ayudantes</div>
+          <div style="font-size:11px;color:var(--ink-faint);margin-top:2px">Solo se muestran quienes trabajaron la semana seleccionada</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <button onclick="ayNavSemana(-1)" style="padding:6px 12px;border-radius:8px;border:1px solid var(--input-border);background:var(--card);cursor:pointer;font-size:14px;font-weight:700">&lsaquo;</button>
+          <div id="ay-semana-label" style="font-size:13px;font-weight:700;color:var(--brand-dark);min-width:180px;text-align:center"></div>
+          <button onclick="ayNavSemana(1)" style="padding:6px 12px;border-radius:8px;border:1px solid var(--input-border);background:var(--card);cursor:pointer;font-size:14px;font-weight:700">&rsaquo;</button>
+          <button onclick="ayIrSemanaActual()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--brand);background:var(--brand-tint);color:var(--brand-dark);font-size:11px;font-weight:700;cursor:pointer">Hoy</button>
+        </div>
+      </div>
+      <div id="ay-merge-wrap" style="display:none;margin-bottom:12px;background:var(--bg);border-radius:9px;padding:12px;border:1px solid var(--line)">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--ink-soft)">🔀 Fusionar nombre duplicado</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div style="flex:1;min-width:140px"><label>Nombre a reemplazar</label><input type="text" id="ay-merge-from" placeholder="GELACIO H8UERTA" list="ay-nombres-list"></div>
+          <div style="flex:1;min-width:140px"><label>Nombre correcto</label><input type="text" id="ay-merge-to" placeholder="GELACIO HUERTA LOPEZ" list="ay-nombres-list"></div>
+          <datalist id="ay-nombres-list"></datalist>
+          <button onclick="ayFusionarNombre()" class="btn btn-primary btn-sm">✓ Fusionar</button>
+          <button onclick="document.getElementById(&#39;ay-merge-wrap&#39;).style.display=&#39;none&#39;" class="btn btn-sm">✕</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+        <button onclick="document.getElementById(&#39;ay-merge-wrap&#39;).style.display=document.getElementById(&#39;ay-merge-wrap&#39;).style.display===&#39;none&#39;?&#39;block&#39;:&#39;none&#39;" style="font-size:11px;color:var(--ink-faint);background:none;border:none;cursor:pointer;text-decoration:underline">🔀 Corregir nombre duplicado</button>
+      </div>
       <div id="ay-historial-tabla">
         <div class="empty-state" style="padding:24px"><p>Sin registros de ayudantes todavía</p></div>
       </div>
@@ -2451,7 +2475,7 @@ function showGTab(t, btn) {
 }
 
 // ===================== HISTORIAL ACUMULADO AYUDANTES =====================
-// ── Helpers de semana ──────────────────────────────────────────────────────
+// ── Helpers de semana ───────────────────────────────────────────────────────
 function ayParseFecha(f) {
   if(!f) return null;
   if(/^\d{4}-\d{2}-\d{2}$/.test(f)) return new Date(f+'T12:00:00');
@@ -2461,96 +2485,87 @@ function ayParseFecha(f) {
 }
 function ayLunesDe(fecha) {
   const d=new Date(fecha); d.setHours(0,0,0,0);
-  const dow=d.getDay(); // 0=dom
+  const dow=d.getDay();
   d.setDate(d.getDate()-(dow===0?6:dow-1));
   return d;
 }
 function aySemanKey(lunes) { return lunes.toISOString().split('T')[0]; }
 function aySemanLabel(lunes) {
   const dom=new Date(lunes); dom.setDate(lunes.getDate()+6);
-  const fmt=d=>d.toLocaleDateString('es-US',{month:'short',day:'numeric'});
+  const fmt=d=>d.toLocaleDateString('es-US',{month:'short',day:'numeric',year:'numeric'});
   return fmt(lunes)+' – '+fmt(dom);
 }
 
-// ── Construye todos los registros unificados de un ayudante ───────────────
+// ── Semana seleccionada actualmente (lunes como Date) ────────────────────
+let aySemanActual = null;
+function ayGetSemanActual() {
+  if(!aySemanActual) aySemanActual = ayLunesDe(new Date());
+  return aySemanActual;
+}
+function ayNavSemana(delta) {
+  const lunes = new Date(ayGetSemanActual());
+  lunes.setDate(lunes.getDate() + delta*7);
+  aySemanActual = lunes;
+  renderAyHistorial();
+}
+function ayIrSemanaActual() {
+  aySemanActual = ayLunesDe(new Date());
+  renderAyHistorial();
+}
+
+// ── Todos los registros de un ayudante ───────────────────────────────────
 function ayGetTodosRegistros(nombre) {
   const d = getData();
   const cfg = getCfg();
   const tarifa = cfg.tarifaAyudanteHr || 22.50;
   const lista = [];
-
-  // Trabajos terminados con ese ayudante (datos del cronómetro de campo)
   (d.cots||[]).filter(c=>c.estatus==='terminado' && (c.nombreAyudante||'').trim()===nombre && (c.pagoAyudante||0)>0).forEach(c=>{
-    lista.push({
-      fecha: c.fechaTerminadoISO || c.fechaAgendada || '',
-      trabajo: c.id,
-      cliente: c.cliente ? (c.cliente.nombre||'') : '',
-      horas: c.horasTrabajadas || 0,
-      tarifa,
-      bono: 0,
-      monto: c.pagoAyudante || 0,
-      fuente: 'auto'
-    });
+    lista.push({ fecha:c.fechaTerminadoISO||c.fechaAgendada||'', trabajo:c.id, cliente:c.cliente?(c.cliente.nombre||''):'', horas:c.horasTrabajadas||0, tarifa, bono:0, monto:c.pagoAyudante||0, fuente:'auto' });
   });
-
-  // Registros manuales del formulario de ayudantes
   (d.ay||[]).filter(a=>!a.esAutoComprobante && (a.nombre||'').trim()===nombre).forEach(a=>{
-    lista.push({
-      fecha: a.fecha || '',
-      trabajo: a.trabajo || '—',
-      cliente: '',
-      horas: a.horas || 0,
-      tarifa: a.tarifaHr || tarifa,
-      bono: a.bono || 0,
-      monto: a.monto || 0,
-      fuente: 'manual'
-    });
+    lista.push({ fecha:a.fecha||'', trabajo:a.trabajo||'—', cliente:'', horas:a.horas||0, tarifa:a.tarifaHr||tarifa, bono:a.bono||0, monto:a.monto||0, fuente:'manual' });
   });
-
   return lista.sort((a,b)=>(a.fecha||'')>(b.fecha||'')?1:-1);
 }
 
-// ── Agrupa registros por semana, y dentro de semana por día ───────────────
-function ayAgruparPorSemana(registros) {
-  const semanas = {}; // key=lunes ISO → { key, label, lunes, dias:{fecha→[regs]}, pagado, pagoId }
-  registros.forEach(r => {
-    const fd = ayParseFecha(r.fecha);
-    if(!fd || isNaN(fd)) return;
-    const lunes = ayLunesDe(fd);
-    const skey = aySemanKey(lunes);
-    if(!semanas[skey]) semanas[skey] = { key:skey, label:aySemanLabel(lunes), lunes, dias:{}, pagado:false, pagoId:null };
-    if(!semanas[skey].dias[r.fecha]) semanas[skey].dias[r.fecha] = [];
-    semanas[skey].dias[r.fecha].push(r);
-  });
-  // Marcar pagado desde storage
-  const d = getData();
-  const pagos = (d.ayPagos || {});
-  Object.keys(semanas).forEach(k => {
-    if(pagos[k]) { semanas[k].pagado = true; semanas[k].pagoId = pagos[k]; }
-  });
-  // Orden: más reciente primero
-  return Object.values(semanas).sort((a,b)=>b.key.localeCompare(a.key));
-}
-
-// ── Marcar semana como pagada ─────────────────────────────────────────────
+// ── Marcar / deshacer pago ───────────────────────────────────────────────
 function ayMarcarPagado(nombre, semKey) {
-  const uidAy = 'ayhist_'+nombre.replace(/[^a-z0-9]/gi,'_');
+  if(!confirm('¿Confirmas que ya pagaste a '+nombre+' esta semana?')) return;
   const d = getData();
   if(!d.ayPagos) d.ayPagos = {};
-  const ts = new Date().toISOString();
-  d.ayPagos[semKey + '__' + nombre] = ts;
+  d.ayPagos[semKey+'__'+nombre] = new Date().toISOString();
   saveData(d);
   renderAyHistorial();
-  // Abrir acordeón del ayudante si está cerrado
-  const el = document.getElementById(uidAy);
-  if(el && el.style.display==='none') toggleAyHist(uidAy);
+}
+function ayDeshacerPago(nombre, semKey) {
+  if(!confirm('¿Deshacer el pago marcado de '+nombre+'?')) return;
+  const d = getData();
+  if(d.ayPagos) delete d.ayPagos[semKey+'__'+nombre];
+  saveData(d);
+  renderAyHistorial();
 }
 
-function ayDeshacerPago(nombre, semKey) {
-  if(!confirm('¿Deshacer el pago marcado para esta semana?')) return;
+// ── Fusionar nombre duplicado ─────────────────────────────────────────────
+function ayFusionarNombre() {
+  const from = (document.getElementById('ay-merge-from').value||'').trim();
+  const to   = (document.getElementById('ay-merge-to').value||'').trim();
+  if(!from||!to||from===to){ alert('Completa ambos nombres'); return; }
+  if(!confirm('¿Reemplazar "'+from+'" por "'+to+'" en TODOS los registros? (no se puede deshacer)')) return;
   const d = getData();
-  if(d.ayPagos) delete d.ayPagos[semKey + '__' + nombre];
+  let n=0;
+  (d.cots||[]).forEach(c=>{ if((c.nombreAyudante||'').trim()===from){ c.nombreAyudante=to; n++; } });
+  (d.ay||[]).forEach(a=>{ if((a.nombre||'').trim()===from){ a.nombre=to; n++; } });
+  // migrar pagos
+  if(d.ayPagos){
+    const newPagos={};
+    Object.entries(d.ayPagos).forEach(([k,v])=>{ newPagos[k.endsWith('__'+from)?k.slice(0,-(from.length+2))+'__'+to:k]=v; });
+    d.ayPagos=newPagos;
+  }
   saveData(d);
+  document.getElementById('ay-merge-from').value='';
+  document.getElementById('ay-merge-to').value='';
+  document.getElementById('ay-merge-wrap').style.display='none';
+  alert('✅ '+n+' registro(s) actualizados a "'+to+'"');
   renderAyHistorial();
 }
 
@@ -2560,146 +2575,165 @@ function renderAyHistorial() {
   if(!el) return;
   const d = getData();
   const cfg = getCfg();
+  const pagos = d.ayPagos || {};
+  const tarifa = cfg.tarifaAyudanteHr || 22.50;
 
-  // Recolectar todos los nombres únicos
-  const nombresSet = new Set();
-  (d.cots||[]).filter(c=>c.estatus==='terminado' && c.nombreAyudante && (c.pagoAyudante||0)>0).forEach(c=>nombresSet.add(c.nombreAyudante.trim()));
-  (d.ay||[]).filter(a=>!a.esAutoComprobante && a.nombre).forEach(a=>nombresSet.add(a.nombre.trim()));
+  // Semana seleccionada
+  const lunes = ayGetSemanActual();
+  const domingo = new Date(lunes); domingo.setDate(lunes.getDate()+6); domingo.setHours(23,59,59,999);
+  const semKey = aySemanKey(lunes);
+  const semLabel = aySemanLabel(lunes);
 
-  if(!nombresSet.size) {
-    el.innerHTML = '<div class="empty-state" style="padding:28px"><div class="icon">👷</div><p>Sin registros — guarda el primer pago arriba</p></div>';
+  // Actualizar label
+  const labelEl = document.getElementById('ay-semana-label');
+  if(labelEl) labelEl.textContent = semLabel;
+
+  // Determinar si es la semana actual
+  const hoy = new Date();
+  const lunesHoy = ayLunesDe(hoy);
+  const esActual = aySemanKey(lunesHoy) === semKey;
+  if(labelEl && esActual) labelEl.textContent = '📅 Esta semana · '+semLabel;
+
+  // Recolectar todos los nombres únicos de toda la historia
+  const todosNombres = new Set();
+  (d.cots||[]).filter(c=>c.estatus==='terminado'&&c.nombreAyudante&&(c.pagoAyudante||0)>0).forEach(c=>todosNombres.add(c.nombreAyudante.trim()));
+  (d.ay||[]).filter(a=>!a.esAutoComprobante&&a.nombre).forEach(a=>todosNombres.add(a.nombre.trim()));
+
+  // Actualizar datalist para fusionar
+  const dl = document.getElementById('ay-nombres-list');
+  if(dl) dl.innerHTML = [...todosNombres].sort().map(n=>`<option value="${n}">`).join('');
+
+  // Filtrar sólo quienes tienen registros en ESTA semana
+  const activos = [...todosNombres].sort().filter(nombre => {
+    const regs = ayGetTodosRegistros(nombre);
+    return regs.some(r => {
+      const fd = ayParseFecha(r.fecha);
+      return fd && fd >= lunes && fd <= domingo;
+    });
+  });
+
+  if(!activos.length) {
+    const anyRegs = todosNombres.size > 0;
+    el.innerHTML = `<div class="empty-state" style="padding:32px">
+      <div style="font-size:36px;margin-bottom:10px">${anyRegs?'😴':'👷'}</div>
+      <p style="font-weight:600">${anyRegs?'Nadie trabajó esta semana':'Sin registros de ayudantes todavía'}</p>
+      ${anyRegs?'<p style="font-size:12px;color:var(--ink-faint);margin-top:6px">Usa las flechas ‹ › para ver otras semanas</p>':''}
+    </div>`;
     return;
   }
 
-  const nombres = [...nombresSet].sort();
-  const pagos = d.ayPagos || {};
+  // Calcular total a pagar esta semana (todos los activos sin pagar)
+  const totalSemana = activos.reduce((sum, nombre) => {
+    if(pagos[semKey+'__'+nombre]) return sum;
+    const regs = ayGetTodosRegistros(nombre);
+    const regsEstaSemana = regs.filter(r=>{ const fd=ayParseFecha(r.fecha); return fd&&fd>=lunes&&fd<=domingo; });
+    return sum + regsEstaSemana.reduce((s,r)=>s+(r.monto||0),0);
+  }, 0);
 
-  el.innerHTML = nombres.map(nombre => {
+  // Banner resumen de la semana
+  const bannerPagados = activos.filter(n=>pagos[semKey+'__'+n]).length;
+  const bannerPendientes = activos.length - bannerPagados;
+
+  let html = `<div style="background:var(--bg);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;border:1px solid var(--line)">
+    <div>
+      <div style="font-size:12px;color:var(--ink-faint);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Resumen semana</div>
+      <div style="font-size:13px;color:var(--ink);margin-top:3px">${activos.length} ayudante${activos.length!==1?'s':''} · ${bannerPendientes} por pagar · ${bannerPagados} pagado${bannerPagados!==1?'s':''}</div>
+    </div>
+    ${totalSemana>0?`<div style="text-align:right"><div style="font-size:11px;font-weight:700;color:#EF9F27;text-transform:uppercase;letter-spacing:.5px">Total a pagar</div><div style="font-size:24px;font-weight:900;color:#EF9F27">$${totalSemana.toFixed(2)}</div></div>`:'<div style="font-size:14px;font-weight:700;color:#1D9E75">✅ Todo pagado esta semana</div>'}
+  </div>`;
+
+  html += activos.map(nombre => {
     const todos = ayGetTodosRegistros(nombre);
-    const semanas = ayAgruparPorSemana(todos);
-    const uid = 'ayhist_'+nombre.replace(/[^a-z0-9]/gi,'_');
+    const regsEstaSemana = todos.filter(r=>{ const fd=ayParseFecha(r.fecha); return fd&&fd>=lunes&&fd<=domingo; });
+    const isPagado = !!pagos[semKey+'__'+nombre];
 
-    // Totales globales
-    const totalHorasGlobal = todos.reduce((s,r)=>s+(r.horas||0),0);
-    const totalPagadoGlobal = todos.reduce((s,r)=>s+(r.monto||0),0);
-    const pendientePago = semanas.filter(s=>!pagos[s.key+'__'+nombre]).reduce((s,sem)=>{
-      return s + Object.values(sem.dias).flat().reduce((ss,r)=>ss+(r.monto||0),0);
-    },0);
+    // Agrupar por día dentro de la semana
+    const porDia = {};
+    regsEstaSemana.forEach(r => {
+      const k = r.fecha||'sin-fecha';
+      if(!porDia[k]) porDia[k]=[];
+      porDia[k].push(r);
+    });
 
-    // HTML de semanas
-    const semanasHtml = semanas.map(sem => {
-      const isPagado = !!pagos[sem.key+'__'+nombre];
-      const diasEntries = Object.entries(sem.dias).sort((a,b)=>a[0]>b[0]?1:-1);
+    const diasEntries = Object.entries(porDia).sort((a,b)=>a[0]>b[0]?1:-1);
+    const semTotalHoras = regsEstaSemana.reduce((s,r)=>s+(r.horas||0),0);
+    const semTotalMonto = regsEstaSemana.reduce((s,r)=>s+(r.monto||0),0);
+    const semTotalBono  = regsEstaSemana.reduce((s,r)=>s+(r.bono||0),0);
 
-      // Por cada día: agrupar trabajos y sumar horas
-      const diasHtml = diasEntries.map(([fecha, regs]) => {
-        const horasDia = regs.reduce((s,r)=>s+(r.horas||0),0);
-        const montoDia = regs.reduce((s,r)=>s+(r.monto||0),0);
-        const bonoDia  = regs.reduce((s,r)=>s+(r.bono||0),0);
-        const tarifa   = regs[0].tarifa || cfg.tarifaAyudanteHr||22.50;
-        const trabajos = regs.map(r=>r.trabajo).join(' + ');
-        const clientes = regs.map(r=>r.cliente).filter(Boolean).join(', ');
-        const fechaFmt = ayParseFecha(fecha)?.toLocaleDateString('es-US',{weekday:'short',month:'short',day:'numeric'})||fecha;
-        return `
-          <tr style="border-bottom:1px solid var(--line-soft)">
-            <td style="font-weight:600;color:var(--ink)">${fechaFmt}</td>
-            <td style="font-family:monospace;font-size:11px;color:var(--ink-soft)">${trabajos}</td>
-            <td style="font-weight:700;color:var(--brand-dark)">${horasDia>0?horasDia.toFixed(2)+' h':'—'}</td>
-            <td style="color:var(--ink-soft);font-size:11px">$${tarifa.toFixed(2)}/h</td>
-            <td>${horasDia>0?'$'+(horasDia*tarifa).toFixed(2):'—'}</td>
-            <td>${bonoDia>0?'<span style="color:#1D9E75;font-weight:700">+$'+bonoDia.toFixed(2)+'</span>':'—'}</td>
-            <td><strong style="color:var(--brand-dark)">$${montoDia.toFixed(2)}</strong></td>
-            ${regs.length>1?`<td style="font-size:10px;color:var(--ink-faint)">${regs.length} trabajos ese día</td>`:'<td></td>'}
-          </tr>`;
-      }).join('');
-
-      const semTotalHoras = diasEntries.reduce((s,[,regs])=>s+regs.reduce((ss,r)=>ss+(r.horas||0),0),0);
-      const semTotalMonto = diasEntries.reduce((s,[,regs])=>s+regs.reduce((ss,r)=>ss+(r.monto||0),0),0);
-      const semTotalBono  = diasEntries.reduce((s,[,regs])=>s+regs.reduce((ss,r)=>ss+(r.bono||0),0),0);
-      const semKey = sem.key+'__'+nombre;
-
-      return `
-        <div style="border:1px solid ${isPagado?'var(--line)':'rgba(31,94,168,.35)'};border-radius:10px;overflow:hidden;margin-bottom:10px;${isPagado?'opacity:.72':''}">
-          <!-- Cabecera semana -->
-          <div style="background:${isPagado?'var(--bg)':'var(--brand-tint)'};padding:11px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-            <div>
-              <div style="font-weight:700;font-size:13px;color:${isPagado?'var(--ink-faint)':'var(--brand-dark)'}">${isPagado?'✅':'📅'} ${sem.label}</div>
-              <div style="font-size:11px;color:var(--ink-faint);margin-top:2px">${semTotalHoras>0?semTotalHoras.toFixed(2)+' hrs':'Sin horas registradas'} · ${diasEntries.length} día${diasEntries.length!==1?'s':''}</div>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <div style="text-align:right">
-                <div style="font-size:19px;font-weight:800;color:${isPagado?'var(--ink-faint)':'#1D9E75'}">$${semTotalMonto.toFixed(2)}</div>
-                <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:${isPagado?'#1D9E75':'var(--ink-faint)'}">${isPagado?'✓ PAGADO':'A DEBER'}</div>
-              </div>
-              ${isPagado
-                ? `<button onclick="ayDeshacerPago('${nombre.replace(/'/g,"\\'")}','${sem.key}')" style="padding:5px 10px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:11px;cursor:pointer">↩ Deshacer</button>`
-                : `<button onclick="ayMarcarPagado('${nombre.replace(/'/g,"\\'")}','${sem.key}')" style="padding:9px 18px;border-radius:9px;border:none;background:#1D9E75;color:#fff;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(29,158,117,.4)">💳 Pagar $${semTotalMonto.toFixed(2)}</button>`
-              }
-            </div>
-          </div>
-          <!-- Detalle días -->
-          <div style="padding:0 6px 8px">
-            <table style="width:100%;border-collapse:collapse;font-size:12px">
-              <thead>
-                <tr style="border-bottom:2px solid var(--line)">
-                  <th style="padding:7px 8px;text-align:left;color:var(--ink-faint);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Fecha</th>
-                  <th style="padding:7px 8px;text-align:left;color:var(--ink-faint);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Trabajo</th>
-                  <th style="padding:7px 8px;text-align:left;color:var(--ink-faint);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Horas</th>
-                  <th style="padding:7px 8px;text-align:left;color:var(--ink-faint);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Tarifa</th>
-                  <th style="padding:7px 8px;text-align:left;color:var(--ink-faint);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Base</th>
-                  <th style="padding:7px 8px;text-align:left;color:var(--ink-faint);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Bono</th>
-                  <th style="padding:7px 8px;text-align:left;color:var(--ink-faint);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Total día</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>${diasHtml}</tbody>
-              <tfoot>
-                <tr style="background:var(--brand-tint);font-weight:700;border-top:2px solid var(--brand)">
-                  <td style="padding:8px" colspan="2"><span style="color:var(--brand-dark)">SEMANA TOTAL</span></td>
-                  <td style="padding:8px;color:var(--brand-dark)">${semTotalHoras.toFixed(2)} h</td>
-                  <td>—</td>
-                  <td style="padding:8px">$${(semTotalMonto-semTotalBono).toFixed(2)}</td>
-                  <td style="padding:8px;color:#1D9E75">${semTotalBono>0?'$'+semTotalBono.toFixed(2):'—'}</td>
-                  <td style="padding:8px;color:#1D9E75;font-size:14px"><strong>$${semTotalMonto.toFixed(2)}</strong></td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-            <div style="padding:8px 8px 0;display:flex;gap:6px;flex-wrap:wrap">
-              <button class="btn btn-sm" style="background:var(--brand-dark);color:#fff;border-color:var(--brand-dark)" onclick='ayComprobanteSemana("${nombre.replace(/'/g,"\\'")}","${sem.key}")'>📄 PDF semana</button>
-            </div>
-          </div>
-        </div>`;
+    const diasHtml = diasEntries.map(([fecha, regs]) => {
+      const horasDia = regs.reduce((s,r)=>s+(r.horas||0),0);
+      const montoDia = regs.reduce((s,r)=>s+(r.monto||0),0);
+      const bonoDia  = regs.reduce((s,r)=>s+(r.bono||0),0);
+      const t        = regs[0].tarifa || tarifa;
+      const trabajos = regs.map(r=>r.trabajo).filter(x=>x&&x!=='—').join(' + ');
+      const fd = ayParseFecha(fecha);
+      const fechaFmt = fd ? fd.toLocaleDateString('es-US',{weekday:'short',month:'short',day:'numeric'}) : fecha;
+      // Si hubo 2+ trabajos en un día, mostrar nota
+      const notaDia = regs.length>1 ? `<span style="font-size:10px;background:var(--brand-tint);color:var(--brand-dark);border-radius:12px;padding:2px 7px;margin-left:6px">${regs.length} trabajos</span>` : '';
+      return `<tr>
+        <td style="padding:8px 10px;font-weight:600;color:var(--ink);white-space:nowrap">${fechaFmt}${notaDia}</td>
+        <td style="padding:8px 10px;font-family:monospace;font-size:11px;color:var(--ink-soft)">${trabajos||'—'}</td>
+        <td style="padding:8px 10px;font-weight:700;color:var(--brand-dark)">${horasDia>0?horasDia.toFixed(2)+' h':'<span style="color:var(--ink-faint)">—</span>'}</td>
+        <td style="padding:8px 10px;color:var(--ink-soft);font-size:11px">$${t.toFixed(2)}/h</td>
+        <td style="padding:8px 10px">${horasDia>0?'$'+(horasDia*t).toFixed(2):'—'}</td>
+        <td style="padding:8px 10px">${bonoDia>0?'<span style="color:#1D9E75;font-weight:700">+$'+bonoDia.toFixed(2)+'</span>':'—'}</td>
+        <td style="padding:8px 10px"><strong style="color:var(--ink);font-size:13px">$${montoDia.toFixed(2)}</strong></td>
+      </tr>`;
     }).join('');
 
-    return `
-    <div style="border:1px solid var(--line);border-radius:13px;overflow:hidden;margin-bottom:16px">
-      <!-- Encabezado del ayudante -->
-      <div onclick="toggleAyHist('${uid}')" style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:var(--card);border-bottom:1px solid var(--line)">
+    return `<div style="border:1px solid ${isPagado?'var(--line)':'rgba(31,94,168,.3)'};border-radius:12px;overflow:hidden;margin-bottom:12px${isPagado?';opacity:.65':''}">
+      <!-- Encabezado ayudante -->
+      <div style="padding:13px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;background:${isPagado?'var(--bg)':'var(--card)'}">
         <div>
-          <div style="font-weight:700;font-size:15px;color:var(--ink)">👷 ${nombre}</div>
-          <div style="font-size:12px;color:var(--ink-soft);margin-top:3px">
-            ⏱️ ${totalHorasGlobal.toFixed(1)} hrs totales · ${todos.length} trabajo${todos.length!==1?'s':''} · ${semanas.length} semana${semanas.length!==1?'s':''}
-          </div>
+          <div style="font-weight:700;font-size:14px;color:var(--ink)">👷 ${nombre}</div>
+          <div style="font-size:11px;color:var(--ink-faint);margin-top:2px">⏱️ ${semTotalHoras>0?semTotalHoras.toFixed(2)+' hrs':'sin horas del cronómetro'} · ${diasEntries.length} día${diasEntries.length!==1?'s':''}</div>
         </div>
-        <div style="text-align:right;display:flex;align-items:center;gap:14px">
-          ${pendientePago>0?`<div><div style="font-size:11px;font-weight:700;color:#EF9F27;text-transform:uppercase;letter-spacing:.4px">POR PAGAR</div><div style="font-size:20px;font-weight:800;color:#EF9F27">$${pendientePago.toFixed(2)}</div></div>`:''}
-          <div>
-            <div style="font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.4px">Acumulado</div>
-            <div style="font-size:18px;font-weight:800;color:var(--ink)">$${totalPagadoGlobal.toFixed(2)}</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="text-align:right">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:${isPagado?'#1D9E75':'#EF9F27'}">${isPagado?'✅ PAGADO':'POR PAGAR'}</div>
+            <div style="font-size:22px;font-weight:900;color:${isPagado?'var(--ink-faint)':'#EF9F27'}">$${semTotalMonto.toFixed(2)}</div>
           </div>
-          <div id="arr_${uid}" style="font-size:16px;color:var(--ink-faint)">▼</div>
+          ${isPagado
+            ? `<button onclick="ayDeshacerPago('${nombre.replace(/'/g,"\\'")}','${semKey}')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:11px;cursor:pointer;white-space:nowrap">↩ Deshacer</button>`
+            : `<button onclick="ayMarcarPagado('${nombre.replace(/'/g,"\\'")}','${semKey}')" style="padding:11px 20px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(29,158,117,.45);white-space:nowrap">💳 Pagar $${semTotalMonto.toFixed(2)}</button>`
+          }
         </div>
       </div>
-      <!-- Semanas -->
-      <div id="${uid}" style="display:none;padding:12px;background:var(--bg)">
-        ${semanasHtml || '<div class="empty-state" style="padding:20px"><p>Sin semanas</p></div>'}
-        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-sm" style="background:var(--brand);color:#fff;border-color:var(--brand)" onclick='generarComprobanteNombreCompleto("${nombre.replace(/'/g,"\\'")}")'>📄 Comprobante completo PDF</button>
-        </div>
+      <!-- Tabla de días -->
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="border-bottom:2px solid var(--line);background:var(--bg)">
+              <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Fecha</th>
+              <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.5px">Trabajo</th>
+              <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.5px">Horas</th>
+              <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.5px">Tarifa</th>
+              <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.5px">Base</th>
+              <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.5px">Bono</th>
+              <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.5px">Total</th>
+            </tr>
+          </thead>
+          <tbody>${diasHtml}</tbody>
+          <tfoot>
+            <tr style="border-top:2px solid var(--brand);background:var(--brand-tint)">
+              <td colspan="2" style="padding:8px 10px;font-weight:700;color:var(--brand-dark)">SEMANA TOTAL</td>
+              <td style="padding:8px 10px;font-weight:700;color:var(--brand-dark)">${semTotalHoras>0?semTotalHoras.toFixed(2)+' h':'—'}</td>
+              <td>—</td>
+              <td style="padding:8px 10px;font-weight:600">$${Math.max(0,semTotalMonto-semTotalBono).toFixed(2)}</td>
+              <td style="padding:8px 10px;font-weight:600;color:#1D9E75">${semTotalBono>0?'+$'+semTotalBono.toFixed(2):'—'}</td>
+              <td style="padding:8px 10px;font-weight:800;color:var(--brand-dark);font-size:14px">$${semTotalMonto.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line-soft)">
+        <button class="btn btn-sm" onclick='ayComprobanteSemana("${nombre.replace(/'/g,"\\'")}","${semKey}")' style="font-size:11px">📄 PDF esta semana</button>
+        <button class="btn btn-sm" onclick='generarComprobanteNombreCompleto("${nombre.replace(/'/g,"\\'")}")' style="font-size:11px">📋 PDF historial completo</button>
       </div>
     </div>`;
   }).join('');
+
+  el.innerHTML = html;
 }
 
 function toggleAyHist(uid) {
@@ -2713,11 +2747,11 @@ function toggleAyHist(uid) {
 
 function ayComprobanteSemana(nombre, semKey) {
   const todos = ayGetTodosRegistros(nombre);
-  const semanas = ayAgruparPorSemana(todos);
-  const sem = semanas.find(s=>s.key===semKey);
-  if(!sem) return;
-  const regs = Object.values(sem.dias).flat();
-  generarComprobanteAyudante(nombre, sem.label, regs);
+  const lunes = new Date(semKey+'T12:00:00');
+  const domingo = new Date(lunes); domingo.setDate(lunes.getDate()+6); domingo.setHours(23,59,59,999);
+  const regs = todos.filter(r=>{ const fd=ayParseFecha(r.fecha); return fd&&fd>=lunes&&fd<=domingo; });
+  if(!regs.length){ alert('Sin registros para esa semana'); return; }
+  generarComprobanteAyudante(nombre, aySemanLabel(lunes), regs);
 }
 
 function generarComprobanteNombreCompleto(nombre) {
