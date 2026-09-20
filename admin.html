@@ -1029,71 +1029,141 @@ table.data-table tr:hover td{background:#1A2A42!important}
 </div>
 
 <div class="modal-overlay" id="m-terminar">
-  <div class="modal">
-    <div class="modal-title">✅ Registrar trabajo terminado</div>
-    <div class="notice notice-green">Al marcar como terminado se habilitará la generación del recibo PDF oficial.</div>
+  <div class="modal" style="max-width:580px">
+    <div class="modal-title">✅ Fase 2 — Cierre del trabajo</div>
 
-    <div class="form-row">
-      <div><label>📅 Fecha real del servicio *</label><input type="date" id="tm-fecha-real"></div>
+    <!-- Banner verde cuando vienen datos de campo -->
+    <div id="tm-campo-datos-banner" style="display:none;background:#EEF9F4;border:1px solid #1D9E75;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;line-height:1.7">
+      <!-- populated by abrirTerminar -->
     </div>
-    <div class="notice notice-blue" style="font-size:12px">Esta es la fecha que se guarda como "Fecha Terminado" en tus reportes. Ajústala si estás capturando un trabajo de días anteriores.</div>
 
-    <div class="card" style="background:var(--bg3);margin-bottom:16px">
-      <div class="card-title">⏱️ Horas trabajadas</div>
-      <div class="notice notice-blue" style="font-size:12px">Base incluida: 3 horas. Cada hora extra se cobra a $35/hr al cliente. El ayudante se paga a la tarifa configurada/hr real + bono de $15 si hubo escaleras o muebles pesados. Usa el cronómetro en la app de campo (modo Ayudante).</div>
-      <div style="display:none">
-        <div id="crono-display">00:00:00</div>
+    <!-- Fecha -->
+    <div class="form-row">
+      <div>
+        <label>📅 Fecha real del servicio</label>
+        <input type="date" id="tm-fecha-real">
+        <div style="font-size:11px;color:var(--ink-faint);margin-top:3px">Ajusta si estás capturando un día anterior</div>
       </div>
-      <div class="form-row">
-        <div><label>Horas trabajadas (auto o manual)</label><input type="number" id="crono-horas" placeholder="3.0" step="0.1" min="0" oninput="calcResumenTerminar()"></div>
-        <div style="display:flex;align-items:flex-end;gap:8px;padding-bottom:11px"><input type="checkbox" id="crono-dificil" style="width:18px;height:18px" onchange="calcResumenTerminar()"><label for="crono-dificil" style="margin:0">🪜 Hubo escaleras o muebles pesados (bono +$15 al ayudante)</label></div>
-      </div>
-      <div id="crono-extra-cliente" class="notice notice-blue" style="display:none;font-size:13px"></div>
     </div>
 
+    <hr class="divider">
+
+    <!-- BLOQUE 1: Cobro al cliente (llega bloqueado desde campo) -->
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-faint);margin-bottom:10px">💵 Cobro al cliente (Fase 1)</div>
     <div class="form-row">
-      <div><label>Monto FINAL cobrado ($) *</label><input type="number" id="tm-monto" placeholder="0.00" step="0.01" oninput="calcResumenTerminar()"></div>
-      <div><label>Propina recibida ($)</label><input type="number" id="tm-propina" placeholder="0.00" step="0.01" oninput="calcResumenTerminar()"></div>
+      <div><label>Monto cobrado ($)</label><input type="number" id="tm-monto" placeholder="0.00" step="0.01" oninput="calcResumenTerminar()"></div>
+      <div><label>Propina ($)</label><input type="number" id="tm-propina" placeholder="0.00" step="0.01" oninput="calcResumenTerminar()"></div>
     </div>
     <div class="form-row">
-      <div><label>Forma de pago recibida *</label><select id="tm-pago"><option>Efectivo</option><option>Zelle</option><option>Tarjeta</option><option>Cheque</option></select></div>
-      <div><label>🔖 Referencia / Zelle (importante)</label><input type="text" id="tm-ref" placeholder="Ej: ZL2024-789456"></div>
+      <div><label>Forma de pago</label><select id="tm-pago"><option>Efectivo</option><option>Zelle</option><option>Tarjeta</option><option>Cheque</option></select></div>
+      <div><label>🔖 Referencia Zelle / cheque</label><input type="text" id="tm-ref" placeholder="Ej: ZL2024-789456"></div>
     </div>
+
+    <hr class="divider">
+
+    <!-- BLOQUE 2: Horas (vienen del cronómetro de campo) -->
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-faint);margin-bottom:10px">⏱️ Horas del cronómetro (app campo)</div>
+    <div style="display:none"><div id="crono-display">00:00:00</div></div>
+    <div style="background:var(--brand-tint);border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;color:var(--ink-faint);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Horas registradas</div>
+          <div id="tm-horas-display" style="font-size:28px;font-weight:900;color:var(--brand-dark)">— h</div>
+        </div>
+        <div style="flex:1">
+          <label style="font-size:12px">Ajustar horas (si es necesario)</label>
+          <input type="number" id="crono-horas" placeholder="3.0" step="0.1" min="0" oninput="calcResumenTerminar();document.getElementById('tm-horas-display').textContent=(parseFloat(this.value)||0).toFixed(2)+' h'">
+        </div>
+      </div>
+      <div id="crono-extra-cliente" class="notice notice-blue" style="display:none;font-size:12px;margin-top:8px"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <input type="checkbox" id="crono-dificil" style="width:18px;height:18px;accent-color:var(--brand)" onchange="calcResumenTerminar()">
+      <label for="crono-dificil" style="margin:0;font-size:13px;cursor:pointer">🪜 Hubo escaleras / muebles pesados (bono +$15 al ayudante)</label>
+    </div>
+
+    <hr class="divider">
+
+    <!-- BLOQUE 3: Vehículo -->
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-faint);margin-bottom:10px">🚛 Vehículo</div>
     <div class="form-row">
-      <div><label>🚛 Vehículo usado</label>
+      <div>
+        <label>¿Cuál usaste?</label>
         <select id="tm-vehiculo"><option value="">— Sin asignar —</option></select>
       </div>
-      <div><label>📦 ¿Rentaste camión? (Uhaul, etc.)</label>
+      <div>
+        <label>¿Rentaste camión? (Uhaul, etc.)</label>
         <select id="tm-rento-vehiculo" onchange="toggleRentaVehiculo()">
-          <option value="no">No</option>
+          <option value="no">No, usé mi vehículo</option>
           <option value="si">Sí, renté camión</option>
         </select>
       </div>
     </div>
-    <div id="tm-renta-wrap" style="display:none">
+    <div id="tm-renta-wrap" style="display:none;background:#FEF9E7;border-radius:10px;padding:12px;margin-bottom:12px;border:1px solid #EF9F27">
+      <div style="font-size:12px;font-weight:700;color:#7D4E0D;margin-bottom:8px">💸 Costo de renta (solo tú lo sabes al devolver el camión)</div>
       <div class="form-row">
-        <div><label>Tipo de renta (Uhaul 10ft, 15ft...)</label><input type="text" id="tm-renta-tipo" placeholder="Ej: Uhaul 15ft"></div>
-        <div><label>💵 Costo de renta ($)</label><input type="number" id="tm-renta-costo" placeholder="0.00" step="0.01" oninput="calcResumenTerminar()"></div>
+        <div><label>Tipo (Uhaul 10ft, 15ft...)</label><input type="text" id="tm-renta-tipo" placeholder="Ej: Uhaul 15ft"></div>
+        <div><label>Costo pagado ($)</label><input type="number" id="tm-renta-costo" placeholder="0.00" step="0.01" oninput="calcResumenTerminar()"></div>
       </div>
     </div>
+
+    <hr class="divider">
+
+    <!-- BLOQUE 4: Ayudante -->
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-faint);margin-bottom:10px">👷 Ayudante</div>
     <div class="form-row">
-      <div><label>👷 ¿Usaste ayudante?</label>
+      <div>
+        <label>¿Trabajaste solo o con ayudante?</label>
         <select id="tm-ayudante" onchange="toggleAyudanteFields()">
-          <option value="no">No, trabajé solo</option>
-          <option value="si">Sí, con ayudante</option>
+          <option value="no">Solo</option>
+          <option value="si">Con ayudante</option>
         </select>
       </div>
-      <div id="tm-ayudante-monto-wrap"><label>💵 Pago al ayudante ($) — auto: $<span id="lbl-tarifa-ay">23</span>/hr + bono, editable</label><input type="number" id="tm-ayudante-monto" placeholder="0.00" step="0.01" oninput="calcResumenTerminar()"></div>
     </div>
     <div id="tm-ayudante-extra" style="display:none">
-      <div class="form-row">
-        <div><label>👤 Nombre del ayudante</label><input type="text" id="tm-ayudante-nombre" placeholder="Nombre del ayudante"></div>
+      <div style="background:var(--money-tint);border:1px solid var(--money);border-radius:10px;padding:14px;margin-bottom:12px">
+        <div class="form-row" style="margin-bottom:8px">
+          <div><label>👤 Nombre del ayudante</label><input type="text" id="tm-ayudante-nombre" placeholder="Gelacio Huerta Lopez"></div>
+        </div>
+        <!-- Cálculo automático del pago -->
+        <div style="background:var(--card);border-radius:8px;padding:12px;border:1px solid var(--line)">
+          <div style="font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Cálculo automático</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:13px">
+            <div style="background:var(--bg);border-radius:8px;padding:8px 12px;text-align:center">
+              <div style="font-size:10px;color:var(--ink-faint)">HORAS</div>
+              <div id="ay-calc-horas" style="font-size:18px;font-weight:800;color:var(--brand-dark)">0.0</div>
+            </div>
+            <div style="font-size:18px;color:var(--ink-faint)">×</div>
+            <div style="background:var(--bg);border-radius:8px;padding:8px 12px;text-align:center">
+              <div style="font-size:10px;color:var(--ink-faint)">TARIFA/HR</div>
+              <div id="ay-calc-tarifa" style="font-size:18px;font-weight:800;color:var(--brand-dark)">$0</div>
+            </div>
+            <div id="ay-calc-bono-wrap" style="display:none;font-size:18px;color:var(--ink-faint)">+ <span style="background:var(--bg);border-radius:8px;padding:8px 12px;display:inline-block;text-align:center"><div style="font-size:10px;color:var(--ink-faint)">BONO</div><div id="ay-calc-bono" style="font-size:18px;font-weight:800;color:#1D9E75">$0</div></span></div>
+            <div style="font-size:18px;color:var(--ink-faint)">=</div>
+            <div style="background:var(--money-tint);border:2px solid var(--money);border-radius:8px;padding:8px 16px;text-align:center">
+              <div style="font-size:10px;color:var(--money-dark)">TOTAL A PAGARLE</div>
+              <div id="ay-calc-total" style="font-size:22px;font-weight:900;color:var(--money-dark)">$0.00</div>
+            </div>
+          </div>
+          <div style="margin-top:10px">
+            <label style="font-size:12px">Ajustar pago (si quieres dar más o menos)</label>
+            <div id="tm-ayudante-monto-wrap">
+              <input type="number" id="tm-ayudante-monto" placeholder="0.00" step="0.01" oninput="calcResumenTerminar()" style="font-size:16px;font-weight:700;color:var(--money-dark)">
+              <div style="font-size:11px;color:var(--ink-faint);margin-top:3px">Tarifa configurada: $<span id="lbl-tarifa-ay">22.50</span>/hr · modifica aquí si quieres ajustar</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    <div id="tm-resumen" class="notice notice-blue" style="display:none"></div>
-    <div class="form-row full"><div><label>Observaciones finales del trabajo</label><textarea id="tm-obs" placeholder="Estado en que se entregó, incidentes, notas importantes..."></textarea></div></div>
+
+    <hr class="divider">
+
+    <!-- Resumen ganancia -->
+    <div id="tm-resumen" class="notice notice-green" style="display:none;font-size:13px"></div>
+
+    <div class="form-row full" style="margin-top:8px"><div><label>Observaciones finales</label><textarea id="tm-obs" placeholder="Estado de entrega, incidentes, notas..." style="min-height:55px"></textarea></div></div>
     <div class="btn-row">
-      <button class="btn btn-primary" onclick="confirmarTerminar()">✅ Marcar como terminado</button>
+      <button class="btn btn-primary" onclick="confirmarTerminar()" style="flex:1;justify-content:center;padding:13px;font-size:14px">✅ Terminar y guardar</button>
       <button class="btn" onclick="cerrar('m-terminar')">✕ Cancelar</button>
     </div>
   </div>
@@ -2519,12 +2589,42 @@ function ayGetTodosRegistros(nombre) {
   const cfg = getCfg();
   const tarifa = cfg.tarifaAyudanteHr || 22.50;
   const lista = [];
-  (d.cots||[]).filter(c=>c.estatus==='terminado' && (c.nombreAyudante||'').trim()===nombre && (c.pagoAyudante||0)>0).forEach(c=>{
-    lista.push({ fecha:c.fechaTerminadoISO||c.fechaAgendada||'', trabajo:c.id, cliente:c.cliente?(c.cliente.nombre||''):'', horas:c.horasTrabajadas||0, tarifa, bono:0, monto:c.pagoAyudante||0, fuente:'auto' });
-  });
+
+  // 1. Registros manuales del formulario (tienen prioridad porque ahí pusiste las horas reales)
+  const trabajosManuales = new Set(); // IDs de trabajos ya cubiertos por registro manual
   (d.ay||[]).filter(a=>!a.esAutoComprobante && (a.nombre||'').trim()===nombre).forEach(a=>{
-    lista.push({ fecha:a.fecha||'', trabajo:a.trabajo||'—', cliente:'', horas:a.horas||0, tarifa:a.tarifaHr||tarifa, bono:a.bono||0, monto:a.monto||0, fuente:'manual' });
+    const horas = (a.horas != null && !isNaN(parseFloat(a.horas))) ? parseFloat(a.horas) : 0;
+    lista.push({
+      fecha:    a.fecha||'',
+      trabajo:  a.trabajo||'—',
+      cliente:  '',
+      horas:    horas,
+      tarifa:   parseFloat(a.tarifaHr)||tarifa,
+      bono:     parseFloat(a.bono)||0,
+      monto:    parseFloat(a.monto)||0,
+      fuente:   'manual'
+    });
+    if(a.trabajo) trabajosManuales.add(a.trabajo.trim());
   });
+
+  // 2. Trabajos terminados de d.cots — solo si NO tienen ya un registro manual
+  //    (evita duplicados cuando el admin también llenó el formulario manual)
+  (d.cots||[])
+    .filter(c => c.estatus==='terminado' && (c.nombreAyudante||'').trim()===nombre && (c.pagoAyudante||0)>0)
+    .filter(c => !trabajosManuales.has(c.id))  // saltar si ya está en manual
+    .forEach(c=>{
+      lista.push({
+        fecha:   c.fechaTerminadoISO||c.fechaAgendada||'',
+        trabajo: c.id,
+        cliente: c.cliente?(c.cliente.nombre||''):'',
+        horas:   c.horasTrabajadas||0,
+        tarifa,
+        bono:    0,
+        monto:   c.pagoAyudante||0,
+        fuente:  'cot'
+      });
+    });
+
   return lista.sort((a,b)=>(a.fecha||'')>(b.fecha||'')?1:-1);
 }
 
@@ -3008,24 +3108,26 @@ function abrirTerminar(id) {
   const obsEl = document.getElementById('tm-obs');
   if(obsEl) { obsEl.value = dc ? (dc.observaciones||'') : ''; obsEl.disabled = false; }
 
-  // ── Banner explicativo si viene de campo ──
-  const modalTitle = document.querySelector('#m-terminar .modal-title');
-  const bannerExistente = document.getElementById('tm-campo-banner');
-  if(bannerExistente) bannerExistente.remove();
-  if(tieneCampo && modalTitle) {
-    const banner = document.createElement('div');
-    banner.id = 'tm-campo-banner';
-    banner.className = 'notice notice-green';
-    banner.style.marginBottom = '14px';
-    const pago2txt = dc.formaPago2 ? (' + ' + dc.formaPago2 + (dc.montoPago2 ? ' $'+dc.montoPago2.toFixed(2) : '')) : '';
-    const refTxt = dc.refPago ? (' · Ref: '+dc.refPago) : '';
-    const ref2Txt = dc.refPago2 ? (' · Ref2: '+dc.refPago2) : '';
-    banner.innerHTML = `📲 <strong>Fase 1 completada por el ayudante.</strong> Datos bloqueados:<br>
-      💵 $${dc.montoFinal.toFixed(2)}${dc.propina > 0 ? ' + propina $'+dc.propina.toFixed(2) : ''} · 
-      ${dc.formaPago1||dc.formaPago}${dc.montoPago1?(' $'+dc.montoPago1.toFixed(2)):''}${refTxt}${pago2txt}${ref2Txt}<br>
-      <strong>Solo completa:</strong> Vehículo, Ayudante, Camión rentado y fecha.`;
-    modalTitle.insertAdjacentElement('afterend', banner);
+  // ── Banner Fase 1 completada ──
+  const datosBanner = document.getElementById('tm-campo-datos-banner');
+  if(datosBanner) {
+    if(tieneCampo) {
+      const pago2txt = dc.formaPago2 ? (' <span style="opacity:.7">+</span> '+dc.formaPago2+(dc.montoPago2?' $'+dc.montoPago2.toFixed(2):'')) : '';
+      const refTxt = dc.refPago ? (' · Ref: <strong>'+dc.refPago+'</strong>') : '';
+      datosBanner.style.display = 'block';
+      datosBanner.innerHTML = '✅ <strong>Fase 1 recibida desde la app de campo.</strong><br>'
+        + '💵 Cobrado: <strong>$'+dc.montoFinal.toFixed(2)+'</strong>'
+        + (dc.propina > 0 ? ' + Propina $'+dc.propina.toFixed(2) : '')
+        + ' · Pago: <strong>'+(dc.formaPago1||dc.formaPago)+'</strong>'+pago2txt+refTxt+'<br>'
+        + (dc.horasTrabajadas > 0 ? '⏱️ Horas del cronómetro: <strong>'+dc.horasTrabajadas.toFixed(2)+' hrs</strong><br>' : '⚠️ Sin horas de cronómetro — ajusta abajo si trabajó con ayudante.<br>')
+        + '<span style="color:var(--money-dark);font-weight:700">→ Solo completa: Vehículo · Ayudante · Camión rentado</span>';
+    } else {
+      datosBanner.style.display = 'none';
+    }
   }
+  // Eliminar banner viejo si existía
+  const bannerViejo = document.getElementById('tm-campo-banner');
+  if(bannerViejo) bannerViejo.remove();
 
   // ── Vehículo dropdown ──
   const vehs = getData().vehiculos||[];
@@ -3109,9 +3211,7 @@ function toggleRentaVehiculo() {
 
 function toggleAyudanteFields() {
   var val = document.getElementById('tm-ayudante').value;
-  var wrap = document.getElementById('tm-ayudante-monto-wrap');
   var extra = document.getElementById('tm-ayudante-extra');
-  if(wrap) wrap.style.opacity = val==='si' ? '1' : '0.4';
   if(extra) extra.style.display = val==='si' ? 'block' : 'none';
   calcResumenTerminar();
 }
@@ -3120,28 +3220,54 @@ function calcResumenTerminar() {
   // Actualizar tarifa ayudante desde Configuración
   var cfgTarifa = getCfg ? getCfg().tarifaAyudanteHr : null;
   if (cfgTarifa && cfgTarifa > 0) CRONO_TARIFA_AYUDANTE = cfgTarifa;
-  // Horas trabajadas (del cronómetro o ingresadas a mano) y cargo extra sugerido al cliente
+
   var horasEl = document.getElementById('crono-horas');
   var horas = horasEl ? (parseFloat(horasEl.value) || 0) : 0;
   var dificil = document.getElementById('crono-dificil') ? document.getElementById('crono-dificil').checked : false;
   var horasExtra = Math.max(0, horas - CRONO_HORAS_BASE);
   var cargoExtraCliente = horasExtra * CRONO_TARIFA_EXTRA_CLIENTE;
+
+  // Actualizar display grande de horas
+  var horasDisp = document.getElementById('tm-horas-display');
+  if(horasDisp) horasDisp.textContent = horas > 0 ? horas.toFixed(2)+' h' : '— h';
+
+  // Label tarifa
+  var lblTar = document.getElementById('lbl-tarifa-ay');
+  if(lblTar) lblTar.textContent = CRONO_TARIFA_AYUDANTE.toFixed(2);
+
+  // Extra al cliente
   var extraClienteEl = document.getElementById('crono-extra-cliente');
   if (extraClienteEl) {
     if (horas > 0 && horasExtra > 0) {
       extraClienteEl.style.display = 'block';
-      extraClienteEl.innerHTML = '⏱️ Horas extra: <strong>' + horasExtra.toFixed(2) + ' hr</strong> → Cargo sugerido al cliente: <strong style="color:#E24B4A">+$' + cargoExtraCliente.toFixed(2) + '</strong> (súmalo al "Monto FINAL cobrado" si se lo cobraste)';
+      extraClienteEl.innerHTML = '⏱️ <strong>'+horasExtra.toFixed(2)+' hrs extra</strong> → Cargo sugerido al cliente: <strong>+$' + cargoExtraCliente.toFixed(2) + '</strong>';
     } else {
       extraClienteEl.style.display = 'none';
     }
   }
 
-  // Pago automático al ayudante: tarifa config/hr real + $15 de bono si hubo escaleras o muebles pesados
+  // Calculadora visual del ayudante
   var usaAyChk = document.getElementById('tm-ayudante');
-  if (usaAyChk && usaAyChk.value === 'si' && horas > 0) {
-    var pagoAutoAyudante = (horas * CRONO_TARIFA_AYUDANTE) + (dificil ? CRONO_BONO_DIFICIL : 0);
+  var pagoAutoAyudante = 0;
+  if (usaAyChk && usaAyChk.value === 'si') {
+    var bono = dificil ? CRONO_BONO_DIFICIL : 0;
+    pagoAutoAyudante = (horas * CRONO_TARIFA_AYUDANTE) + bono;
+
+    // Actualizar calculadora visual
+    var calcHoras = document.getElementById('ay-calc-horas');
+    var calcTarifa = document.getElementById('ay-calc-tarifa');
+    var calcBono = document.getElementById('ay-calc-bono');
+    var calcBonoWrap = document.getElementById('ay-calc-bono-wrap');
+    var calcTotal = document.getElementById('ay-calc-total');
+    if(calcHoras) calcHoras.textContent = horas.toFixed(2);
+    if(calcTarifa) calcTarifa.textContent = '$'+CRONO_TARIFA_AYUDANTE.toFixed(2);
+    if(calcBono) calcBono.textContent = '$'+bono.toFixed(2);
+    if(calcBonoWrap) calcBonoWrap.style.display = bono > 0 ? 'flex' : 'none';
+    if(calcTotal) calcTotal.textContent = '$'+pagoAutoAyudante.toFixed(2);
+
+    // Solo auto-llenar si el campo está vacío o fue auto-llenado antes
     var montoAyEl = document.getElementById('tm-ayudante-monto');
-    if (montoAyEl) montoAyEl.value = pagoAutoAyudante.toFixed(2);
+    if (montoAyEl && horas > 0) montoAyEl.value = pagoAutoAyudante.toFixed(2);
   }
 
   var monto = parseFloat(document.getElementById('tm-monto').value)||0;
@@ -3398,10 +3524,10 @@ function guardarAy() {
   if(!d.ay) d.ay=[];
   d.ay.push({
     nombre, monto, fecha,
-    horas: horas||null,
-    tarifaHr: tarifa||null,
-    bono: bono||null,
-    bonoNota: bonoNota||null,
+    horas: horas,          // siempre guardar el número (0 si no se puso)
+    tarifaHr: tarifa,
+    bono: bono,
+    bonoNota: bonoNota||'',
     tipo: document.getElementById('ay-tipo').value,
     trabajo: document.getElementById('ay-trabajo').value,
     notas: document.getElementById('ay-notas').value,
@@ -5710,7 +5836,13 @@ initDarkMode();
   <div style="color:#fff;font-size:22px;font-weight:700;margin-bottom:6px">Mudanzas Express LA</div>
   <div style="color:rgba(255,255,255,.8);font-size:13px;margin-bottom:40px">Sistema de Gestion</div>
   <button onclick="mostrarPinAdmin()" style="width:100%;max-width:320px;padding:18px;background:#fff;color:#143F74;border:none;border-radius:16px;font-size:17px;font-weight:700;cursor:pointer;margin-bottom:14px">&#128084; Soy Admin</button>
-  <button onclick="entrarComoAyudante()" style="width:100%;max-width:320px;padding:18px;background:rgba(255,255,255,.2);color:#fff;border:2px solid rgba(255,255,255,.5);border-radius:16px;font-size:17px;font-weight:700;cursor:pointer">&#128119; Soy Ayudante</button>
+  <button onclick="mostrarPantallaAyudante()" style="width:100%;max-width:320px;padding:18px;background:rgba(255,255,255,.2);color:#fff;border:2px solid rgba(255,255,255,.5);border-radius:16px;font-size:17px;font-weight:700;cursor:pointer">&#128119; Soy Ayudante</button>
+  <!-- Panel nombre ayudante -->
+  <div id="panel-nombre-ay" style="display:none;width:100%;max-width:320px;margin-top:10px;background:rgba(255,255,255,.15);border-radius:16px;padding:20px">
+    <div style="color:#fff;font-size:14px;font-weight:700;margin-bottom:12px">¿Cómo te llamas?</div>
+    <input id="input-nombre-ay" type="text" placeholder="Tu nombre completo" style="width:100%;padding:14px;border-radius:10px;border:none;font-size:15px;margin-bottom:10px;text-transform:uppercase">
+    <button onclick="confirmarEntradaAyudante()" style="width:100%;padding:14px;background:#1D9E75;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">✓ Entrar</button>
+  </div>
   <div id="pin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:99999">
     <div style="background:#fff;border-radius:16px;padding:28px;width:90%;max-width:320px;text-align:center">
       <div style="font-size:16px;font-weight:700;color:#143F74;margin-bottom:16px">PIN de Admin</div>
@@ -5993,9 +6125,40 @@ function mostrarPinAdmin(){document.getElementById('pin-modal').style.display='f
 function cerrarPinModal(){document.getElementById('pin-modal').style.display='none';document.getElementById('pin-admin-input').value='';document.getElementById('pin-error').textContent='';}
 function verificarPinAdmin(){var p=document.getElementById('pin-admin-input').value;if(p===ADMIN_PIN){cerrarPinModal();entrarComoAdmin();}else{document.getElementById('pin-error').textContent='PIN incorrecto';document.getElementById('pin-admin-input').value='';}}
 function entrarComoAdmin(){localStorage.setItem('mudanzas_modo','admin');document.getElementById('app-selector').style.display='none';document.getElementById('app-campo').style.display='none';iniciarAutoSyncTerminados();}
-function entrarComoAyudante(){localStorage.setItem('mudanzas_modo','ayudante');document.getElementById('app-selector').style.display='none';document.getElementById('app-campo').style.display='block';var h=document.querySelector('.app-header');var n=document.querySelector('.nav');if(h)h.style.display='none';if(n)n.style.display='none';document.querySelectorAll('.tab-content').forEach(function(e){e.style.display='none';});setTimeout(function(){if(typeof cargarTrabajoCampo==='function')cargarTrabajoCampo();},300);iniciarVerificacionAutomatica();}
+function mostrarPantallaAyudante(){
+  var panel=document.getElementById('panel-nombre-ay');
+  if(!panel) return entrarComoAyudante('');
+  var guardado=localStorage.getItem('campo_ayudante_nombre')||'';
+  // Si ya tiene nombre guardado, entrar directo
+  if(guardado){ entrarComoAyudante(guardado); return; }
+  panel.style.display='block';
+  var inp=document.getElementById('input-nombre-ay');
+  if(inp) inp.focus();
+}
+function confirmarEntradaAyudante(){
+  var inp=document.getElementById('input-nombre-ay');
+  var nombre=(inp?inp.value.trim():'').toUpperCase();
+  if(!nombre){ alert('Escribe tu nombre'); return; }
+  localStorage.setItem('campo_ayudante_nombre', nombre);
+  entrarComoAyudante(nombre);
+}
+function entrarComoAyudante(nombre){
+  if(nombre) localStorage.setItem('campo_ayudante_nombre', nombre);
+  localStorage.setItem('mudanzas_modo','ayudante');
+  document.getElementById('app-selector').style.display='none';
+  document.getElementById('app-campo').style.display='block';
+  var h=document.querySelector('.app-header');var n=document.querySelector('.nav');
+  if(h)h.style.display='none';if(n)n.style.display='none';
+  document.querySelectorAll('.tab-content').forEach(function(e){e.style.display='none';});
+  // Mostrar nombre en header
+  var nombreGuardado = nombre || localStorage.getItem('campo_ayudante_nombre')||'';
+  var sub=document.getElementById('header-sub');
+  if(sub && nombreGuardado) sub.textContent='Hola, '+nombreGuardado+' 👋';
+  setTimeout(function(){if(typeof cargarTrabajoCampo==='function')cargarTrabajoCampo();},300);
+  iniciarVerificacionAutomatica();
+}
 function volverAlSelector(){localStorage.removeItem('mudanzas_modo');document.getElementById('app-selector').style.display='flex';document.getElementById('app-campo').style.display='none';var h=document.querySelector('.app-header');var n=document.querySelector('.nav');if(h)h.style.display='';if(n)n.style.display='';}
-(function(){var m=localStorage.getItem('mudanzas_modo');if(m==='ayudante'){entrarComoAyudante();}else if(m==='admin'){document.getElementById('app-selector').style.display='none';}})();
+(function(){var m=localStorage.getItem('mudanzas_modo');if(m==='ayudante'){var n=localStorage.getItem('campo_ayudante_nombre')||'';entrarComoAyudante(n);}else if(m==='admin'){document.getElementById('app-selector').style.display='none';}})();
 </script>
 
 <script>
@@ -6711,6 +6874,91 @@ async function enviarTerminado() {
 
   // Guardar localmente como respaldo
   localStorage.setItem('terminado_' + cotId, JSON.stringify(payload));
+
+  // ── SINCRONIZACIÓN DIRECTA CON LA APP ADMIN ─────────────────────────────
+  // Como es el mismo archivo y el mismo localStorage, escribimos directamente
+  // las horas del cronómetro en el registro del trabajo y en d.ay[].
+  // Así el admin NO necesita hacer nada extra — las horas ya están ahí.
+  try {
+    const adminKey = 'mudanzas_express_la_v3';
+    const adminCfgKey = adminKey + '_cfg';
+    const adminData = JSON.parse(localStorage.getItem(adminKey) || '{}');
+    const adminCfg  = JSON.parse(localStorage.getItem(adminCfgKey) || '{}');
+    const tarifaAy  = adminCfg.tarifaAyudanteHr || 22.50;
+    const cotIdx    = (adminData.cots || []).findIndex(c => c.id === cotId);
+
+    if(cotIdx >= 0) {
+      const cot = adminData.cots[cotIdx];
+
+      // 1. Guardar horas en la cotización (para que el admin las vea al abrir el modal)
+      if(horasTrabajadas > 0) {
+        cot.horasTrabajadas = horasTrabajadas;
+      }
+
+      // 2. Guardar datos de campo (Fase 1 completada)
+      if(!cot.datosCampoRecibidos) {
+        cot.datosCampoRecibidos = true;
+        cot.datosCampo = {
+          montoFinal:     monto,
+          propina:        propina,
+          formaPago:      formaPagoCompleta,
+          formaPago1:     pago,
+          formaPago2:     pago2,
+          montoPago1,
+          montoPago2,
+          refPago:        document.getElementById('t-ref').value,
+          refPago2:       ref2,
+          observaciones:  document.getElementById('t-obs').value,
+          firmaCliente:   obtenerFirmaBase64(),
+          horasTrabajadas,
+          huboDificultad,
+          fechaTerminado: new Date().toISOString()
+        };
+      }
+
+      // 3. Crear registro directo en d.ay[] con las horas reales
+      //    Solo si el ayudante tiene nombre registrado en el trabajo
+      // Nombre del ayudante: primero el que tiene la cotización en admin,
+      // si no, el que se guardó al entrar como ayudante en este dispositivo
+      const nombreAy = (cot.nombreAyudante || '').trim() ||
+                       (localStorage.getItem('campo_ayudante_nombre') || '').trim();
+      // Si el nombre viene de localStorage y la cot no lo tiene, guardarlo también
+      if(!cot.nombreAyudante && nombreAy) cot.nombreAyudante = nombreAy;
+      if(horasTrabajadas > 0 && nombreAy) {
+        if(!adminData.ay) adminData.ay = [];
+        const yaExiste = adminData.ay.some(a => a.trabajo === cotId && a.esAutoComprobante);
+        if(!yaExiste) {
+          adminData.ay.push({
+            id:       'AY-CAMPO-' + Date.now(),
+            nombre:   nombreAy,
+            trabajo:  cotId,
+            cliente:  cot.cliente ? (cot.cliente.nombre || '') : '',
+            fecha:    new Date().toISOString().split('T')[0],
+            horas:    horasTrabajadas,
+            tarifaHr: tarifaAy,
+            bono:     huboDificultad ? 15 : 0,
+            monto:    Math.round(horasTrabajadas * tarifaAy) + (huboDificultad ? 15 : 0),
+            pagoReal: cot.pagoAyudante || 0,
+            tipo:     'Campo (cronómetro)',
+            esAutoComprobante: true,
+            pagadoEnSemana: false
+          });
+        } else {
+          // Si ya existe, actualizar las horas
+          const reg = adminData.ay.find(a => a.trabajo === cotId && a.esAutoComprobante);
+          if(reg && horasTrabajadas > 0) {
+            reg.horas    = horasTrabajadas;
+            reg.monto    = Math.round(horasTrabajadas * tarifaAy) + (huboDificultad ? 15 : 0);
+          }
+        }
+      }
+
+      localStorage.setItem(adminKey, JSON.stringify(adminData));
+    }
+  } catch(syncErr) {
+    console.warn('Sync directo con admin falló (no crítico):', syncErr);
+  }
+  // ── FIN SINCRONIZACIÓN DIRECTA ───────────────────────────────────────────
 
   let ok = false;
   if(CAMPO_APPS_URL && !CAMPO_APPS_URL.includes('PEGA_AQUI')) {
