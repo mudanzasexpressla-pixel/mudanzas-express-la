@@ -2129,6 +2129,7 @@ function renderTrabajos() {
         <button class="btn btn-orange btn-sm" onclick="abrirCambiarFecha('${c.id}')">📅 Cambiar fecha/hora</button>
         <button class="btn btn-sm" onclick="editarCot('${c.id}')">✏️ Editar datos</button>
         <button class="btn btn-sm" onclick="waCliente('${c.id}')">💬 WhatsApp cliente</button>
+        <button class="btn btn-sm" onclick="generarPDF('${c.id}')">🖨️ Imprimir / PDF cotización</button>
         <button class="btn btn-sm" onclick="verFotosCampo('${c.id}')">📸 Fotos de campo${registrosCampoDe(c.id).length ? ' ('+registrosCampoDe(c.id).length+')' : ''}</button>
         <button class="btn btn-danger btn-sm" onclick="cancelarTrabajo('${c.id}')">✕ Cancelar trabajo</button>
       </div>
