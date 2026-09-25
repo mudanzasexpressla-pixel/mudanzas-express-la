@@ -7554,7 +7554,7 @@ function qrInit(){
   if(!grid || grid.dataset.init) return;
   grid.dataset.init = '1';
   grid.innerHTML = QR_ARTICULOS.map(a=>`
-    <label style="display:flex;align-items:center;gap:6px;background:var(--bg,#f8f9fa);padding:7px 10px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer;font-size:12px">
+    <label style="display:flex;align-items:center;gap:6px;background:var(--bg,#1a2535);padding:7px 10px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer;font-size:12px">
       <input type="checkbox" onchange="qrToggleArt('${a}',this.checked)" style="accent-color:#1D9E75"> ${a}
     </label>`).join('');
   const tarifaEl = document.getElementById('qr-tarifa-milla');
@@ -7747,15 +7747,15 @@ function resetCotRapida(){
       <div class="card" style="margin-bottom:12px">
         <div class="card-title">🔧 Extras</div>
         <div style="display:flex;flex-direction:column;gap:8px">
-          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#f8f9fa);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer">
+          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#1a2535);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer">
             <span style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="qr-ayudante" onchange="qrCalcTotal()"> 👷 Ayudante adicional</span>
             <span>+$<input type="number" id="qrp-ayudante" value="40" min="0" step="5" style="width:60px;padding:4px 6px;font-size:13px;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
           </label>
-          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#f8f9fa);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer">
+          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#1a2535);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer">
             <span style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="qr-escaleras" onchange="qrCalcTotal()"> 🪜 Escaleras</span>
             <span>+$<input type="number" id="qrp-escaleras" value="20" min="0" step="5" style="width:60px;padding:4px 6px;font-size:13px;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
           </label>
-          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#f8f9fa);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer">
+          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#1a2535);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer">
             <span style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="qr-armar" onchange="qrCalcTotal()"> 🛋️ Armar/Desarmar</span>
             <span>+$<input type="number" id="qrp-armar" value="20" min="0" step="5" style="width:60px;padding:4px 6px;font-size:13px;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
           </label>
@@ -7833,7 +7833,7 @@ function resetCotRapida(){
     </div>
     <div class="form-row full">
       <label>Fotos (puedes seleccionar varias)</label>
-      <label style="display:flex;align-items:center;gap:10px;background:var(--bg,#f8f9fa);border:2px dashed var(--brand,#1F5EA8);border-radius:10px;padding:16px;cursor:pointer;font-weight:600;color:var(--brand,#1F5EA8)">
+      <label style="display:flex;align-items:center;gap:10px;background:var(--bg,#1a2535);border:2px dashed var(--brand,#1F5EA8);border-radius:10px;padding:16px;cursor:pointer;font-weight:600;color:var(--brand,#1F5EA8)">
         📷 Seleccionar fotos
         <input type="file" id="gf-files" accept="image/*" multiple style="display:none" onchange="previsualizarFotos(event)">
       </label>
