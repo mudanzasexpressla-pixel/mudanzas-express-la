@@ -2129,7 +2129,6 @@ function renderTrabajos() {
         <button class="btn btn-orange btn-sm" onclick="abrirCambiarFecha('${c.id}')">📅 Cambiar fecha/hora</button>
         <button class="btn btn-sm" onclick="editarCot('${c.id}')">✏️ Editar datos</button>
         <button class="btn btn-sm" onclick="waCliente('${c.id}')">💬 WhatsApp cliente</button>
-        <button class="btn btn-sm" onclick="generarPDF('${c.id}')">🖨️ Imprimir / PDF cotización</button>
         <button class="btn btn-sm" onclick="verFotosCampo('${c.id}')">📸 Fotos de campo${registrosCampoDe(c.id).length ? ' ('+registrosCampoDe(c.id).length+')' : ''}</button>
         <button class="btn btn-danger btn-sm" onclick="cancelarTrabajo('${c.id}')">✕ Cancelar trabajo</button>
       </div>
@@ -2354,7 +2353,7 @@ function renderGastos() {
     const totTrab = terminadosAy.reduce((a,c)=>a+(c.pagoAyudante||0),0);
     const tot = totManual + totTrab;
     let ayHtml = '<div class="card">';
-    ayHtml += '<div style="color:#E24B4A;font-size:16px;font-weight:700;margin-bottom:12px">Total pagado a ayudantes: $'+tot.toFixed(2)+'</div>';
+    ayHtml += '<div style="color:#1D9E75;font-size:15px;font-weight:700;margin-bottom:12px;padding:10px 14px;background:var(--bg,#111c27);border-radius:10px;border:1px solid var(--line,#2a3a4a)">💰 Total pagado a ayudantes: <span style="font-size:18px">$'+tot.toFixed(2)+'</span></div>';
     function getWkKeyAy(ds){
       if(!ds) return 'Sin fecha';
       var d2=new Date(ds+'T12:00:00'); if(isNaN(d2)) return ds;
@@ -2362,49 +2361,133 @@ function renderGastos() {
       var su=new Date(mn); su.setDate(mn.getDate()+6);
       return mn.toLocaleDateString('es-US',{month:'short',day:'numeric'})+' - '+su.toLocaleDateString('es-US',{month:'short',day:'numeric'});
     }
+    // ── Algoritmo de similitud para fusionar nombres parecidos ──────────────
+    function ayNormalizar(n){
+      return (n||'').toUpperCase().trim()
+        .replace(/[H8]/g,function(c){return c==='H'?'H':c==='8'?'H':c;})  // H8 → H
+        .replace(/0/g,'O').replace(/1/g,'I').replace(/3/g,'E')             // typos numéricos
+        .replace(/[^A-Z ]/g,'');                                            // solo letras
+    }
+    function ayApellido(n){
+      // Toma solo el primer apellido (segunda palabra)
+      var parts = ayNormalizar(n).split(/\s+/).filter(Boolean);
+      return parts.length > 1 ? parts[1] : parts[0]||'';
+    }
+    function ayLevenshtein(a,b){
+      var m=a.length,n=b.length,dp=[];
+      for(var i=0;i<=m;i++){dp[i]=[i];for(var j=1;j<=n;j++)dp[i][j]=0;}
+      for(var j=0;j<=n;j++)dp[0][j]=j;
+      for(var i=1;i<=m;i++)for(var j=1;j<=n;j++)
+        dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+      return dp[m][n];
+    }
+    function ayMismaPersona(a, b){
+      var na=ayNormalizar(a), nb=ayNormalizar(b);
+      if(na===nb) return true;
+      // Apellidos muy similares (distancia ≤ 2)
+      var apa=ayApellido(a), apb=ayApellido(b);
+      if(apa && apb && apa.length>3 && apb.length>3 && ayLevenshtein(apa,apb)<=2) return true;
+      // Nombre completo muy similar (distancia ≤ 3)
+      if(na.length>5 && nb.length>5 && ayLevenshtein(na,nb)<=3) return true;
+      return false;
+    }
+    // Agrupar todos los nombres en clusters
+    function ayClusterizar(nombres){
+      var clusters=[]; // [{canon, aliases:[]}]
+      nombres.forEach(function(n){
+        var found=null;
+        for(var i=0;i<clusters.length;i++){
+          if(ayMismaPersona(clusters[i].canon, n)){found=clusters[i];break;}
+        }
+        if(found) found.aliases.push(n);
+        else clusters.push({canon:n, aliases:[n]});
+      });
+      return clusters;
+    }
+
+    // Recolectar todos los nombres únicos
+    var todosNombres=[];
+    terminadosAy.forEach(function(c){if(c.nombreAyudante)todosNombres.push(c.nombreAyudante);});
+    ay.filter(function(a){return !a.esAutoComprobante&&a.nombre;}).forEach(function(a){todosNombres.push(a.nombre);});
+    todosNombres=[...new Set(todosNombres)];
+    var clusters=ayClusterizar(todosNombres);
+
+    // Construir porAy agrupado por cluster
     var porAy={};
-    terminadosAy.forEach(function(c){
-      var n=c.nombreAyudante||'Sin asignar';
-      if(!porAy[n]) porAy[n]={};
-      var wk=getWkKeyAy(c.fechaTerminadoISO||c.fechaAgendada);
-      if(!porAy[n][wk]) porAy[n][wk]=[];
-      porAy[n][wk].push(c);
+    clusters.forEach(function(cl){
+      var canon=cl.canon;
+      porAy[canon]={};
+      cl.aliases.forEach(function(alias){
+        terminadosAy.filter(function(c){return c.nombreAyudante===alias;}).forEach(function(c){
+          var wk=getWkKeyAy(c.fechaTerminadoISO||c.fechaAgendada);
+          if(!porAy[canon][wk]) porAy[canon][wk]=[];
+          porAy[canon][wk].push(c);
+        });
+      });
     });
+    // Pagos manuales también agrupados
+    var porAyManual={};
+    clusters.forEach(function(cl){
+      var canon=cl.canon;
+      porAyManual[canon]=[];
+      cl.aliases.forEach(function(alias){
+        ay.filter(function(a){return !a.esAutoComprobante&&a.nombre===alias;}).forEach(function(a){
+          porAyManual[canon].push(a);
+        });
+      });
+    });
+
     Object.keys(porAy).sort().forEach(function(nombre){
       var sem=porAy[nombre];
       var tAy=Object.values(sem).flat().reduce(function(s,c){return s+(c.pagoAyudante||0);},0);
+      var manuales=porAyManual[nombre]||[];
+      var tMan=manuales.reduce(function(s,a){return s+(a.monto||0);},0);
+      var tTotal=tAy+tMan;
+      var numTrabs=Object.values(sem).flat().length+manuales.length;
+      var numSems=Object.keys(sem).length;
+      if(!numTrabs&&!manuales.length) return;
       var aId='ay_'+nombre.replace(/[^a-z0-9]/gi,'_');
-      ayHtml+='<div style="border:1px solid #ddd;border-radius:12px;overflow:hidden;margin-bottom:12px">';
-      ayHtml+='<div onclick="toggleAy(&quot;'+aId+'&quot;)" style="background:#f8f9fa;padding:14px 16px;display:flex;justify-content:space-between;cursor:pointer">';
-      ayHtml+='<div><strong>'+nombre+'</strong><br><small style="color:#888">'+Object.values(sem).flat().length+' trab. | '+Object.keys(sem).length+' sem.</small></div>';
-      ayHtml+='<div><strong style="color:#E24B4A">$'+tAy.toFixed(2)+'</strong> <span id="arr_'+aId+'">&#9660;</span></div></div>';
-      ayHtml+='<div id="'+aId+'" style="display:none">';
+      // Tarjeta por ayudante — colores oscuros/neutros
+      ayHtml+='<div style="border:1px solid var(--line,#2a3a4a);border-radius:12px;overflow:hidden;margin-bottom:12px">';
+      // Cabecera
+      ayHtml+='<div onclick="toggleAy(&quot;'+aId+'&quot;)" style="background:var(--card,#1a2a3a);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer">';
+      ayHtml+='<div><div style="font-weight:700;font-size:14px;color:var(--ink,#e8edf2)">👷 '+nombre+'</div>';
+      ayHtml+='<div style="font-size:11px;color:var(--ink-faint,#7a8a9a);margin-top:3px">'+numTrabs+' trab. | '+numSems+' sem.</div></div>';
+      ayHtml+='<div style="display:flex;align-items:center;gap:10px"><strong style="font-size:18px;color:#1D9E75">$'+tTotal.toFixed(2)+'</strong> <span id="arr_'+aId+'" style="color:var(--ink-faint,#7a8a9a)">&#9660;</span></div></div>';
+      // Cuerpo expandible
+      ayHtml+='<div id="'+aId+'" style="display:none;background:var(--bg,#111c27)">';
+      // Semanas de trabajos terminados
       Object.keys(sem).sort().reverse().forEach(function(semana){
         var its=sem[semana];
         var tSem=its.reduce(function(s,c){return s+(c.pagoAyudante||0);},0);
         var wkId=(nombre+'_'+semana).replace(/[^a-z0-9]/gi,'_');
         try{localStorage.setItem('wk2_'+wkId,JSON.stringify({semana:semana,nombre:nombre,items:its,total:tSem}));}catch(e){}
-        ayHtml+='<div style="border-top:1px solid #eee;background:#f0faf5;padding:10px 16px;display:flex;justify-content:space-between;align-items:center">';
-        ayHtml+='<strong>'+semana+' <small style="color:#888">('+its.length+' trab.)</small></strong>';
-        ayHtml+='<span><strong style="color:#E24B4A">$'+tSem.toFixed(2)+'</strong> ';
-        ayHtml+='<button onclick="event.stopPropagation();imprimirComprobanteHistorico2(&quot;'+wkId+'&quot;)" style="padding:4px 10px;background:#1D9E75;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer">Imprimir</button></span></div>';
-        ayHtml+='<table class="data-table"><thead><tr><th>Trabajo</th><th>Cliente</th><th>Fecha</th><th>Horas</th><th>Pagado</th></tr></thead><tbody>';
+        ayHtml+='<div style="border-top:1px solid var(--line,#2a3a4a);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;background:var(--bg2,#162030)">';
+        ayHtml+='<strong style="color:var(--ink,#e8edf2)">'+semana+' <span style="color:var(--ink-faint,#7a8a9a);font-size:11px;font-weight:400">('+its.length+' trab.)</span></strong>';
+        ayHtml+='<span style="display:flex;align-items:center;gap:8px"><strong style="color:#1D9E75">$'+tSem.toFixed(2)+'</strong>';
+        ayHtml+='<button onclick="event.stopPropagation();imprimirComprobanteHistorico2(&quot;'+wkId+'&quot;)" style="padding:5px 12px;background:#1F5EA8;color:#fff;border:none;border-radius:7px;font-size:11px;cursor:pointer;font-weight:600">🖨️ PDF</button></span></div>';
+        ayHtml+='<div style="overflow-x:auto"><table class="data-table" style="font-size:12px"><thead><tr><th>Trabajo</th><th>Cliente</th><th>Fecha</th><th>Horas</th><th>Pagado</th></tr></thead><tbody>';
         its.forEach(function(c){
           var cli=c.cliente&&c.cliente.nombre?c.cliente.nombre:(c.cliente||'--');
-          var hrs=c.horasTrabajadas?c.horasTrabajadas.toFixed(1)+'h':'--';
-          ayHtml+='<tr><td>'+c.id+'</td><td>'+cli+'</td><td>'+(c.fechaTerminadoISO||c.fechaAgendada||'--')+'</td><td>'+hrs+'</td><td style="color:#E24B4A;font-weight:700">$'+(c.pagoAyudante||0).toFixed(2)+'</td></tr>';
+          var hrs=c.horasTrabajadas&&c.horasTrabajadas>0?c.horasTrabajadas.toFixed(1)+'h':'--';
+          ayHtml+='<tr><td style="font-family:monospace;font-weight:700">'+c.id+'</td><td>'+cli+'</td><td>'+(c.fechaTerminadoISO||c.fechaAgendada||'--')+'</td><td style="color:var(--brand-dark,#4A9EE8)">'+hrs+'</td><td style="color:#1D9E75;font-weight:700">$'+(c.pagoAyudante||0).toFixed(2)+'</td></tr>';
         });
-        ayHtml+='</tbody></table>';
+        ayHtml+='</tbody></table></div>';
       });
+      // Pagos manuales del mismo ayudante
+      if(manuales.length){
+        ayHtml+='<div style="border-top:2px dashed var(--line,#2a3a4a);padding:10px 16px;background:var(--bg,#111c27)">';
+        ayHtml+='<div style="font-size:11px;font-weight:700;color:var(--ink-faint,#7a8a9a);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Pagos manuales adicionales</div>';
+        ayHtml+='<div style="overflow-x:auto"><table class="data-table" style="font-size:12px"><thead><tr><th>Fecha</th><th>Trabajo</th><th>Horas</th><th>Bono</th><th>Total</th></tr></thead><tbody>';
+        manuales.slice().reverse().forEach(function(a){
+          var hrs=a.horas&&a.horas>0?a.horas.toFixed(1)+'h':'--';
+          var bono=a.bono&&a.bono>0?'$'+a.bono.toFixed(2):'--';
+          ayHtml+='<tr><td>'+a.fecha+'</td><td style="font-family:monospace">'+(a.trabajo||'--')+'</td><td style="color:var(--brand-dark,#4A9EE8)">'+hrs+'</td><td style="color:#EF9F27">'+bono+'</td><td style="color:#1D9E75;font-weight:700">$'+a.monto.toFixed(2)+'</td></tr>';
+        });
+        ayHtml+='</tbody></table></div></div>';
+      }
       ayHtml+='</div></div>';
     });
-    var mAy=ay.filter(function(a){return !a.esAutoComprobante;});
-    if(mAy.length){
-      ayHtml+='<div style="font-weight:700;font-size:12px;color:#555;margin:12px 0 6px">Pagos manuales adicionales</div>';
-      ayHtml+='<table class="data-table"><thead><tr><th>Fecha</th><th>Nombre</th><th>Trabajo</th><th>Monto</th></tr></thead><tbody>';
-      ayHtml+=mAy.slice().reverse().map(function(a){return '<tr><td>'+a.fecha+'</td><td><strong>'+a.nombre+'</strong></td><td>'+(a.trabajo||'--')+'</td><td style="color:#E24B4A;font-weight:700">$'+a.monto.toFixed(2)+'</td></tr>';}).join('');
-      ayHtml+='</tbody></table>';
-    }
     if(!terminadosAy.length&&!ay.length) ayHtml+='<div class="empty-state" style="padding:20px"><p>Sin pagos registrados</p></div>';
     ayHtml+='</div>';
     ayEl.innerHTML=ayHtml;
