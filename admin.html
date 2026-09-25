@@ -4297,26 +4297,30 @@ function generarRecibo(id, idioma) {
 
   // ── REDES SOCIALES ──
   if(y > 255) { doc.addPage(); y = 20; }
-  doc.setFillColor(237,243,251);
-  doc.roundedRect ? doc.roundedRect(12,y-6,186,36,3,3,'F') : doc.rect(12,y-6,186,36,'F');
-  doc.setFontSize(9.5); doc.setFont('helvetica','bold'); doc.setTextColor(20,63,116);
-  doc.text(L.social, 105, y, {align:'center'}); y+=5.5;
-  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(60,60,60);
-  const socialLine = doc.splitTextToSize(L.social2, 176);
-  doc.text(socialLine, 105, y, {align:'center'}); y += socialLine.length*4+3;
-  const iconY = y; const iconR = 6.5;
-  [{x:70,color:[56,98,179],label:'f',url:'https://facebook.com/MudanzasExpressLA',sub:'Facebook'},
-   {x:105,color:[37,211,102],label:'W',url:'https://wa.me/13239462008',sub:'WhatsApp'},
-   {x:140,color:[217,71,49],label:'@',url:'mailto:mudanzasexpressla@gmail.com',sub:'Gmail'}
+  // ── SECCIÓN RESEÑA / REDES SOCIALES ── más grande y llamativa
+  y += 4;
+  doc.setFillColor(20,63,116);
+  doc.roundedRect ? doc.roundedRect(12,y-4,186,10,2,2,'F') : doc.rect(12,y-4,186,10,'F');
+  doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+  doc.text('⭐  ¿Te gustó el servicio? ¡Déjanos una reseña!  ⭐', 105, y+4, {align:'center'}); y+=14;
+
+  const iconY = y+2; const iconR = 10;
+  [{x:52, color:[56,98,179],   label:'f', url:'https://facebook.com/MudanzasExpressLA', sub:'Facebook', sub2:'MudanzasExpressLA'},
+   {x:105, color:[37,211,102], label:'W', url:'https://wa.me/13239462008',              sub:'WhatsApp', sub2:'(323) 946-2008'},
+   {x:158, color:[26,115,232], label:'🌐',url:'https://mudanzasexpressla.com',           sub:'Sitio Web', sub2:'mudanzasexpressla.com'},
   ].forEach(ic => {
     doc.setFillColor(ic.color[0],ic.color[1],ic.color[2]);
-    doc.circle(ic.x,iconY,iconR,'F');
-    doc.setTextColor(255,255,255); doc.setFontSize(10); doc.setFont('helvetica','bold');
-    doc.text(ic.label,ic.x,iconY+1.3,{align:'center'});
-    doc.setTextColor(80,80,80); doc.setFontSize(7); doc.setFont('helvetica','normal');
-    doc.text(ic.sub,ic.x,iconY+11,{align:'center'});
-    doc.link(ic.x-iconR,iconY-iconR,iconR*2,iconR*2+8,{url:ic.url});
+    doc.circle(ic.x, iconY, iconR, 'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
+    doc.text(ic.label === '🌐' ? 'W' : ic.label, ic.x, iconY+1.8, {align:'center'});
+    // sub label
+    doc.setTextColor(20,63,116); doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text(ic.sub, ic.x, iconY+iconR+5, {align:'center'});
+    doc.setTextColor(60,60,60); doc.setFontSize(7); doc.setFont('helvetica','normal');
+    doc.text(ic.sub2, ic.x, iconY+iconR+10, {align:'center'});
+    doc.link(ic.x-iconR, iconY-iconR, iconR*2, iconR*2+14, {url:ic.url});
   });
+  y = iconY + iconR + 18;
 
   // ── PIE DE PÁGINA: línea punteada + texto centrado ──
   doc.setDrawColor(170,190,215); doc.setLineWidth(0.3);
@@ -4324,7 +4328,7 @@ function generarRecibo(id, idioma) {
   doc.setFontSize(8); doc.setTextColor(31,94,168); doc.setFont('helvetica','normal');
   doc.text(idioma==='en' ? 'Thank you for trusting Mudanzas Express LA! • Official Proof of Payment' : '¡Gracias por confiar en Mudanzas Express LA! • Comprobante Oficial de Pago', 105, 285, {align:'center'});
   doc.setFontSize(7); doc.setTextColor(120,128,138);
-  doc.text('Mudanzas Express LA · (323) 946-2008 · mudanzasexpressla@gmail.com · facebook.com/MudanzasExpressLA · Pagos: Efectivo · Zelle', 105, 291, {align:'center'});
+  doc.text('Mudanzas Express LA · (323) 946-2008 · mudanzasexpressla@gmail.com · mudanzasexpressla.com · facebook.com/MudanzasExpressLA', 105, 291, {align:'center'});
 
   doc.save((idioma==='en'?'Receipt_':'Recibo_') + (c.folioTerminado||c.id) + '_' + c.cliente.nombre.replace(/\s+/g,'_') + '.pdf');
 
