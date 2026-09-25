@@ -2358,6 +2358,12 @@ function renderGastos() {
       if(!ds) return 'Sin fecha';
       var d2=new Date(ds+'T12:00:00'); if(isNaN(d2)) return ds;
       var dy=d2.getDay(); var mn=new Date(d2); mn.setDate(d2.getDate()-(dy===0?6:dy-1));
+      // Retorna ISO del lunes para ordenar correctamente
+      return mn.toISOString().split('T')[0];
+    }
+    function getWkLabel(isoKey){
+      if(isoKey==='Sin fecha') return 'Sin fecha';
+      var mn=new Date(isoKey+'T12:00:00');
       var su=new Date(mn); su.setDate(mn.getDate()+6);
       return mn.toLocaleDateString('es-US',{month:'short',day:'numeric'})+' - '+su.toLocaleDateString('es-US',{month:'short',day:'numeric'});
     }
@@ -2463,7 +2469,7 @@ function renderGastos() {
         var wkId=(nombre+'_'+semana).replace(/[^a-z0-9]/gi,'_');
         try{localStorage.setItem('wk2_'+wkId,JSON.stringify({semana:semana,nombre:nombre,items:its,total:tSem}));}catch(e){}
         ayHtml+='<div style="border-top:1px solid var(--line,#2a3a4a);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;background:var(--bg2,#162030)">';
-        ayHtml+='<strong style="color:var(--ink,#e8edf2)">'+semana+' <span style="color:#b0c4d8;font-size:11px;font-weight:400">('+its.length+' trab.)</span></strong>';
+        ayHtml+='<strong style="color:var(--ink,#e8edf2)">'+getWkLabel(semana)+' <span style="color:#b0c4d8;font-size:11px;font-weight:400">('+its.length+' trab.)</span></strong>';
         ayHtml+='<span style="display:flex;align-items:center;gap:8px"><strong style="color:#1D9E75">$'+tSem.toFixed(2)+'</strong>';
         ayHtml+='<button onclick="event.stopPropagation();imprimirComprobanteHistorico2(&quot;'+wkId+'&quot;)" style="padding:5px 12px;background:#1F5EA8;color:#fff;border:none;border-radius:7px;font-size:11px;cursor:pointer;font-weight:600">🖨️ PDF</button></span></div>';
         ayHtml+='<div style="overflow-x:auto"><table class="data-table" style="font-size:12px"><thead><tr><th>Trabajo</th><th>Cliente</th><th>Fecha</th><th>Horas</th><th>Pagado</th></tr></thead><tbody>';
