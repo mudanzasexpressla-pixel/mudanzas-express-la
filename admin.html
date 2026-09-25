@@ -4182,21 +4182,48 @@ function generarRecibo(id, idioma) {
   }
   y += 3;
 
-  // ── ARTÍCULOS MOVIDOS (mismo detalle de siempre) ──
-  if (c.articulosDetalle && c.articulosDetalle.length) {
+  // ── ARTÍCULOS MOVIDOS ──
+  const tieneDetalle = c.articulosDetalle && c.articulosDetalle.length;
+  const tieneTexto = c.articulos && c.articulos.trim && c.articulos.trim();
+  if (tieneDetalle || tieneTexto) {
     if(y > 240) { doc.addPage(); y = 20; }
-    doc.setFont('helvetica','bold'); doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]); doc.setFontSize(9);
-    doc.text(idioma==='en' ? 'ITEMS MOVED:' : 'ARTÍCULOS MOVIDOS:', 15, y); y += 5;
+    doc.setFillColor(NAVY[0],NAVY[1],NAVY[2]); doc.rect(12,y-4,186,8,'F');
+    doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.setFontSize(8.5);
+    doc.text(idioma==='en' ? 'ITEMS TO MOVE' : 'ARTÍCULOS A MOVER', 16, y+0.5); y += 8;
     doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30); doc.setFontSize(8.5);
-    c.articulosDetalle.forEach((it, i) => {
-      if(y > 270) { doc.addPage(); y = 20; }
-      if(i%2===0) { doc.setFillColor(TINT2[0],TINT2[1],TINT2[2]); doc.rect(15,y-3.5,175,5,'F'); }
-      const linea = '• ' + (it.cantidad||1) + 'x ' + it.articulo;
-      const wrapped = doc.splitTextToSize(linea, 170);
-      doc.text(wrapped, 18, y);
-      y += wrapped.length*5;
-    });
+    if(tieneDetalle) {
+      c.articulosDetalle.forEach((it, i) => {
+        if(y > 270) { doc.addPage(); y = 20; }
+        if(i%2===0) { doc.setFillColor(TINT2[0],TINT2[1],TINT2[2]); doc.rect(12,y-3.5,186,5,'F'); }
+        const linea = '• ' + (it.cantidad||1) + 'x ' + it.articulo;
+        const wrapped = doc.splitTextToSize(linea, 176);
+        doc.text(wrapped, 16, y);
+        y += wrapped.length*5;
+      });
+    } else if(tieneTexto) {
+      // Texto libre de artículos
+      const artLines = doc.splitTextToSize(c.articulos, 176);
+      artLines.forEach((l, i) => {
+        if(y > 270) { doc.addPage(); y = 20; }
+        if(i%2===0) { doc.setFillColor(TINT2[0],TINT2[1],TINT2[2]); doc.rect(12,y-3.5,186,5,'F'); }
+        doc.text('• ' + l, 16, y); y += 5;
+      });
+    }
     y += 3;
+  }
+
+  // ── INVENTARIO / NOTAS DEL TRABAJO ──
+  if(c.notasInventario || c.inventario || c.notas) {
+    if(y > 250) { doc.addPage(); y = 20; }
+    doc.setFillColor(NAVY[0],NAVY[1],NAVY[2]); doc.rect(12,y-4,186,8,'F');
+    doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.setFontSize(8.5);
+    doc.text(idioma==='en' ? 'INVENTORY / WORK NOTES' : 'INVENTARIO / NOTAS DEL TRABAJO', 16, y+0.5); y += 8;
+    doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30); doc.setFontSize(8);
+    const invText = c.notasInventario || c.inventario || c.notas || '';
+    const invLines = doc.splitTextToSize(invText, 176);
+    if(y + invLines.length*4 > 270) { doc.addPage(); y = 20; }
+    doc.setFillColor(TINT2[0],TINT2[1],TINT2[2]); doc.rect(12,y-3,186,invLines.length*4+6,'F');
+    doc.text(invLines, 16, y+2); y += invLines.length*4+8;
   }
 
   // ── NOTAS & TÉRMINOS (izquierda) + TOTALES (derecha) ──
