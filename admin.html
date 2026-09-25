@@ -231,7 +231,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
 <div id="tab-dashboard" class="tab-content active">
   <div class="section-header">
     <div class="section-title">📊 Panel de control</div>
-    <div id="dash-fecha" style="font-size:12px;color:#888"></div>
+    <div id="dash-fecha" style="font-size:12px;color:#b0c4d8"></div>
   </div>
   <div class="stat-grid" id="dash-stats"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
@@ -249,9 +249,9 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="card" style="margin-bottom:14px">
     <div class="card-title">🧾 Resumen por trabajo (Total Cobrado · Pago Ayudante · Ganancia Neta)</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center">
-      <div><div style="font-size:11px;color:#888">💵 Total Cobrado</div><div id="dash-total-cobrado" style="font-size:22px;font-weight:800;color:#1D9E75">$0.00</div></div>
-      <div><div style="font-size:11px;color:#888">👷 Pago Ayudante</div><div id="dash-pago-ayudante" style="font-size:22px;font-weight:800;color:#E24B4A">$0.00</div></div>
-      <div><div style="font-size:11px;color:#888">🏠 Ganancia Neta</div><div id="dash-ganancia-neta" style="font-size:22px;font-weight:800;color:#EF9F27">$0.00</div></div>
+      <div><div style="font-size:11px;color:#b0c4d8">💵 Total Cobrado</div><div id="dash-total-cobrado" style="font-size:22px;font-weight:800;color:#1D9E75">$0.00</div></div>
+      <div><div style="font-size:11px;color:#b0c4d8">👷 Pago Ayudante</div><div id="dash-pago-ayudante" style="font-size:22px;font-weight:800;color:#E24B4A">$0.00</div></div>
+      <div><div style="font-size:11px;color:#b0c4d8">🏠 Ganancia Neta</div><div id="dash-ganancia-neta" style="font-size:22px;font-weight:800;color:#EF9F27">$0.00</div></div>
     </div>
   </div>
   <div class="card">
@@ -323,7 +323,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   </div>
 
   <div class="card">
-    <div class="card-title">🔧 Servicios adicionales <span style="font-size:11px;font-weight:400;color:#888">(puedes editar el precio de cada uno)</span></div>
+    <div class="card-title">🔧 Servicios adicionales <span style="font-size:11px;font-weight:400;color:#b0c4d8">(puedes editar el precio de cada uno)</span></div>
     <div class="checkbox-row">
       <div style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="s-escaleras" onchange="calcTotal()"><label for="s-escaleras">🪜 Escaleras (subir o bajar)</label></div>
       <div style="display:flex;align-items:center;gap:6px"><span style="color:#1D9E75;font-weight:700">+$</span><input type="number" id="p-escaleras" value="20" min="0" step="5" style="width:80px;padding:5px 8px;font-size:13px;font-weight:700;color:#1D9E75;border:1px solid #ccc;border-radius:6px" oninput="calcTotal()"></div>
@@ -935,7 +935,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="card">
     <div class="card-title">🛟 Respaldo automático en la nube</div>
     <div class="notice notice-green">Mientras estés conectado a Google Drive, cada vez que guardes algo (cotización, trabajo, gasto), la app sube automáticamente una copia de seguridad a tu Drive. Así nunca dependes solo de este navegador.</div>
-    <div id="backup-status-indicator" style="font-size:13px;font-weight:600;margin-bottom:12px;color:#888">Sin respaldos todavía en esta sesión</div>
+    <div id="backup-status-indicator" style="font-size:13px;font-weight:600;margin-bottom:12px;color:#b0c4d8">Sin respaldos todavía en esta sesión</div>
     <div class="btn-row">
       <button class="btn" onclick="restaurarDesdeDrive()">📥 Restaurar desde Drive</button>
     </div>
@@ -1821,7 +1821,7 @@ function renderSolicitudesWeb(solicitudes) {
           <div style="font-weight:700;font-size:15px">🌐 ${s.nombre || 'Sin nombre'}</div>
           <div style="font-size:12px;color:#b0c4d8;margin-top:2px">📅 ${s.fecha || '—'} · 📞 ${s.tel || '—'}</div>
           <div style="font-size:12px;color:#b0c4d8;margin-top:4px">📍 ${s.origen || '—'} → ${s.destino || '—'}</div>
-          ${s.escalerasOrigen ? `<div style="font-size:11px;color:#888">Origen: ${s.escalerasOrigen} · Destino: ${s.escalerasDestino}</div>` : ''}
+          ${s.escalerasOrigen ? `<div style="font-size:11px;color:#b0c4d8">Origen: ${s.escalerasOrigen} · Destino: ${s.escalerasDestino}</div>` : ''}
           ${s.articulos && s.articulos.length ? `<div style="font-size:12px;color:#b0c4d8;margin-top:4px">📦 ${s.articulos.join(', ')}</div>` : ''}
           ${s.notas ? `<div style="font-size:12px;color:#b0c4d8;margin-top:4px;font-style:italic">${s.notas}</div>` : ''}
           ${s.fotos && s.fotos.length ? `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${s.fotos.map(f=>`<img src="${f}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid #ddd;cursor:pointer" onclick="verFotoSolicitud('${f}')">`).join('')}</div>` : ''}
@@ -2282,7 +2282,7 @@ function renderCancelados() {
           ${c.articulosDetalle && c.articulosDetalle.length ? '<div class="list-item-detail">📦 '+c.articulosDetalle.map(a=>(a.cantidad||1)+'x '+a.articulo).join(', ')+'</div>' : ''}
         </div>
         <div style="text-align:right">
-          <span class="badge" style="background:#e0e0e0;color:#555">🗑️ Cancelado</span>
+          <span class="badge" style="background:#e0e0e0;color:#b0c4d8">🗑️ Cancelado</span>
           <div style="font-size:12px;color:#b0c4d8;margin-top:6px">No cuenta en totales</div>
         </div>
       </div>
@@ -2569,7 +2569,7 @@ function renderGastos() {
               </div>
               <div style="text-align:right">
                 <div style="font-size:20px;font-weight:800;color:#EF9F27">$${ay.total.toFixed(2)}</div>
-                <div style="font-size:10px;color:#888">acumulado sem.</div>
+                <div style="font-size:10px;color:#b0c4d8">acumulado sem.</div>
               </div>
             </div>
           </div>`).join('')}
@@ -5884,7 +5884,7 @@ initDarkMode();
 #app-campo .btn{width:100%;padding:14px;border-radius:12px;border:none;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px}
 #app-campo .btn-primary{background:#1F5EA8;color:#fff}
 #app-campo .btn-camera{background:#2F74C0;color:#fff}
-#app-campo .btn-secondary{background:#f0f0f0;color:#555}
+#app-campo .btn-secondary{background:#1a2535;color:#b0c4d8}
 #app-campo .btn-danger{background:#E24B4A;color:#fff}
 #app-campo .btn:disabled{opacity:.5}
 #app-campo .photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
@@ -5913,7 +5913,7 @@ initDarkMode();
 #app-campo .status-err{background:#f8d7da;color:#721c24}
 #app-campo #firma-canvas{border:2px solid #ccc;border-radius:10px;background:#1a2535;touch-action:none;width:100%;max-width:440px;display:block;margin:0 auto 10px}
 #app-campo .firma-row{display:flex;gap:8px;margin-bottom:10px}
-#app-campo .firma-row button{flex:1;padding:10px;border-radius:10px;border:1px solid #ccc;font-size:13px;font-weight:700;cursor:pointer;background:#1a2535;color:#555}
+#app-campo .firma-row button{flex:1;padding:10px;border-radius:10px;border:1px solid #ccc;font-size:13px;font-weight:700;cursor:pointer;background:#1a2535;color:#b0c4d8}
 </style>
 <div id="app-selector" style="position:fixed;inset:0;background:#143F74;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;padding:30px">
   <div style="font-size:60px;margin-bottom:16px">&#128667;</div>
@@ -5933,7 +5933,7 @@ initDarkMode();
       <input type="password" id="pin-admin-input" maxlength="4" placeholder="****" style="font-size:28px;text-align:center;letter-spacing:10px;width:100%;padding:14px;border:2px solid #ccc;border-radius:10px;margin-bottom:8px" onkeyup="if(event.key==='Enter') verificarPinAdmin()">
       <div id="pin-error" style="color:#E24B4A;font-size:12px;min-height:18px;margin-bottom:12px"></div>
       <button onclick="verificarPinAdmin()" style="width:100%;padding:14px;background:#1F5EA8;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px">Entrar</button>
-      <button onclick="cerrarPinModal()" style="width:100%;padding:10px;background:#f0f0f0;color:#b0c4d8;border:none;border-radius:10px;font-size:13px;cursor:pointer">Cancelar</button>
+      <button onclick="cerrarPinModal()" style="width:100%;padding:10px;background:#1a2535;color:#b0c4d8;border:none;border-radius:10px;font-size:13px;cursor:pointer">Cancelar</button>
     </div>
   </div>
 </div>
@@ -5956,7 +5956,7 @@ initDarkMode();
 
   <!-- ===================== TAB ASIGNADO ===================== -->
   <div id="tab-asignado" class="hidden">
-    <div id="sin-trabajo" class="card" style="text-align:center;padding:30px;color:#888">
+    <div id="sin-trabajo" class="card" style="text-align:center;padding:30px;color:#b0c4d8">
       <div style="font-size:40px;margin-bottom:10px">📭</div>
       <div style="font-weight:600;margin-bottom:6px">No hay trabajo asignado</div>
       <div style="font-size:12px">Cuando la administración asigne un trabajo, aparecerá aquí.</div>
@@ -6200,7 +6200,7 @@ initDarkMode();
 <input type="file" id="file-trabajo" accept="image/*" capture="environment" style="display:none" onchange="handleFoto(event,'trabajo')">
 <input type="file" id="file-danado" accept="image/*" capture="environment" style="display:none" onchange="handleFoto(event,'danado')">
 
-<button onclick="volverAlSelector()" style="display:block;margin:10px auto 30px;padding:10px 24px;background:#f0f0f0;color:#b0c4d8;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Cambiar modo</button>
+<button onclick="volverAlSelector()" style="display:block;margin:10px auto 30px;padding:10px 24px;background:#1a2535;color:#b0c4d8;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Cambiar modo</button>
 </div>
 
 <script>
@@ -7193,7 +7193,7 @@ function imprimirRecibo(idioma) {
     .total-band .tlbl{font-size:11px;font-weight:700;color:#fff}
     .total-band .tval{font-size:22px;font-weight:900;color:#fff}
     .subtotal-row{display:flex;justify-content:space-between;padding:5px 14px;font-size:12px;color:#b0c4d8;border-bottom:1px solid #eee}
-    .subtotal-row.propina{color:#996600;background:#FFF8E7;border-radius:6px;margin:4px 0}
+    .subtotal-row.propina{color:#996600;background:#1e1a0d;border-radius:6px;margin:4px 0}
     .pago-box{border:1.5px solid #1F5EA8;border-radius:8px;padding:10px 14px;margin:10px 0;display:flex;gap:12px;align-items:center}
     .pago-icono{font-size:26px}
     .pago-lbl{font-size:9px;color:#b0c4d8;text-transform:uppercase;letter-spacing:.4px}
@@ -7207,7 +7207,7 @@ function imprimirRecibo(idioma) {
     .art-item{font-size:11.5px;color:#333;padding:3px 0;border-bottom:1px solid #eee}
 
     /* ── NOTAS ── */
-    .notas-box{background:#FFF8E7;border-left:3px solid #EF9F27;border-radius:0 6px 6px 0;padding:8px 12px;margin:8px 0;font-size:11px;color:#555}
+    .notas-box{background:#1e1a0d;border-left:3px solid #EF9F27;border-radius:0 6px 6px 0;padding:8px 12px;margin:8px 0;font-size:11px;color:#b0c4d8}
 
     /* ── FIRMA ── */
     .firma-section{margin:14px 0}
@@ -7231,7 +7231,7 @@ function imprimirRecibo(idioma) {
     .social-icons{display:flex;justify-content:center;gap:20px}
     .social-icon-wrap{text-decoration:none;color:#333;text-align:center}
     .social-circle{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;margin:0 auto 4px;font-weight:900;color:#fff}
-    .social-lbl{font-size:9px;color:#555}
+    .social-lbl{font-size:9px;color:#b0c4d8}
 
     /* ── FOOTER ── */
     .footer-line{border-top:1px dashed #BDD0EE;margin:14px 0 6px}
@@ -7380,7 +7380,7 @@ function imprimirRecibo(idioma) {
 
   <div class="no-print">
     <button onclick="window.print()" style="flex:2;padding:14px;background:#1F5EA8;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">🖨️ Imprimir / Guardar PDF</button>
-    <button onclick="window.opener && window.opener.imprimirRecibo ? window.opener.imprimirRecibo('en') : window.close()" style="flex:1;padding:14px;background:#f0f0f0;color:#333;border:none;border-radius:10px;font-size:13px;cursor:pointer">🇺🇸 English version</button>
+    <button onclick="window.opener && window.opener.imprimirRecibo ? window.opener.imprimirRecibo('en') : window.close()" style="flex:1;padding:14px;background:#1a2535;color:#333;border:none;border-radius:10px;font-size:13px;cursor:pointer">🇺🇸 English version</button>
   </div>
 
 </div>
@@ -7554,7 +7554,7 @@ function qrInit(){
   if(!grid || grid.dataset.init) return;
   grid.dataset.init = '1';
   grid.innerHTML = QR_ARTICULOS.map(a=>`
-    <label style="display:flex;align-items:center;gap:6px;background:var(--bg,#f8f9fa);padding:7px 10px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer;font-size:12px">
+    <label style="display:flex;align-items:center;gap:6px;background:var(--bg,#111c27);padding:7px 10px;border-radius:8px;border:1px solid var(--line,#2a3a4a);cursor:pointer;font-size:12px">
       <input type="checkbox" onchange="qrToggleArt('${a}',this.checked)" style="accent-color:#1D9E75"> ${a}
     </label>`).join('');
   const tarifaEl = document.getElementById('qr-tarifa-milla');
@@ -7747,15 +7747,15 @@ function resetCotRapida(){
       <div class="card" style="margin-bottom:12px">
         <div class="card-title">🔧 Extras</div>
         <div style="display:flex;flex-direction:column;gap:8px">
-          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#f8f9fa);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer">
+          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#111c27);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#2a3a4a);cursor:pointer">
             <span style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="qr-ayudante" onchange="qrCalcTotal()"> 👷 Ayudante adicional</span>
             <span>+$<input type="number" id="qrp-ayudante" value="40" min="0" step="5" style="width:60px;padding:4px 6px;font-size:13px;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
           </label>
-          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#f8f9fa);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer">
+          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#111c27);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#2a3a4a);cursor:pointer">
             <span style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="qr-escaleras" onchange="qrCalcTotal()"> 🪜 Escaleras</span>
             <span>+$<input type="number" id="qrp-escaleras" value="20" min="0" step="5" style="width:60px;padding:4px 6px;font-size:13px;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
           </label>
-          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#f8f9fa);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#eee);cursor:pointer">
+          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#111c27);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#2a3a4a);cursor:pointer">
             <span style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="qr-armar" onchange="qrCalcTotal()"> 🛋️ Armar/Desarmar</span>
             <span>+$<input type="number" id="qrp-armar" value="20" min="0" step="5" style="width:60px;padding:4px 6px;font-size:13px;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
           </label>
@@ -7833,7 +7833,7 @@ function resetCotRapida(){
     </div>
     <div class="form-row full">
       <label>Fotos (puedes seleccionar varias)</label>
-      <label style="display:flex;align-items:center;gap:10px;background:var(--bg,#f8f9fa);border:2px dashed var(--brand,#1F5EA8);border-radius:10px;padding:16px;cursor:pointer;font-weight:600;color:var(--brand,#1F5EA8)">
+      <label style="display:flex;align-items:center;gap:10px;background:var(--bg,#111c27);border:2px dashed var(--brand,#1F5EA8);border-radius:10px;padding:16px;cursor:pointer;font-weight:600;color:var(--brand,#1F5EA8)">
         📷 Seleccionar fotos
         <input type="file" id="gf-files" accept="image/*" multiple style="display:none" onchange="previsualizarFotos(event)">
       </label>
