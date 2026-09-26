@@ -6328,6 +6328,17 @@ function switchTab(t) {
   if(t === 'asignado') cargarTrabajoCampo();
   if(t === 'terminar') {
     initFirma();
+    // Auto-llenar horas del cronómetro al abrir pestaña terminar
+    const horasEl = document.getElementById('campo-crono-horas');
+    if(horasEl) {
+      let ms = campoCronoElapsedMs;
+      if(campoCronoRunning && campoCronoStartTime > 0) ms = Date.now() - campoCronoStartTime;
+      if(ms > 0) {
+        horasEl.value = (ms / 3600000).toFixed(2);
+        const hDisp = document.getElementById('campo-crono-horas-display');
+        if(hDisp) hDisp.textContent = horasEl.value + ' hrs';
+      }
+    }
     if(trabajoActivo && trabajoActivo.cotId) {
       document.getElementById('t-cotid').value = trabajoActivo.cotId;
       document.getElementById('t-monto').value = trabajoActivo.monto || 0;
@@ -6986,7 +6997,17 @@ async function enviarTerminado() {
   const montoPago1 = pago2Activo ? (parseFloat(document.getElementById('t-monto-pago1').value)||0) : monto;
   const montoPago2 = pago2Activo ? (parseFloat(document.getElementById('t-monto-pago2').value)||0) : 0;
   const ref2 = pago2Activo ? (document.getElementById('t-ref2').value||'') : '';
-  const horasTrabajadas = parseFloat(document.getElementById('campo-crono-horas').value) || 0;
+  // Horas: tomar del cronómetro directamente (aunque siga corriendo)
+  // Si el cronómetro está activo, calcular desde el inicio; si está parado, usar elapsed
+  let cronoMsTotal = campoCronoElapsedMs;
+  if(campoCronoRunning && campoCronoStartTime > 0) {
+    cronoMsTotal = Date.now() - campoCronoStartTime;
+  }
+  // También intentar leer del campo manual (por si lo ajustaron)
+  const horasManual = parseFloat(document.getElementById('campo-crono-horas').value) || 0;
+  const horasCrono  = cronoMsTotal / 3600000;
+  // Prioridad: campo manual si fue editado (> 0), sino el cronómetro
+  const horasTrabajadas = horasManual > 0 ? horasManual : (horasCrono > 0 ? Math.round(horasCrono * 100) / 100 : 0);
   const huboDificultad = document.getElementById('campo-crono-dificil') && document.getElementById('campo-crono-dificil').checked;
   const formaPagoCompleta = pago2Activo ? (pago + ' + ' + pago2) : pago;
 
