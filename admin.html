@@ -199,7 +199,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v11.1</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -253,6 +253,10 @@ table.data-table tr:hover td{background:#1A2A42!important}
       <div><div style="font-size:11px;color:#b0c4d8">👷 Pago Ayudante</div><div id="dash-pago-ayudante" style="font-size:22px;font-weight:800;color:#E24B4A">$0.00</div></div>
       <div><div style="font-size:11px;color:#b0c4d8">🏠 Ganancia Neta</div><div id="dash-ganancia-neta" style="font-size:22px;font-weight:800;color:#EF9F27">$0.00</div></div>
     </div>
+  </div>
+  <div class="card" id="dash-resenas-card" style="display:none;border-left:4px solid #EF9F27">
+    <div class="card-title">⭐ Pedir reseña a clientes</div>
+    <div id="dash-resenas"></div>
   </div>
   <div class="card">
     <div class="card-title">🤖 Recomendaciones automáticas</div>
@@ -922,6 +926,11 @@ table.data-table tr:hover td{background:#1A2A42!important}
       <input type="text" id="cfg-casa" placeholder="Ej: 1234 W 30th St, Los Angeles, CA 90007" autocomplete="off">
       <div style="font-size:11px;color:#b0c4d8;margin-top:4px">Se usa para calcular automáticamente las millas desde tu casa al origen del cliente.</div>
     </div></div>
+    <div class="form-row full"><div>
+      <label>⭐ Link para dejar reseña</label>
+      <input type="text" id="cfg-link-resena" placeholder="https://www.facebook.com/profile.php?id=61573668335964&sk=reviews">
+      <div style="font-size:11px;color:#b0c4d8;margin-top:4px">Es el link que se manda por WhatsApp al pedir reseña. Puedes poner el de Facebook o el de Google.</div>
+    </div></div>
     <button class="btn btn-primary" onclick="guardarConfig()">💾 Guardar configuración</button>
   </div>
   <div class="card">
@@ -1289,7 +1298,7 @@ function showTab(t) {
   if(t==='cancelados') renderCancelados();
   if(t==='gastos') renderGastos();
   if(t==='dashboard') renderDash();
-  if(t==='config') { const cfEl = document.getElementById('cfg-casa'); if(cfEl) cfEl.value = getCfg().dirCasa || ''; }
+  if(t==='config') { const cfEl = document.getElementById('cfg-casa'); if(cfEl) cfEl.value = getCfg().dirCasa || ''; const lrEl = document.getElementById('cfg-link-resena'); if(lrEl) lrEl.value = getCfg().linkResena || LINK_RESENA_DEF; }
   if(t==='vehiculos') { renderVehiculos(); poblarSelectoresVehiculo(); }
   if(t==='gigs') { renderGigs(); poblarSelectoresVehiculo(); }
   if(t==='galeria') renderGaleria();
@@ -2257,6 +2266,8 @@ function renderTerminados() {
         <button class="btn btn-sm" onclick="waCliente('${c.id}')">💬 Enviar recibo WhatsApp</button>
         <button class="btn btn-sm" onclick="generarPDF('${c.id}')">🖨️ Imprimir cotización</button>
         <button class="btn btn-sm" onclick="verFotosCampo('${c.id}')">📸 Fotos de campo${registrosCampoDe(c.id).length ? ' ('+registrosCampoDe(c.id).length+')' : ''}</button>
+        <button class="btn btn-sm" style="${c.resenaPedida?'':'background:#EF9F27;color:#fff;border-color:#EF9F27'}" onclick="pedirResena('${c.id}','es')">⭐ ${c.resenaPedida?'Reseña pedida ✓':'Pedir reseña'}</button>
+        <button class="btn btn-sm" onclick="pedirResena('${c.id}','en')" title="Pedir reseña en inglés">⭐ EN</button>
         <button class="btn btn-danger btn-sm" onclick="solicitarPin('${c.id}')">🔒 Cancelar (requiere PIN)</button>
       </div>
     </div>`;
@@ -3048,15 +3059,31 @@ function limpiarRentasDuplicadas() {
   const d = getData();
   const cots = {};
   (d.cots||[]).forEach(c => { cots[c.id] = c; });
+  // v10.1: detección más amplia. Una renta está duplicada si en Gastos Generales NO tiene
+  // categoría elegida a mano y su monto coincide con la renta guardada en un trabajo terminado
+  // (primero por ID del trabajo; si no, por monto + tipo de camión). Cada trabajo se usa 1 sola vez.
+  const usados = new Set();
+  const cotDe = new Map();
+  const sinCat = g => !g.cat || g.cat === 'undefined';
   const dup = (d.gg||[]).filter(g => {
-    if(g.categoria !== 'Renta de camión' || g.cat) return false;
-    const c = cots[g.trabajo];
-    return c && Math.abs((c.rentaCosto||0) - (g.monto||0)) < 0.01;
+    if(!sinCat(g)) return false;
+    const m = parseFloat(g.monto)||0;
+    if(m <= 0) return false;
+    const coincide = c => c && c.estatus==='terminado' && !usados.has(c.id) && Math.abs((c.rentaCosto||0) - m) < 0.01;
+    let c = g.trabajo ? cots[g.trabajo] : null;
+    if(!coincide(c)) {
+      const desc = (g.desc||'').trim().toLowerCase();
+      c = (d.cots||[]).find(x => coincide(x) && (!desc || (x.rentaTipo||'').trim().toLowerCase() === desc))
+       || (d.cots||[]).find(x => coincide(x));
+    }
+    if(!c) return false;
+    usados.add(c.id); cotDe.set(g, c);
+    return true;
   });
   if(!dup.length) { alert('✅ No hay rentas duplicadas. Tus gastos ya están correctos.'); return; }
   const tot = dup.reduce((a,g) => a + (g.monto||0), 0);
   const lista = dup.map(g => {
-    const c = cots[g.trabajo];
+    const c = cotDe.get(g);
     const cli = c.cliente ? (c.cliente.nombre || c.cliente) : '';
     return '• $' + (g.monto||0).toFixed(2) + ' — ' + (c.folioTerminado || c.id) + ' ' + cli;
   }).join('\n');
@@ -3168,6 +3195,7 @@ function renderDash() {
   if(terminados.length>0 && ingresos/terminados.length < 200) recs.push('💡 Tu ingreso promedio por trabajo es $'+(ingresos/terminados.length).toFixed(2)+'. Considera ajustar tarifas o agregar más servicios extras.');
   if(!recs.length) recs.push('✅ Todo en orden. Exporta tu Excel mensualmente para mantener tus registros seguros.');
   document.getElementById('dash-recs').innerHTML = recs.map(r=>'<div class="notice notice-blue" style="margin-bottom:8px">'+r+'</div>').join('');
+  try { renderResenasPendientes(); } catch(e) {}
 
   const recientes = d.cots.slice(-6).reverse();
   document.getElementById('dash-recientes').innerHTML = recientes.length ?
@@ -3875,12 +3903,165 @@ function convertirHora12(hora24) {
   return hr12 + ':' + m + ' ' + ampm;
 }
 
+// ===================== v11: RESEÑAS POR WHATSAPP =====================
+const LINK_RESENA_DEF = 'https://www.facebook.com/profile.php?id=61573668335964&sk=reviews';
+function diasDesdeTerminado(c) {
+  const f = parseFechaTerminadoOrdenable(c);
+  if(!f || !f.getTime()) return null;
+  return Math.floor((Date.now() - f.getTime()) / 86400000);
+}
+function telWa(t) { let n = String(t||'').replace(/\D/g,''); if(n.length === 10) n = '1' + n; return n; }
+function primerNombre(c) {
+  const n = ((c.cliente && c.cliente.nombre) || '').trim().split(/\s+/)[0] || '';
+  return n ? n.charAt(0).toUpperCase() + n.slice(1).toLowerCase() : '';
+}
+function pedirResena(id, idioma) {
+  const d = getData();
+  const c = (d.cots||[]).find(x => x.id === id);
+  if(!c) return;
+  const link = getCfg().linkResena || LINK_RESENA_DEF;
+  const nom = primerNombre(c);
+  const msg = idioma === 'en'
+    ? 'Hi' + (nom ? ' ' + nom : '') + '! 👋 This is Mudanzas Express LA. Thank you for trusting us with your move. 🚛\n\nIf you were happy with our service, could you help us with a quick review? It takes less than a minute and means a lot to our small business:\n' + link + '\n\nThank you so much! 🙏'
+    : '¡Hola' + (nom ? ' ' + nom : '') + '! 👋 Le saluda Mudanzas Express LA. Gracias por confiar en nosotros para su mudanza. 🚛\n\nSi quedó contento con el servicio, ¿nos ayudaría con una reseña? Toma menos de un minuto y nos ayuda muchísimo como negocio pequeño:\n' + link + '\n\n¡Muchas gracias! 🙏';
+  const tel = telWa(c.cliente && c.cliente.tel);
+  window.open('https://wa.me/' + tel + '?text=' + encodeURIComponent(msg), '_blank');
+  c.resenaPedida = new Date().toISOString().split('T')[0];
+  saveData(d);
+  try { renderResenasPendientes(); } catch(e) {}
+  const tt = document.getElementById('tab-terminados');
+  if(tt && tt.classList.contains('active')) renderTerminados();
+}
+function marcarResenaPedida(id) {
+  const d = getData();
+  const c = (d.cots||[]).find(x => x.id === id);
+  if(!c) return;
+  c.resenaPedida = new Date().toISOString().split('T')[0];
+  saveData(d);
+  renderResenasPendientes();
+}
+function renderResenasPendientes() {
+  const card = document.getElementById('dash-resenas-card');
+  const el = document.getElementById('dash-resenas');
+  if(!card || !el) return;
+  const d = getData();
+  const pend = (d.cots||[]).filter(c => {
+    if(c.estatus !== 'terminado' || c.resenaPedida) return false;
+    const dias = diasDesdeTerminado(c);
+    return dias !== null && dias >= 2 && dias <= 30;
+  }).sort((a,b) => parseFechaTerminadoOrdenable(a) - parseFechaTerminadoOrdenable(b));
+  if(!pend.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const mostrar = pend.slice(0, 8);
+  el.innerHTML = '<div style="font-size:12px;color:#b0c4d8;margin-bottom:10px">Clientes que terminaron hace 2 a 30 días y todavía no les pides reseña. Toca un botón y se abre WhatsApp con el mensaje listo.</div>'
+    + mostrar.map(c => {
+      const dias = diasDesdeTerminado(c);
+      const cli = (c.cliente && c.cliente.nombre) || '—';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:9px 0;border-bottom:1px solid var(--line-soft)">'
+        + '<div><div style="font-weight:700;font-size:13px">' + ayEsc(cli) + '</div>'
+        + '<div style="font-size:11px;color:#b0c4d8">' + ayEsc(c.folioTerminado || c.id) + ' · hace ' + dias + ' día' + (dias !== 1 ? 's' : '') + (c.cliente && c.cliente.tel ? '' : ' · ⚠️ sin teléfono') + '</div></div>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+        + '<button class="btn btn-sm" style="background:#25D366;color:#fff;border-color:#25D366" onclick="pedirResena(\'' + c.id + '\',\'es\')">⭐ Español</button>'
+        + '<button class="btn btn-sm" onclick="pedirResena(\'' + c.id + '\',\'en\')">🇺🇸 English</button>'
+        + '<button class="btn btn-sm" title="Ya se la pedí por otro lado" onclick="marcarResenaPedida(\'' + c.id + '\')">✓</button>'
+        + '</div></div>';
+    }).join('')
+    + (pend.length > mostrar.length ? '<div style="font-size:12px;color:#b0c4d8;margin-top:8px">…y ' + (pend.length - mostrar.length) + ' más. Aparecerán aquí conforme vayas pidiendo.</div>' : '');
+}
+
+// ===================== v11: TRADUCCIÓN AL INGLÉS PARA PDFs =====================
+const DIC_EN = {
+  'refrigerador':'Refrigerator','sofá / sillón':'Sofa / Couch','sofá cama':'Sofa bed','cama':'Bed','cama king':'King bed',
+  'colchón':'Mattress','cómoda / tocador':'Dresser / Vanity','mesa':'Table','sillas de comedor':'Dining chairs',
+  'lavadora':'Washer','secadora':'Dryer','estufa / horno':'Stove / Oven','microondas':'Microwave','tv':'TV',
+  'escritorio':'Desk','libreros / estante':'Bookcases / Shelves','cajas':'Boxes','lámpara':'Lamp','espejo':'Mirror',
+  'piano':'Piano','caja fuerte':'Safe','cargo adicional':'Additional charge'
+};
+function fetchConLimite(url, ms) {
+  return Promise.race([fetch(url), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+}
+async function traducirTexto(t) {
+  // 1) Google Translate público (no requiere configuración)
+  try {
+    const r = await fetchConLimite('https://translate.googleapis.com/translate_a/single?client=gtx&sl=es&tl=en&dt=t&q=' + encodeURIComponent(t), 7000);
+    const j = await r.json();
+    const out = (j && j[0] ? j[0] : []).map(p => p && p[0] ? p[0] : '').join('');
+    if(out.trim()) return out;
+  } catch(e) {}
+  // 2) Respaldo: tu Apps Script (acción "traducir" con LanguageApp), si la agregas
+  try {
+    const cfg = getCfg();
+    const url = (cfg.appsScriptUrl && !cfg.appsScriptUrl.includes('PEGA_AQUI')) ? cfg.appsScriptUrl : APPS_SCRIPT_URL;
+    const r = await fetchConLimite(url + '?action=traducir&sl=es&tl=en&q=' + encodeURIComponent(t), 8000);
+    const j = await r.json();
+    if(j && j.ok && j.texto) return j.texto;
+  } catch(e) {}
+  return '';
+}
+function avisoTemporal(msg, ms) {
+  const n = document.createElement('div');
+  n.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#143F74;color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:700;z-index:99999;box-shadow:0 4px 16px #0005';
+  n.textContent = msg;
+  document.body.appendChild(n);
+  if(ms) setTimeout(() => n.remove(), ms);
+  return n;
+}
+async function prepararIngles(id) {
+  const d = getData();
+  const c = (d.cots||[]).find(x => x.id === id);
+  if(!c) return;
+  const campos = {
+    notas: c.notas, terminos: c.terminos, obsFinales: c.obsFinales,
+    articulos: (typeof c.articulos === 'string') ? c.articulos : '',
+    notasInventario: c.notasInventario, inventario: c.inventario,
+    descCargo: (c.servicios && c.servicios.cargo) ? c.servicios.descCargo : ''
+  };
+  (c.articulosDetalle||[]).forEach((a, i) => { campos['art_' + i] = a.articulo; });
+  c.en = c.en || {};
+  const tareas = [];
+  Object.keys(campos).forEach(k => {
+    const t = String(campos[k]||'').trim();
+    if(!t) return;
+    if(c.en[k] && c.en[k].src === t && !c.en[k].fallo) return; // ya traducido antes
+    const dic = DIC_EN[t.toLowerCase()];
+    if(dic) { c.en[k] = { src: t, en: dic }; return; }
+    tareas.push(traducirTexto(t).then(en => { c.en[k] = en ? { src: t, en } : { src: t, en: t, fallo: true }; }));
+  });
+  let aviso = null;
+  if(tareas.length) aviso = avisoTemporal('🌐 Traduciendo al inglés...');
+  await Promise.all(tareas);
+  if(aviso) aviso.remove();
+  saveData(d);
+  const fallos = Object.values(c.en).filter(x => x && x.fallo).length;
+  if(fallos) alert('⚠️ ' + fallos + ' texto(s) no se pudieron traducir (revisa tu internet). Esas partes saldrán en español.');
+}
+function versionIngles(c) {
+  const e = c.en || {};
+  const g = (k, orig) => { const t = String(orig||'').trim(); return (t && e[k] && e[k].src === t) ? e[k].en : orig; };
+  const x = Object.assign({}, c);
+  x.notas = g('notas', c.notas);
+  x.terminos = g('terminos', c.terminos);
+  x.obsFinales = g('obsFinales', c.obsFinales);
+  if(typeof c.articulos === 'string') x.articulos = g('articulos', c.articulos);
+  x.notasInventario = g('notasInventario', c.notasInventario);
+  x.inventario = g('inventario', c.inventario);
+  if(c.servicios) x.servicios = Object.assign({}, c.servicios, { descCargo: g('descCargo', c.servicios.descCargo) });
+  x.articulosDetalle = (c.articulosDetalle||[]).map((a, i) => Object.assign({}, a, { articulo: g('art_' + i, a.articulo) }));
+  return x;
+}
+
 function generarPDF(id, idioma) {
   idioma = idioma || 'es';
   const d = getData();
-  const c = d.cots.find(x=>x.id===id);
+  let c = d.cots.find(x=>x.id===id);
   const cfg = getCfg();
   if(!c) return;
+  // v11: en inglés, traducir primero artículos, notas y términos
+  if(idioma === 'en') {
+    if(window._enListo !== id+'|pdf') { prepararIngles(id).then(() => { window._enListo = id+'|pdf'; generarPDF(id, 'en'); }); return; }
+    window._enListo = null;
+    c = versionIngles(c);
+  }
 
   const T = {
     es: {
@@ -4190,8 +4371,14 @@ function generarPDF(id, idioma) {
 function generarRecibo(id, idioma) {
   idioma = idioma || 'es';
   const d = getData();
-  const c = d.cots.find(x=>x.id===id);
+  let c = d.cots.find(x=>x.id===id);
   if(!c) return;
+  // v11: en inglés, traducir primero artículos, notas y observaciones
+  if(idioma === 'en') {
+    if(window._enListo !== id+'|rec') { prepararIngles(id).then(() => { window._enListo = id+'|rec'; generarRecibo(id, 'en'); }); return; }
+    window._enListo = null;
+    c = versionIngles(c);
+  }
 
   const T = {
     es: {
@@ -4485,12 +4672,12 @@ function generarRecibo(id, idioma) {
   doc.setFillColor(20,63,116);
   doc.roundedRect ? doc.roundedRect(12,y-4,186,10,2,2,'F') : doc.rect(12,y-4,186,10,'F');
   doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
-  doc.text('⭐  ¿Te gustó el servicio? ¡Déjanos una reseña!  ⭐', 105, y+4, {align:'center'}); y+=14;
+  doc.text(idioma==='en' ? 'Did you enjoy our service? Please leave us a review!' : '¿Te gustó el servicio? ¡Déjanos una reseña!', 105, y+4, {align:'center'}); y+=14;
 
   const iconY = y+2; const iconR = 10;
   [{x:52, color:[56,98,179],   label:'f', url:'https://facebook.com/MudanzasExpressLA', sub:'Facebook', sub2:'MudanzasExpressLA'},
    {x:105, color:[37,211,102], label:'W', url:'https://wa.me/13239462008',              sub:'WhatsApp', sub2:'(323) 946-2008'},
-   {x:158, color:[26,115,232], label:'🌐',url:'https://mudanzasexpressla.com',           sub:'Sitio Web', sub2:'mudanzasexpressla.com'},
+   {x:158, color:[26,115,232], label:'🌐',url:'https://mudanzasexpressla.com',           sub:(idioma==='en'?'Website':'Sitio Web'), sub2:'mudanzasexpressla.com'},
   ].forEach(ic => {
     doc.setFillColor(ic.color[0],ic.color[1],ic.color[2]);
     doc.circle(ic.x, iconY, iconR, 'F');
@@ -4923,6 +5110,7 @@ function guardarConfig() {
   CFG.tarifaMilla = parseFloat(document.getElementById('cfg-milla').value)||2.50;
   CFG.tarifaAyudanteHr = parseFloat(document.getElementById('cfg-tarifa-ayudante').value)||22.50;
   CFG.dirCasa = (document.getElementById('cfg-casa').value||'').trim();
+  CFG.linkResena = (document.getElementById('cfg-link-resena').value||'').trim();
   saveCfg();
   alert('✅ Configuración guardada');
 }
@@ -7701,13 +7889,86 @@ function guardarFotos(){
   const cat = document.getElementById('gf-cat').value;
   const fecha = document.getElementById('gf-fecha').value;
   const g = getGaleria();
+  const n = galPendientes.length;
   galPendientes.forEach(src => {
-    g.push({ id:'GAL-'+Date.now()+'-'+Math.random().toString(36).slice(2,6), src, desc, cat, fecha });
+    g.push({ id:'GAL-'+Date.now()+'-'+Math.random().toString(36).slice(2,6), src, desc, cat, fecha, estadoDrive:'pendiente' });
   });
-  saveGaleria(g);
+  try { saveGaleria(g); }
+  catch(e) { alert('❌ No hay espacio en este navegador para más fotos. Sube las pendientes a Drive primero.'); return; }
   cerrarModalFoto();
   renderGaleria();
-  alert('✅ '+galPendientes.length+' foto(s) guardadas en la galería.');
+  avisoTemporal('✅ ' + n + ' foto(s) guardadas. Subiendo a Google Drive...', 3500);
+  subirGaleriaDrive(true);
+}
+
+// ===================== v11: GALERÍA → GOOGLE DRIVE =====================
+let galSubiendo = false;
+function urlAppsScript() {
+  const cfg = getCfg();
+  const u = (cfg.appsScriptUrl && !cfg.appsScriptUrl.includes('PEGA_AQUI')) ? cfg.appsScriptUrl : (typeof APPS_SCRIPT_URL !== 'undefined' ? APPS_SCRIPT_URL : '');
+  return (u && !u.includes('PEGA_AQUI')) ? u : '';
+}
+function miniatura(src, maxW) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const r = Math.min(maxW / img.width, maxW / img.height, 1);
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * r); cv.height = Math.round(img.height * r);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      res(cv.toDataURL('image/jpeg', 0.7));
+    };
+    img.onerror = () => res(src);
+    img.src = src;
+  });
+}
+async function postJson(url, obj) {
+  const r = await fetch(url, { method:'POST', body: JSON.stringify(obj) });
+  try { return await r.json(); } catch(e) { return {}; }
+}
+async function subirGaleriaDrive(silencioso) {
+  if(galSubiendo) return;
+  const url = urlAppsScript();
+  if(!url) { if(!silencioso) alert('⚠️ Falta la URL del Apps Script.'); return; }
+  const pend = getGaleria().filter(f => f.estadoDrive !== 'subido');
+  if(!pend.length) { if(!silencioso) alert('✅ Todas las fotos ya están en Google Drive.'); return; }
+  galSubiendo = true;
+  let ok = 0, fallo = 0;
+  for(let i = 0; i < pend.length; i++) {
+    const f = pend[i];
+    renderGaleriaEstado('☁️ Subiendo foto ' + (i+1) + ' de ' + pend.length + '...');
+    try {
+      const nombre = 'GALERIA_' + (f.fecha||'sinfecha') + '_' + (f.cat||'foto') + '_' + f.id + '.jpg';
+      // Sube a la carpeta MudanzasExpressLA_Galeria (la que usa la página web)
+      const j = await postJson(url, { action:'subirFotoGaleria', src:f.src, desc:f.desc||'', cat:f.cat||'', fecha:f.fecha||'' });
+      if(j && j.ok) {
+        const g2 = getGaleria();
+        const it = g2.find(x => x.id === f.id);
+        if(it) {
+          it.estadoDrive = 'subido';
+          it.driveUrl = j.url || j.fileUrl || j.link || '';
+          it.driveId = j.id || j.fileId || '';
+          it.src = await miniatura(it.src, 450); // copia ligera local para ahorrar espacio
+          saveGaleria(g2);
+        }
+        ok++;
+      } else fallo++;
+    } catch(e) { fallo++; }
+  }
+  galSubiendo = false;
+  renderGaleria();
+  if(fallo) avisoTemporal('⚠️ ' + ok + ' subida(s), ' + fallo + ' pendiente(s). Usa "Subir pendientes" para reintentar.', 6000);
+  else if(!silencioso || ok) avisoTemporal('☁️ ' + ok + ' foto(s) guardadas en Google Drive.', 4000);
+}
+function renderGaleriaEstado(textoForzado) {
+  const el = document.getElementById('gal-drive-status');
+  if(!el) return;
+  if(textoForzado) { el.innerHTML = '<div class="notice notice-blue" style="margin-bottom:12px">' + textoForzado + '</div>'; return; }
+  const g = getGaleria();
+  const pend = g.filter(f => f.estadoDrive !== 'subido').length;
+  el.innerHTML = pend
+    ? '<div class="notice notice-amber" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span>⏳ ' + pend + ' foto(s) todavía no están en Google Drive.</span><button class="btn btn-primary btn-sm" onclick="subirGaleriaDrive(false)">☁️ Subir pendientes</button></div>'
+    : (g.length ? '<div class="notice notice-green" style="margin-bottom:12px">☁️ Todas las fotos están respaldadas en Google Drive.</div>' : '');
 }
 
 function renderGaleria(){
@@ -7720,6 +7981,7 @@ function renderGaleria(){
   let lista = g.slice().reverse();
   if(filter) lista = lista.filter(f=>f.cat===filter);
   if(search) lista = lista.filter(f=>(f.desc||'').toLowerCase().includes(search.toLowerCase())||(f.fecha||'').includes(search));
+  if(!galSubiendo) renderGaleriaEstado();
   if(!lista.length){ grid.innerHTML=''; if(empty) empty.style.display=''; return; }
   if(empty) empty.style.display='none';
   const catLabel = {camion:'🚛 Camión',tacoma:'🛻 Tacoma',antes:'📦 Antes',despues:'✅ Después',equipo:'👷 Equipo'};
@@ -7728,6 +7990,7 @@ function renderGaleria(){
       <div style="position:relative;padding-top:75%;overflow:hidden;cursor:pointer" onclick="abrirAdminLB('${f.id}')">
         <img src="${f.src}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" loading="lazy">
         <span style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700">${catLabel[f.cat]||f.cat}</span>
+        <span title="${f.estadoDrive==='subido'?'En Google Drive':'Pendiente de subir'}" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;padding:3px 7px;border-radius:20px;font-size:11px">${f.estadoDrive==='subido'?'☁️':'⏳'}</span>
       </div>
       <div style="padding:10px 12px">
         <div style="font-size:12px;font-weight:600;color:var(--ink);line-height:1.4;margin-bottom:4px">${f.desc||'Sin descripción'}</div>
@@ -7749,11 +8012,18 @@ function abrirAdminLB(id){
 function cerrarAdminLB(){ document.getElementById('admin-lb').style.display='none'; }
 
 function eliminarFotoGal(id){
-  if(!confirm('¿Eliminar esta foto de la galería?')) return;
-  let g = getGaleria();
-  g = g.filter(f=>f.id!==id);
-  saveGaleria(g);
+  const g0 = getGaleria();
+  const foto = g0.find(f=>f.id===id);
+  const enDrive = foto && foto.estadoDrive==='subido' && foto.driveId;
+  if(!confirm(enDrive ? '¿Eliminar esta foto? También se quitará de Google Drive y de la página web.' : '¿Eliminar esta foto de la galería?')) return;
+  saveGaleria(g0.filter(f=>f.id!==id));
   renderGaleria();
+  if(enDrive) {
+    const url = urlAppsScript();
+    if(url) postJson(url, { action:'eliminarFotoGaleria', id: foto.driveId })
+      .then(j => { if(!j || !j.ok) avisoTemporal('⚠️ Se quitó de la app, pero no de Drive. Bórrala a mano en la carpeta MudanzasExpressLA_Galeria.', 6000); })
+      .catch(() => avisoTemporal('⚠️ Sin internet: bórrala a mano en Drive después.', 6000));
+  }
 }
 
 // ===================== COTIZACIÓN RÁPIDA =====================
@@ -8026,7 +8296,8 @@ function resetCotRapida(){
     <div class="section-title">📸 Galería de Trabajos</div>
     <button class="btn btn-primary" onclick="abrirModalFoto()">➕ Agregar Fotos</button>
   </div>
-  <div class="notice notice-blue">Las fotos que subas aquí aparecerán en la página web pública automáticamente.</div>
+  <div class="notice notice-blue">Las fotos que subas aquí se guardan en Google Drive automáticamente.</div>
+  <div id="gal-drive-status"></div>
   <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
     <input type="text" id="gal-search" placeholder="🔍 Buscar..." style="max-width:240px" oninput="renderGaleria()">
     <select id="gal-filter" onchange="renderGaleria()" style="max-width:180px">
