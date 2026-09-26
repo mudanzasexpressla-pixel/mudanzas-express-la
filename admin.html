@@ -2062,7 +2062,7 @@ function guardarAgendaRapida() {
 
 function renderAgenda() {
   const d = getData();
-  let lista = d.cots.filter(c => c.estatus === 'agendado').sort((a,b) => a.fechaAgendada > b.fechaAgendada ? 1 : -1);
+  let lista = d.cots.filter(c => c.estatus === 'agendado').sort((a,b) => b.fechaAgendada > a.fechaAgendada ? 1 : -1);
   lista = filtrarPorBusqueda(lista, 'buscar-agenda');
   const el = document.getElementById('lista-agenda');
   if(!lista.length) { el.innerHTML = '<div class="empty-state"><div class="icon">📅</div><p>No hay trabajos agendados</p></div>'; return; }
@@ -2095,7 +2095,7 @@ function renderAgenda() {
 // ===================== RENDER TRABAJOS =====================
 function renderTrabajos() {
   const d = getData();
-  let lista = d.cots.filter(c => c.estatus === 'en_trabajo');
+  let lista = d.cots.filter(c => c.estatus === 'en_trabajo').sort((a,b)=>(b.fechaAgendada||'')>(a.fechaAgendada||'')?1:-1);
   lista = filtrarPorBusqueda(lista, 'buscar-trabajos');
   const el = document.getElementById('lista-trabajos');
   if(!lista.length) { el.innerHTML = '<div class="empty-state"><div class="icon">🚛</div><p>No hay trabajos en proceso</p></div>'; return; }
@@ -2720,11 +2720,13 @@ function ayGetTodosRegistros(nombre) {
 }
 
 // ── Marcar / deshacer pago ───────────────────────────────────────────────
-function ayMarcarPagado(nombre, semKey) {
-  if(!confirm('¿Confirmas que ya pagaste a '+nombre+' esta semana?')) return;
+function ayMarcarPagado(nombre, semKey, metodo) {
+  metodo = metodo || 'Efectivo';
+  if(!confirm('¿Confirmas que ya pagaste a '+nombre+' con '+metodo+' esta semana?')) return;
   const d = getData();
   if(!d.ayPagos) d.ayPagos = {};
   d.ayPagos[semKey+'__'+nombre] = new Date().toISOString();
+  d.ayPagos[semKey+'__'+nombre+'_metodo'] = metodo;
   saveData(d);
   renderAyHistorial();
 }
@@ -2883,10 +2885,19 @@ function renderAyHistorial() {
           <div style="text-align:right">
             <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:${isPagado?'#1D9E75':'#EF9F27'}">${isPagado?'✅ PAGADO':'POR PAGAR'}</div>
             <div style="font-size:22px;font-weight:900;color:${isPagado?'var(--ink-faint)':'#EF9F27'}">$${semTotalMonto.toFixed(2)}</div>
-          </div>
           ${isPagado
-            ? `<button onclick="ayDeshacerPago('${nombre.replace(/'/g,"\\'")}','${semKey}')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:11px;cursor:pointer;white-space:nowrap">↩ Deshacer</button>`
-            : `<button onclick="ayMarcarPagado('${nombre.replace(/'/g,"\\'")}','${semKey}')" style="padding:11px 20px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(29,158,117,.45);white-space:nowrap">💳 Pagar $${semTotalMonto.toFixed(2)}</button>`
+            ? (function(){ const _n2=nombre.replace(/'/g,"\\'"); return `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div style="font-size:11px;color:#1D9E75;font-weight:700">✅ PAGADO</div><button onclick="ayDeshacerPago('${_n2}','${semKey}')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:11px;cursor:pointer">↩ Deshacer</button></div>`; })()
+            : (function(){
+                const _pid='pm_'+semKey.replace(/-/g,'')+'_'+nombre.replace(/[^a-z0-9]/gi,'');
+                const _nom=nombre.replace(/'/g,"\\'");
+                return `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                  <select id="${_pid}" style="padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:12px">
+                    <option>💵 Efectivo</option><option>📱 Zelle</option><option>📝 Cheque</option><option>💜 Venmo</option><option>💚 Cash App</option>
+                  </select>
+                  <button onclick="ayMarcarPagado('${_nom}','${semKey}',document.getElementById('${_pid}').value.replace(/^../,''))" style="padding:11px 20px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(29,158,117,.45);white-space:nowrap">💳 Pagar $${semTotalMonto.toFixed(2)}</button>
+                </div>`;
+              })()
+          }
           }
         </div>
       </div>
@@ -5949,7 +5960,7 @@ initDarkMode();
 #app-campo .status-badge{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:20px;font-size:13px;font-weight:700;margin-bottom:12px}
 #app-campo .status-ok{background:#d4edda;color:#155724}
 #app-campo .status-err{background:#f8d7da;color:#721c24}
-#app-campo #firma-canvas{border:2px solid #ccc;border-radius:10px;background:#1a2535;touch-action:none;width:100%;max-width:440px;display:block;margin:0 auto 10px}
+#app-campo #firma-canvas{border:2px solid #ccc;border-radius:10px;background:#ffffff;touch-action:none;width:100%;max-width:440px;display:block;margin:0 auto 10px}
 #app-campo .firma-row{display:flex;gap:8px;margin-bottom:10px}
 #app-campo .firma-row button{flex:1;padding:10px;border-radius:10px;border:1px solid #ccc;font-size:13px;font-weight:700;cursor:pointer;background:#1a2535;color:#b0c4d8}
 </style>
@@ -6855,7 +6866,10 @@ function initFirma() {
   if(canvas._iniciado) return;
   canvas._iniciado = true;
   firmaCtx = canvas.getContext('2d');
-  firmaCtx.strokeStyle = '#143F74';
+  // Fondo blanco para que la firma sea visible y se vea bien al imprimir
+  firmaCtx.fillStyle = '#ffffff';
+  firmaCtx.fillRect(0, 0, canvas.width, canvas.height);
+  firmaCtx.strokeStyle = '#0a1628';
   firmaCtx.lineWidth = 2.5;
   firmaCtx.lineCap = 'round';
 
@@ -6885,6 +6899,8 @@ function limpiarFirma() {
   if(!firmaCtx) return;
   const canvas = document.getElementById('firma-canvas');
   firmaCtx.clearRect(0, 0, canvas.width, canvas.height);
+  firmaCtx.fillStyle = '#ffffff';
+  firmaCtx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
 function obtenerFirmaBase64() {
