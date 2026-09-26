@@ -610,6 +610,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
           <select id="gg-cat">
             <option>Materiales y suministros</option>
             <option>Seguro del vehículo</option>
+            <option>Flota (Tacoma + Ford) — pago combinado</option>
             <option>Licencia comercial / DOT</option>
             <option>Mantenimiento del camión</option>
             <option>Herramientas y equipo</option>
@@ -632,6 +633,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   </div>
 
   <div id="gt-ayudantes" style="display:none">
+    <div id="ay-pendientes"></div>
     <!-- Formulario de registro -->
     <div class="card" style="border-left:4px solid #4A7FA5;background:var(--card)">
       <div class="card-title" style="color:#7ab8d8">👷 Registrar pago a ayudante</div>
@@ -941,6 +943,11 @@ table.data-table tr:hover td{background:#1A2A42!important}
     </div>
   </div>
   <div class="card">
+    <div class="card-title">🧹 Corregir rentas contadas dos veces</div>
+    <div class="notice notice-blue">Las versiones anteriores guardaban la renta de camión en el trabajo y además la copiaban a Gastos Generales, así que se sumaba dos veces. Este botón quita solo las copias repetidas y te enseña la lista antes de hacerlo. Descarga un respaldo automático primero.</div>
+    <div class="btn-row"><button class="btn btn-primary" onclick="limpiarRentasDuplicadas()">🧹 Buscar y limpiar rentas duplicadas</button></div>
+  </div>
+  <div class="card">
     <div class="card-title">💾 Respaldo de datos</div>
     <div class="notice notice-blue">⚠️ Exporta tus datos regularmente para no perderlos. El archivo JSON contiene TODOS tus registros.</div>
     <div class="btn-row">
@@ -1125,8 +1132,11 @@ table.data-table tr:hover td{background:#1A2A42!important}
         <div class="form-row" style="margin-bottom:8px">
           <div><label>👤 Nombre del ayudante</label><input type="text" id="tm-ayudante-nombre" placeholder="Gelacio Huerta Lopez"></div>
         </div>
-        <!-- Cálculo automático del pago -->
-        <div style="background:var(--card);border-radius:8px;padding:12px;border:1px solid var(--line)">
+        <div style="font-size:12.5px;color:var(--ink);line-height:1.6;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px">
+          ⏳ El pago <strong>no</strong> se registra aquí. Al terminar, este trabajo quedará como <strong>pendiente de pago</strong> en 💸 Gastos → 👷 Ayudantes, con las horas del cronómetro y el folio del recibo ya llenos.
+        </div>
+        <!-- v10: cálculo oculto (se conserva para compatibilidad) -->
+        <div style="display:none">
           <div style="font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Cálculo automático</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:13px">
             <div style="background:var(--bg);border-radius:8px;padding:8px 12px;text-align:center">
@@ -2338,7 +2348,7 @@ function renderGastos() {
         <table class="data-table">
           <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th>Recibo</th><th></th></tr></thead>
           <tbody>${gg.slice().reverse().map((g,i)=>`<tr>
-            <td>${g.fecha}</td><td>${g.cat&&g.cat!=='undefined'?g.cat:'General'}</td><td>${g.desc||'—'}</td>
+            <td>${g.fecha}</td><td>${g.cat&&g.cat!=='undefined'?g.cat:(g.categoria||'General')}</td><td>${g.desc||'—'}</td>
             <td><strong style="color:#E24B4A">$${g.monto.toFixed(2)}</strong></td><td>${g.recibo||'—'}</td>
             <td><button onclick="eliminarGastoGG(${i})" style="background:#E24B4A;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🗑️</button></td>
           </tr>`).join('')}</tbody>
@@ -2352,7 +2362,7 @@ function renderGastos() {
     const terminadosAy = (d.cots||[]).filter(c=>c.estatus==='terminado' && (c.pagoAyudante||0)>0);
     const totManual = ay.filter(a=>!a.esAutoComprobante).reduce((a,g)=>a+(g.monto||0),0);
     const totTrab = terminadosAy.reduce((a,c)=>a+(c.pagoAyudante||0),0);
-    const tot = totManual + totTrab;
+    const tot = ayGastoTotal(d); // v10: misma cifra que Dashboard y Resumen
     let ayHtml = '<div class="card">';
     ayHtml += '<div style="color:#1D9E75;font-size:15px;font-weight:700;margin-bottom:12px;padding:10px 14px;background:var(--bg,#111c27);border-radius:10px;border:1px solid var(--line,#2a3a4a)">💰 Total pagado a ayudantes: <span style="font-size:18px">$'+tot.toFixed(2)+'</span></div>';
     function getWkKeyAy(ds){
@@ -2632,7 +2642,7 @@ function showGTab(t, btn) {
   document.querySelectorAll('.tab-inner-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   if(t==='resumen') renderResumen();
-  if(t==='ayudantes') { const tHr=document.getElementById('ay-tarifa-hr'); if(tHr&&!tHr.value) tHr.value=(getCfg().tarifaAyudanteHr||22.50); const fec=document.getElementById('ay-fecha'); if(fec&&!fec.value) fec.value=new Date().toISOString().split('T')[0]; renderAyHistorial(); }
+  if(t==='ayudantes') { const tHr=document.getElementById('ay-tarifa-hr'); if(tHr&&!tHr.value) tHr.value=(getCfg().tarifaAyudanteHr||22.50); const fec=document.getElementById('ay-fecha'); if(fec&&!fec.value) fec.value=new Date().toISOString().split('T')[0]; renderAyHistorial(); renderAyPendientes(); }
 }
 
 // ===================== HISTORIAL ACUMULADO AYUDANTES =====================
@@ -2695,7 +2705,7 @@ function ayGetTodosRegistros(nombre) {
       monto:    parseFloat(a.monto)||0,
       fuente:   'manual'
     });
-    if(a.trabajo) trabajosManuales.add(a.trabajo.trim());
+    if(a.trabajo && !a.adicional) trabajosManuales.add(a.trabajo.trim());
   });
 
   // 2. Trabajos terminados de d.cots — solo si NO tienen ya un registro manual
@@ -2710,7 +2720,7 @@ function ayGetTodosRegistros(nombre) {
         cliente: c.cliente?(c.cliente.nombre||''):'',
         horas:   c.horasTrabajadas||0,
         tarifa,
-        bono:    0,
+        bono:    c.bonoAyudante||0,
         monto:   c.pagoAyudante||0,
         fuente:  'cot'
       });
@@ -2962,13 +2972,114 @@ function generarComprobanteNombreCompleto(nombre) {
   generarComprobanteAyudante(nombre, 'Historial completo', todos);
 }
 
+// ===================== v10: FUENTE ÚNICA DE GASTO EN AYUDANTES =====================
+// Pago por trabajo (cot.pagoAyudante) + pagos manuales que NO sean de un trabajo ya pagado.
+// Los registros automáticos del cronómetro (esAutoComprobante) son solo horas, no pagos.
+function ayGastoTotal(d) {
+  d = d || getData();
+  const pagados = new Set();
+  let total = 0;
+  (d.cots||[]).forEach(c => {
+    if(c.estatus==='terminado' && (c.pagoAyudante||0) > 0) { total += c.pagoAyudante; pagados.add(c.id); }
+  });
+  (d.ay||[]).forEach(a => {
+    if(a.esAutoComprobante) return;
+    const t = (a.trabajo||'').trim();
+    if(t && pagados.has(t) && !a.adicional) return;
+    total += (parseFloat(a.monto)||0);
+  });
+  return total;
+}
+function ayPendientes(d) {
+  d = d || getData();
+  return (d.cots||[]).filter(c => c.estatus==='terminado' && c.ayudantePendiente && !((c.pagoAyudante||0) > 0));
+}
+function ayEsc(t) { return String(t==null?'':t).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function renderAyPendientes() {
+  const el = document.getElementById('ay-pendientes');
+  if(!el) return;
+  const d = getData();
+  const tarifa = getCfg().tarifaAyudanteHr || 22.50;
+  const pend = ayPendientes(d).sort((a,b) => (a.fechaTerminadoISO||'') < (b.fechaTerminadoISO||'') ? -1 : 1);
+  if(!pend.length) { el.innerHTML = ''; return; }
+  const filas = pend.map(c => {
+    const cli = c.cliente ? (c.cliente.nombre || c.cliente) : '';
+    const hrs = c.horasTrabajadas > 0 ? c.horasTrabajadas : 0;
+    const bono = c.huboDificultad ? 15 : 0;
+    const sug = hrs > 0 ? (hrs * tarifa + bono) : 0;
+    return '<tr>'
+      + '<td style="font-family:monospace;font-weight:700">' + ayEsc(c.folioTerminado || c.id) + '</td>'
+      + '<td>' + ayEsc(cli) + '</td>'
+      + '<td>' + ayEsc(c.fechaTerminadoISO || '') + '</td>'
+      + '<td>' + ayEsc(c.nombreAyudante || '—') + '</td>'
+      + '<td style="color:var(--brand-dark,#4A9EE8)">' + (hrs > 0 ? hrs.toFixed(2) + ' h' : '⚠️ sin horas') + '</td>'
+      + '<td style="color:#1D9E75;font-weight:700">' + (sug > 0 ? '$' + sug.toFixed(2) : '—') + '</td>'
+      + '<td><button class="btn btn-primary btn-sm" onclick="ayPrellenarPendiente(\'' + ayEsc(c.id) + '\')">💳 Registrar pago</button></td>'
+      + '</tr>';
+  }).join('');
+  el.innerHTML = '<div class="card" style="border-left:4px solid #EF9F27">'
+    + '<div class="card-title" style="color:#EF9F27">⏳ Pendientes de pago (' + pend.length + ')</div>'
+    + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:10px">Trabajos terminados con ayudante que todavía no tienen pago registrado. Toca "Registrar pago" y el formulario de abajo se llena solo; revisa el monto y guarda.</div>'
+    + '<div style="overflow-x:auto"><table class="data-table" style="font-size:12px"><thead><tr><th>Recibo</th><th>Cliente</th><th>Fecha</th><th>Ayudante</th><th>Horas</th><th>Sugerido</th><th></th></tr></thead><tbody>'
+    + filas + '</tbody></table></div></div>';
+}
+function ayPrellenarPendiente(id) {
+  const d = getData();
+  const c = (d.cots||[]).find(x => x.id === id);
+  if(!c) return;
+  const set = (k, v) => { const e = document.getElementById(k); if(e) e.value = v; };
+  const cli = c.cliente ? (c.cliente.nombre || c.cliente) : '';
+  set('ay-nombre', c.nombreAyudante || '');
+  set('ay-trabajo', c.id);
+  set('ay-fecha', new Date().toISOString().split('T')[0]);
+  set('ay-tarifa-hr', (getCfg().tarifaAyudanteHr || 22.50));
+  set('ay-horas', c.horasTrabajadas > 0 ? (+c.horasTrabajadas).toFixed(2) : '');
+  set('ay-bono', c.huboDificultad ? 15 : '');
+  set('ay-bono-nota', c.huboDificultad ? 'Escaleras / muebles pesados' : '');
+  set('ay-notas', 'Recibo ' + (c.folioTerminado || c.id) + (cli ? ' · ' + cli : ''));
+  calcAyudanteMonto();
+  const n = document.getElementById('ay-nombre');
+  if(n) { n.scrollIntoView({behavior:'smooth', block:'center'}); }
+  if(!(c.horasTrabajadas > 0)) alert('⚠️ Este trabajo no tiene horas del cronómetro. Escribe las horas o el monto a mano.');
+}
+
+// ===================== v10: LIMPIAR RENTAS DUPLICADAS =====================
+function limpiarRentasDuplicadas() {
+  const d = getData();
+  const cots = {};
+  (d.cots||[]).forEach(c => { cots[c.id] = c; });
+  const dup = (d.gg||[]).filter(g => {
+    if(g.categoria !== 'Renta de camión' || g.cat) return false;
+    const c = cots[g.trabajo];
+    return c && Math.abs((c.rentaCosto||0) - (g.monto||0)) < 0.01;
+  });
+  if(!dup.length) { alert('✅ No hay rentas duplicadas. Tus gastos ya están correctos.'); return; }
+  const tot = dup.reduce((a,g) => a + (g.monto||0), 0);
+  const lista = dup.map(g => {
+    const c = cots[g.trabajo];
+    const cli = c.cliente ? (c.cliente.nombre || c.cliente) : '';
+    return '• $' + (g.monto||0).toFixed(2) + ' — ' + (c.folioTerminado || c.id) + ' ' + cli;
+  }).join('\n');
+  if(!confirm('Se encontraron ' + dup.length + ' rentas contadas dos veces (total $' + tot.toFixed(2) + '):\n\n' + lista
+    + '\n\nLa renta se queda guardada en cada trabajo; solo se quita la copia repetida de Gastos Generales.'
+    + '\n\nAntes de limpiar se descargará un respaldo automático. ¿Continuar?')) return;
+  try { exportarBackup(); } catch(e) {}
+  const quitar = new Set(dup);
+  d.gg = (d.gg||[]).filter(g => !quitar.has(g));
+  saveData(d);
+  try { if(typeof renderGastos==='function') renderGastos(); } catch(e) {}
+  try { if(typeof renderResumen==='function') renderResumen(); } catch(e) {}
+  try { if(typeof renderDash==='function') renderDash(); } catch(e) {}
+  alert('✅ Listo. Se quitaron ' + dup.length + ' rentas duplicadas ($' + tot.toFixed(2) + ').\n\nTus gastos bajaron y tu utilidad subió en esa cantidad.');
+}
+
 function renderResumen() {
   const d = getData();
   const terminados = d.cots.filter(c=>c.estatus==='terminado');
   const ingresos = terminados.reduce((a,c)=>a+(c.montoFinal||0)+(c.propina||0),0);
   const gasGas = (d.gas||[]).reduce((a,g)=>a+(g.monto||0),0);
   const gasGen = (d.gg||[]).reduce((a,g)=>a+(g.monto||0),0);
-  const gasAy = terminados.reduce((a,c)=>a+(c.pagoAyudante||0),0);
+  const gasAy = ayGastoTotal(d);
   const gasRenta = terminados.reduce((a,c)=>a+(c.rentaCosto||0),0);
   const totalGastos = gasGas+gasGen+gasAy+gasRenta;
   const utilidad = ingresos - totalGastos;
@@ -3031,7 +3142,7 @@ function renderDash() {
   const ingresosTotal = ingresos + propinas + ingresosGigs;
   const gasGas = (d.gas||[]).reduce((a,g)=>a+(g.monto||0),0);
   const gasGen = (d.gg||[]).reduce((a,g)=>a+(g.monto||0),0);
-  const gasAyTrab = terminados.reduce((a,c)=>a+(c.pagoAyudante||0),0);
+  const gasAyTrab = ayGastoTotal(d);
   const gasRentaTrab = terminados.reduce((a,c)=>a+(c.rentaCosto||0),0);
   const totalGastos = gasGas+gasGen+gasAyTrab+gasRentaTrab;
   const utilidad = ingresosTotal-totalGastos;
@@ -3236,6 +3347,14 @@ function abrirTerminar(id) {
   const vsel = document.getElementById('tm-vehiculo');
   if(vsel) { vsel.innerHTML = '<option value="">— Sin asignar —</option>' + vehs.map(v=>'<option value="'+v.id+'">'+v.nombre+' ('+v.tipo+')</option>').join(''); }
 
+  // v10: prellenar ayudante si ya viene del trabajo o de la app de campo
+  try {
+    const nomAy = (cot.nombreAyudante||'').trim();
+    const selAy = document.getElementById('tm-ayudante');
+    const inAy = document.getElementById('tm-ayudante-nombre');
+    if(nomAy && selAy && inAy) { selAy.value='si'; inAy.value=nomAy; toggleAyudanteFields(); }
+  } catch(e) {}
+
   cronoReset();
   abrir('m-terminar');
   // Auto-calcular pago al abrir el modal
@@ -3375,7 +3494,7 @@ function calcResumenTerminar() {
   var monto = parseFloat(document.getElementById('tm-monto').value)||0;
   var propina = parseFloat(document.getElementById('tm-propina').value)||0;
   var usaAy = document.getElementById('tm-ayudante').value;
-  var pagoAy = usaAy==='si' ? (parseFloat(document.getElementById('tm-ayudante-monto').value)||0) : 0;
+  var pagoAy = 0; // v10: el pago del ayudante se registra en Gastos → Ayudantes
   var rentaEl = document.getElementById('tm-rento-vehiculo');
   var rentaCosto = (rentaEl && rentaEl.value==='si') ? (parseFloat(document.getElementById('tm-renta-costo').value)||0) : 0;
   var el = document.getElementById('tm-resumen');
@@ -3413,7 +3532,7 @@ function confirmarTerminar() {
 
   // Fase 2 — datos que solo el jefe puede completar
   const usaAyudante   = document.getElementById('tm-ayudante').value;
-  const pagoAyudante  = usaAyudante==='si' ? (parseFloat(document.getElementById('tm-ayudante-monto').value)||0) : 0;
+  const pagoAyudante  = 0; // v10: queda pendiente; se paga en Gastos → Ayudantes
   const nombreAyudante= usaAyudante==='si' ? (document.getElementById('tm-ayudante-nombre').value.trim()) : '';
   const vehiculoId    = document.getElementById('tm-vehiculo').value;
   const rentoVehiculo = document.getElementById('tm-rento-vehiculo').value;
@@ -3436,6 +3555,7 @@ function confirmarTerminar() {
   cot.usaAyudante   = usaAyudante;
   cot.pagoAyudante  = pagoAyudante;
   cot.nombreAyudante= nombreAyudante;
+  cot.ayudantePendiente = (usaAyudante==='si');
   cot.vehiculoId    = vehiculoId;
   cot.rentoVehiculo = rentoVehiculo;
   cot.rentaTipo     = rentaTipo;
@@ -3451,10 +3571,7 @@ function confirmarTerminar() {
   const fechaRealVal = document.getElementById('tm-fecha-real') ? document.getElementById('tm-fecha-real').value : '';
   cot.fechaTerminado    = fechaRealVal ? new Date(fechaRealVal+'T12:00:00').toLocaleDateString('es-US') : new Date().toLocaleDateString('es-US');
   cot.fechaTerminadoISO = fechaRealVal || new Date().toISOString().split('T')[0];
-  if(rentaCosto > 0) {
-    if(!d.gg) d.gg = [];
-    d.gg.push({ id:'GG-'+Date.now(), fecha:new Date().toISOString().split('T')[0], categoria:'Renta de camión', desc:rentaTipo||'Uhaul', monto:rentaCosto, trabajo:cot.id });
-  }
+  // v10: la renta se guarda SOLO en el trabajo (antes también se copiaba a Gastos Generales y se contaba doble)
   saveData(d);
 
   // Re-habilitar inputs bloqueados antes de cerrar
@@ -3470,7 +3587,7 @@ function confirmarTerminar() {
   document.getElementById('tm-renta-wrap').style.display='none';
   document.getElementById('tm-ayudante-extra').style.display='none';
   document.getElementById('tm-resumen').style.display='none';
-  alert('✅ Trabajo marcado como TERMINADO.\n\nAhora puedes generar el recibo PDF oficial en la pestaña Terminados.');
+  alert('✅ Trabajo marcado como TERMINADO.\n\nAhora puedes generar el recibo PDF oficial en la pestaña Terminados.' + (usaAyudante==='si' ? '\n\n👷 El pago de '+(nombreAyudante||'tu ayudante')+' quedó PENDIENTE en Gastos → Ayudantes.' : ''));
   showTab('terminados');
 }
 
@@ -3624,7 +3741,34 @@ function guardarAy() {
   const bonoNota = document.getElementById('ay-bono-nota').value.trim();
   const d = getData();
   if(!d.ay) d.ay=[];
+  // v10: si el pago es de un trabajo terminado, se guarda EN el trabajo (una sola vez)
+  const trabajoId = (document.getElementById('ay-trabajo').value||'').trim();
+  const formaPagoAy = (document.getElementById('ay-forma-pago')||{}).value || '';
+  const cotLig = trabajoId ? (d.cots||[]).find(c => c.id === trabajoId && c.estatus === 'terminado') : null;
+  let esAdicional = false;
+  if(cotLig) {
+    if(!((cotLig.pagoAyudante||0) > 0)) {
+      cotLig.pagoAyudante = monto;
+      cotLig.nombreAyudante = nombre;
+      cotLig.usaAyudante = 'si';
+      cotLig.ayudantePendiente = false;
+      cotLig.bonoAyudante = bono;
+      cotLig.formaPagoAyudante = formaPagoAy;
+      cotLig.fechaPagoAyudante = fecha;
+      if(horas > 0 && !(cotLig.horasTrabajadas > 0)) cotLig.horasTrabajadas = horas;
+      cotLig.gananciaReal = (cotLig.montoFinal||0) + (cotLig.propina||0) - monto - (cotLig.rentaCosto||0);
+      saveData(d);
+      alert('✅ Pago de $' + monto.toFixed(2) + ' a ' + nombre + ' guardado en el trabajo ' + (cotLig.folioTerminado || cotLig.id) + '.');
+      ['ay-horas','ay-bono','ay-bono-nota','ay-monto','ay-notas','ay-trabajo'].forEach(k => { const e = document.getElementById(k); if(e) e.value = ''; });
+      renderGastos(); renderAyHistorial(); renderAyPendientes();
+      return;
+    }
+    if(!confirm('⚠️ El trabajo ' + (cotLig.folioTerminado || cotLig.id) + ' ya tiene un pago de ayudante de $' + (cotLig.pagoAyudante||0).toFixed(2) + ' (' + (cotLig.nombreAyudante||'') + ').\n\n¿Registrar este como pago ADICIONAL (otro ayudante o un extra)?\n\nSi es el mismo pago, cancela para no duplicarlo.')) return;
+    esAdicional = true;
+  }
   d.ay.push({
+    adicional: esAdicional,
+    formaPago: formaPagoAy,
     nombre, monto, fecha,
     horas: horas,          // siempre guardar el número (0 si no se puso)
     tarifaHr: tarifa,
@@ -3644,6 +3788,7 @@ function guardarAy() {
   document.getElementById('ay-notas').value='';
   renderGastos();
   renderAyHistorial();
+  renderAyPendientes();
 }
 
 function guardarSueldo() {
@@ -4656,7 +4801,7 @@ function exportarExcel(tipo) {
     XLSX.utils.book_append_sheet(wb, wsg, 'Gasolina');
 
     const hgg = ['Fecha','Categoría','Descripción','Monto $','Recibo'];
-    const rgg = (d.gg||[]).map(g=>[g.fecha,g.cat,g.desc||'',g.monto,g.recibo||'']);
+    const rgg = (d.gg||[]).map(g=>[g.fecha,g.cat||g.categoria||'',g.desc||'',g.monto,g.recibo||'']);
     const totGG = (d.gg||[]).reduce((a,g)=>a+(g.monto||0),0);
     rgg.push(['','','TOTAL:',totGG,'']);
     const wsgg = XLSX.utils.aoa_to_sheet([hgg,...rgg]);
@@ -4678,7 +4823,7 @@ function exportarExcel(tipo) {
     // para que un mismo pago no se sume dos veces en el total.
     const idsYaContados = new Set(ayDesdeJobs.map(a => a.trabajo));
     const ayManual = (d.ay||[])
-      .filter(a => !(a.trabajo && idsYaContados.has(a.trabajo)))
+      .filter(a => !a.esAutoComprobante && (a.adicional || !(a.trabajo && idsYaContados.has(a.trabajo))))
       .map(a => ({ fecha:a.fecha, nombre:a.nombre, tipo:a.tipo||'Manual', trabajo:a.trabajo||'', monto:a.monto||0, notas:a.notas||'' }));
     const ayCombinado = [...ayDesdeJobs, ...ayManual].sort((a,b)=> (a.fecha||'') < (b.fecha||'') ? -1 : 1);
     const ray = ayCombinado.map(a=>[a.fecha,a.nombre,a.tipo,a.trabajo,a.monto,a.notas]);
@@ -4715,7 +4860,7 @@ function exportarExcel(tipo) {
     const soloPropinas = terminados.reduce((a,c)=>a+(c.propina||0),0);
     const gasG = (d.gas||[]).reduce((a,g)=>a+(g.monto||0),0);
     const gasGG = (d.gg||[]).reduce((a,g)=>a+(g.monto||0),0);
-    const gasAy = terminados.reduce((a,c)=>a+(c.pagoAyudante||0),0);
+    const gasAy = ayGastoTotal(d);
     const gasRenta = terminados.reduce((a,c)=>a+(c.rentaCosto||0),0);
     const totalGastos = gasG+gasGG+gasAy+gasRenta;
     const retiros = (d.sl||[]).reduce((a,s)=>a+(s.monto||0),0);
@@ -5602,7 +5747,7 @@ async function enviarAsistente() {
   var ingresos = terminados.reduce(function(a,c){return a+(c.montoFinal||0)+(c.propina||0);},0);
   var gasGas = (d.gas||[]).reduce(function(a,g){return a+(g.monto||0);},0);
   var gasGen = (d.gg||[]).reduce(function(a,g){return a+(g.monto||0);},0);
-  var gasAy = terminados.reduce(function(a,c){return a+(c.pagoAyudante||0);},0);
+  var gasAy = ayGastoTotal(d);
   var gasRenta = terminados.reduce(function(a,c){return a+(c.rentaCosto||0);},0);
   var totalGastos = gasGas+gasGen+gasAy+gasRenta;
   var gigs = d.gigs||[];
