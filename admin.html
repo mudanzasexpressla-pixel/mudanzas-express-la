@@ -199,7 +199,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v12.1</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v12.2</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -2754,20 +2754,54 @@ function ayGetTodosRegistros(nombre) {
 }
 
 // ── Marcar / deshacer pago ───────────────────────────────────────────────
-function ayMarcarPagado(nombre, semKey, metodo) {
-  metodo = metodo || 'Efectivo';
-  if(!confirm('¿Confirmas que ya pagaste a '+nombre+' con '+metodo+' esta semana?')) return;
+// v12.2: el pago semanal guarda CUÁNTO se pagó. Si después se agregan trabajos a esa semana,
+// aparece lo que falta en lugar de marcar toda la semana como pagada.
+function ayEstadoPagoSemana(pagos, semKey, nombre, regsSemana) {
+  const k = semKey + '__' + nombre;
+  const total = +regsSemana.reduce((s,r) => s + (r.monto||0), 0).toFixed(2);
+  let pagado = 0;
+  if(pagos[k + '_monto'] != null) pagado = parseFloat(pagos[k + '_monto']) || 0;
+  else if(pagos[k]) {
+    // Pago marcado con versión anterior (sin monto): cuenta lo que existía hasta el día en que se marcó
+    const fm = new Date(pagos[k]);
+    const loc = x => x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0');
+    const dia = isNaN(fm) ? String(pagos[k]).slice(0,10) : loc(fm);
+    pagado = regsSemana.filter(r => { const f = ayParseFecha(r.fecha); return f && loc(f) <= dia; })
+                       .reduce((s,r) => s + (r.monto||0), 0);
+  }
+  pagado = +pagado.toFixed(2);
+  const pendiente = Math.max(0, +(total - pagado).toFixed(2));
+  return { total, pagado, pendiente, isPagado: pagado > 0 && pendiente < 0.01, parcial: pagado > 0 && pendiente >= 0.01, metodo: pagos[k + '_metodo'] || '' };
+}
+function ayMarcarPagado(nombre, semKey, metodo, monto) {
+  metodo = (metodo || 'Efectivo').trim();
+  monto = parseFloat(monto) || 0;
+  if(!confirm('¿Confirmas que ya pagaste $' + monto.toFixed(2) + ' a ' + nombre + ' con ' + metodo + '?')) return;
   const d = getData();
   if(!d.ayPagos) d.ayPagos = {};
-  d.ayPagos[semKey+'__'+nombre] = new Date().toISOString();
-  d.ayPagos[semKey+'__'+nombre+'_metodo'] = metodo;
+  const k = semKey + '__' + nombre;
+  // Si había un pago viejo sin monto, primero se convierte a monto
+  let previo = 0;
+  if(d.ayPagos[k + '_monto'] != null) previo = parseFloat(d.ayPagos[k + '_monto']) || 0;
+  else if(d.ayPagos[k]) {
+    const lunes = new Date(semKey + 'T00:00:00');
+    const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6); domingo.setHours(23,59,59,999);
+    const regs = ayGetTodosRegistros(nombre).filter(r => { const f = ayParseFecha(r.fecha); return f && f >= lunes && f <= domingo; });
+    previo = ayEstadoPagoSemana(d.ayPagos, semKey, nombre, regs).pagado;
+  }
+  d.ayPagos[k] = new Date().toISOString();
+  d.ayPagos[k + '_monto'] = +(previo + monto).toFixed(2);
+  d.ayPagos[k + '_metodo'] = metodo;
+  if(!d.ayPagosHist) d.ayPagosHist = [];
+  d.ayPagosHist.push({ nombre, semana: semKey, monto, metodo, fecha: new Date().toISOString() });
   saveData(d);
   renderAyHistorial();
 }
 function ayDeshacerPago(nombre, semKey) {
-  if(!confirm('¿Deshacer el pago marcado de '+nombre+'?')) return;
+  if(!confirm('¿Deshacer TODOS los pagos marcados de '+nombre+' en esta semana?')) return;
   const d = getData();
-  if(d.ayPagos) delete d.ayPagos[semKey+'__'+nombre];
+  const k = semKey + '__' + nombre;
+  if(d.ayPagos) { delete d.ayPagos[k]; delete d.ayPagos[k + '_monto']; delete d.ayPagos[k + '_metodo']; }
   saveData(d);
   renderAyHistorial();
 }
@@ -2850,15 +2884,14 @@ function renderAyHistorial() {
   }
 
   // Calcular total a pagar esta semana (todos los activos sin pagar)
-  const totalSemana = activos.reduce((sum, nombre) => {
-    if(pagos[semKey+'__'+nombre]) return sum;
-    const regs = ayGetTodosRegistros(nombre);
-    const regsEstaSemana = regs.filter(r=>{ const fd=ayParseFecha(r.fecha); return fd&&fd>=lunes&&fd<=domingo; });
-    return sum + regsEstaSemana.reduce((s,r)=>s+(r.monto||0),0);
-  }, 0);
+  const _estadoDe = (nombre) => {
+    const regs = ayGetTodosRegistros(nombre).filter(r=>{ const fd=ayParseFecha(r.fecha); return fd&&fd>=lunes&&fd<=domingo; });
+    return ayEstadoPagoSemana(pagos, semKey, nombre, regs);
+  };
+  const totalSemana = activos.reduce((sum, nombre) => sum + _estadoDe(nombre).pendiente, 0);
 
   // Banner resumen de la semana
-  const bannerPagados = activos.filter(n=>pagos[semKey+'__'+n]).length;
+  const bannerPagados = activos.filter(n => _estadoDe(n).isPagado).length;
   const bannerPendientes = activos.length - bannerPagados;
 
   let html = `<div style="background:var(--bg);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;border:1px solid var(--line)">
@@ -2872,7 +2905,8 @@ function renderAyHistorial() {
   html += activos.map(nombre => {
     const todos = ayGetTodosRegistros(nombre);
     const regsEstaSemana = todos.filter(r=>{ const fd=ayParseFecha(r.fecha); return fd&&fd>=lunes&&fd<=domingo; });
-    const isPagado = !!pagos[semKey+'__'+nombre];
+    const _est = ayEstadoPagoSemana(pagos, semKey, nombre, regsEstaSemana);
+    const isPagado = _est.isPagado;
 
     // Agrupar por día dentro de la semana
     const porDia = {};
@@ -2917,8 +2951,9 @@ function renderAyHistorial() {
         </div>
         <div style="display:flex;align-items:center;gap:12px">
           <div style="text-align:right">
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:${isPagado?'#1D9E75':'#EF9F27'}">${isPagado?'✅ PAGADO':'POR PAGAR'}</div>
-            <div style="font-size:22px;font-weight:900;color:${isPagado?'var(--ink-faint)':'#EF9F27'}">$${semTotalMonto.toFixed(2)}</div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:${isPagado?'#1D9E75':'#EF9F27'}">${isPagado?'✅ PAGADO':(_est.parcial?'FALTA POR PAGAR':'POR PAGAR')}</div>
+            <div style="font-size:22px;font-weight:900;color:${isPagado?'var(--ink-faint)':'#EF9F27'}">$${(isPagado?_est.total:_est.pendiente).toFixed(2)}</div>
+            ${_est.parcial?`<div style="font-size:11px;color:#1D9E75;font-weight:700">✅ Ya pagado: $${_est.pagado.toFixed(2)} de $${_est.total.toFixed(2)}</div>`:''}
           ${isPagado
             ? (function(){ const _n2=nombre.replace(/'/g,"\\'"); return `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div style="font-size:11px;color:#1D9E75;font-weight:700">✅ PAGADO</div><button onclick="ayDeshacerPago('${_n2}','${semKey}')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:11px;cursor:pointer">↩ Deshacer</button></div>`; })()
             : (function(){
@@ -2928,10 +2963,10 @@ function renderAyHistorial() {
                   <select id="${_pid}" style="padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:12px">
                     <option>💵 Efectivo</option><option>📱 Zelle</option><option>📝 Cheque</option><option>💜 Venmo</option><option>💚 Cash App</option>
                   </select>
-                  <button onclick="ayMarcarPagado('${_nom}','${semKey}',document.getElementById('${_pid}').value.replace(/^../,''))" style="padding:11px 20px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(29,158,117,.45);white-space:nowrap">💳 Pagar $${semTotalMonto.toFixed(2)}</button>
+                  <button onclick="ayMarcarPagado('${_nom}','${semKey}',document.getElementById('${_pid}').value.replace(/^\S+\s+/,''),${_est.pendiente})" style="padding:11px 20px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(29,158,117,.45);white-space:nowrap">💳 Pagar $${_est.pendiente.toFixed(2)}</button>
+                  ${_est.parcial?`<button onclick="ayDeshacerPago('${_nom}','${semKey}')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:10px;cursor:pointer">↩ Deshacer pagos</button>`:''}
                 </div>`;
               })()
-          }
           }
         </div>
       </div>
