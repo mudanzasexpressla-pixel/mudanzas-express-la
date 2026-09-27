@@ -199,7 +199,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v12.6</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.1</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -962,6 +962,15 @@ table.data-table tr:hover td{background:#1A2A42!important}
     </div>
   </div>
   <div class="card">
+    <div class="card-title">👷 Permisos del ayudante (app de campo)</div>
+    <div class="notice notice-blue">En su celular, el ayudante entra con "Soy Ayudante" y ve los trabajos con direcciones, horario, notas y fotos, pero <strong>no ve precios ni puede cobrar</strong>. En tu celular, entra también como "Soy Ayudante" y presiona <strong>🔓 Modo dueño</strong> (con tu PIN) para ver todo.</div>
+    <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;color:var(--ink)">
+      <input type="checkbox" id="cfg-ay-cobra" onchange="getCfg(); CFG.ayudantePuedeCobrar=this.checked; saveCfg(); alert(this.checked ? '✅ El ayudante podrá ver el precio y cobrar en los trabajos que envíes a campo desde ahora.' : '🔒 El ayudante ya no verá precios ni podrá cobrar en los trabajos que envíes desde ahora.');">
+      Permitir que el ayudante vea el precio y cobre (para días en que él cobra)
+    </label>
+    <div style="font-size:11px;color:#b0c4d8;margin-top:6px">Aplica a los trabajos que envíes a campo después de cambiarlo. Si un trabajo ya estaba enviado, vuelve a presionar "📲 Enviar a app de campo".</div>
+  </div>
+  <div class="card">
     <div class="card-title">🎯 Gastos fijos mensuales</div>
     <div class="notice notice-blue">Gastos que pagas cada mes aunque no trabajes. El Dashboard te dice cuáles ya cubriste con los trabajos del mes y cuántos trabajos te faltan. El orden de la lista es el orden en que se van cubriendo.</div>
     <div id="cfg-fijos-lista"></div>
@@ -1320,7 +1329,7 @@ function showTab(t) {
   if(t==='cancelados') renderCancelados();
   if(t==='gastos') renderGastos();
   if(t==='dashboard') renderDash();
-  if(t==='config') { try { renderGastosFijosCfg(); } catch(e) {} } if(t==='config') { const cfEl = document.getElementById('cfg-casa'); if(cfEl) cfEl.value = getCfg().dirCasa || ''; const lrEl = document.getElementById('cfg-link-resena'); if(lrEl) lrEl.value = getCfg().linkResena || LINK_RESENA_DEF; }
+  if(t==='config') { try { renderGastosFijosCfg(); const ac=document.getElementById('cfg-ay-cobra'); if(ac) ac.checked=!!getCfg().ayudantePuedeCobrar; } catch(e) {} } if(t==='config') { const cfEl = document.getElementById('cfg-casa'); if(cfEl) cfEl.value = getCfg().dirCasa || ''; const lrEl = document.getElementById('cfg-link-resena'); if(lrEl) lrEl.value = getCfg().linkResena || LINK_RESENA_DEF; }
   if(t==='vehiculos') { renderVehiculos(); poblarSelectoresVehiculo(); }
   if(t==='gigs') { renderGigs(); poblarSelectoresVehiculo(); }
   if(t==='galeria') renderGaleria();
@@ -2145,12 +2154,13 @@ function renderTrabajos() {
     const veh = vehs.find(v => v.id === c.vehiculoId);
     const enviado = c.enviadoCampo ? '<span class="badge badge-green" style="margin-left:6px">📲 Enviado a campo</span>' : '';
     const campoListo = c.datosCampoRecibidos ? '<span class="badge" style="margin-left:6px;background:#d4edda;color:#155724;border:1px solid #1D9E75">✅ Fase 1 completada — listo para cerrar</span>' : '';
+    const salidaOk = registrosCampoDe(c.id).some(r => (r.notas||'').indexOf('LISTA DE SALIDA') >= 0) ? '<span class="badge" style="margin-left:6px;background:#0D3A2B;color:#6ee7b7;border:1px solid #1D9E75">🧰 Equipo revisado</span>' : '';
     const borderColor = c.datosCampoRecibidos ? '#1D9E75' : '#EF9F27';
     return `
     <div class="list-item" style="border-left:4px solid ${borderColor}">
       <div class="list-item-header">
         <div>
-          <div class="list-item-title">${c.id} — ${c.cliente.nombre} ${enviado}${campoListo}</div>
+          <div class="list-item-title">${c.id} — ${c.cliente.nombre} ${enviado}${campoListo}${salidaOk}</div>
           <div class="list-item-detail">📍 ${c.origen||'—'} → ${c.destino||'—'}</div>
           <div class="list-item-detail">📅 ${c.fechaAgendada} &nbsp;⏰ ${c.horaAgendada} &nbsp;|&nbsp; 📱 ${c.cliente.tel}</div>
           ${veh ? '<div class="list-item-detail">🚛 Vehículo: <strong>'+veh.nombre+'</strong></div>' : ''}
@@ -2195,6 +2205,7 @@ function enviarTrabajoCampoDesdeTrabajos(cotId) {
     articulosDetalle: cot.articulosDetalle || [],
     millas: cot.millas || 0,
     monto: cot.total || 0,
+    puedeCobrar: !!getCfg().ayudantePuedeCobrar,
     ayudanteId: 'default',
     enviado: new Date().toISOString()
   };
@@ -6445,7 +6456,7 @@ function enviarTrabajoCampo(cotId) {
   var notas = cot.notas || '';
   var fotosInventario = cot.fotosInventario || [];
   // BUG 4 FIX: Use fechaAgendada/horaAgendada (the confirmed scheduled date), not cot.fecha (creation date)
-  var trabajoCampo = { cotId:cotId, nombre:nombre, tel:tel, origen:origen, destino:destino, fecha: cot.fechaAgendada||fecha, hora: cot.horaAgendada||hora, notas:notas, fotos:fotosInventario, monto: cot.total||0, enviado:new Date().toISOString(), ayudanteId:'default' };
+  var trabajoCampo = { cotId:cotId, nombre:nombre, tel:tel, origen:origen, destino:destino, fecha: cot.fechaAgendada||fecha, hora: cot.horaAgendada||hora, notas:notas, fotos:fotosInventario, monto: cot.total||0, puedeCobrar: !!getCfg().ayudantePuedeCobrar, enviado:new Date().toISOString(), ayudanteId:'default' };
   try { localStorage.setItem('trabajoActivoCampo', JSON.stringify(trabajoCampo)); } catch(e) {}
   if(APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('PEGA_AQUI')) {
     fetch(APPS_SCRIPT_URL, { method:'POST', body:JSON.stringify(Object.assign({action:'enviarTrabajoCampo'}, trabajoCampo)) })
@@ -6560,6 +6571,7 @@ initDarkMode();
 <div class="campo-header">
   <h1>🚛 Mudanzas Express LA</h1>
   <p id="header-sub">App de Campo — Captura rápida</p>
+  <p id="campo-rol-badge" style="font-size:11px;margin-top:4px;opacity:.95"></p>
 </div>
 
 <div class="container">
@@ -6620,7 +6632,15 @@ initDarkMode();
         <button class="btn btn-primary" style="margin-top:10px" onclick="guardarFotosDelTrabajo()">☁️ Subir fotos al sistema</button>
       </div>
 
-      <button class="btn btn-primary" onclick="switchTab('terminar')" style="margin-top:4px">✅ Ir a terminar este trabajo</button>
+      <!-- v13: Lista de salida (la marca el ayudante antes de irse) -->
+      <div class="card" id="checklist-salida-card">
+        <div class="card-title">🧰 Lista de salida — antes de irnos</div>
+        <div class="notice notice-amber" style="font-size:11px">Mientras se cobra al cliente, revisa que TODO el equipo esté en el camión. Marca cada cosa.</div>
+        <div id="checklist-items"></div>
+        <div id="checklist-status" style="display:none;padding:10px;border-radius:8px;font-size:12px;margin:8px 0;font-weight:700"></div>
+        <button class="btn btn-primary" id="btn-checklist" onclick="confirmarChecklistSalida()" style="background:#1D9E75">✅ Todo está en el camión</button>
+      </div>
+      <button class="btn btn-primary" id="btn-ir-terminar" onclick="switchTab('terminar')" style="margin-top:4px">✅ Ir a terminar este trabajo</button>
       <div style="font-size:11px;color:#b0c4d8;text-align:center;margin-top:8px" id="campo-enviado"></div>
     </div>
   </div>
@@ -6816,7 +6836,8 @@ initDarkMode();
 <input type="file" id="file-trabajo" accept="image/*" capture="environment" style="display:none" onchange="handleFoto(event,'trabajo')">
 <input type="file" id="file-danado" accept="image/*" capture="environment" style="display:none" onchange="handleFoto(event,'danado')">
 
-<button onclick="volverAlSelector()" style="display:block;margin:10px auto 30px;padding:10px 24px;background:#1a2535;color:#b0c4d8;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Cambiar modo</button>
+<button id="btn-modo-dueno" onclick="toggleModoDueno()" style="display:block;margin:10px auto 6px;padding:10px 24px;background:#1a2535;color:#b0c4d8;border:1px solid #33445E;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">🔓 Modo dueño</button>
+<button onclick="volverAlSelector()" style="display:block;margin:6px auto 30px;padding:10px 24px;background:#1a2535;color:#b0c4d8;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Cambiar modo</button>
 </div>
 
 <script>
@@ -6856,6 +6877,7 @@ function entrarComoAyudante(nombre){
   if(sub && nombreGuardado) sub.textContent='Hola, '+nombreGuardado+' 👋';
   setTimeout(function(){if(typeof cargarTrabajoCampo==='function')cargarTrabajoCampo();},300);
   iniciarVerificacionAutomatica();
+  try { aplicarRolCampo(); } catch(e) {}
 }
 function volverAlSelector(){localStorage.removeItem('mudanzas_modo');document.getElementById('app-selector').style.display='flex';document.getElementById('app-campo').style.display='none';var h=document.querySelector('.app-header');var n=document.querySelector('.nav');if(h)h.style.display='';if(n)n.style.display='';}
 (function(){var m=localStorage.getItem('mudanzas_modo');if(m==='ayudante'){var n=localStorage.getItem('campo_ayudante_nombre')||'';entrarComoAyudante(n);}else if(m==='admin'){document.getElementById('app-selector').style.display='none';}})();
@@ -6885,6 +6907,7 @@ let firmaIsDrawing = false;
 
 // ===================== TABS =====================
 function switchTab(t) {
+  if(t === 'terminar' && typeof campoPuedeCobrar === 'function' && !campoPuedeCobrar()) t = 'asignado';
   ['asignado','nuevo','terminar','cola'].forEach(x => {
     const el = document.getElementById('tab-'+x);
     if(el) el.classList.toggle('hidden', x !== t);
@@ -7435,6 +7458,7 @@ function mostrarTrabajo(t, pendientes) {
     const b = JSON.parse(localStorage.getItem(BORRADOR_KEY) || 'null');
     if(b && b.cotId === t.cotId && (Date.now() - (b.fecha||0)) < 12*3600*1000) setTimeout(() => switchTab('terminar'), 300);
   } catch(e) {}
+  try { aplicarRolCampo(); renderChecklistSalida(); } catch(e) {}
 }
 
 function verFotoCompleta(src) {
@@ -7561,6 +7585,9 @@ async function enviarTerminado() {
     if(!confirm('ℹ️ No pusiste la referencia de Zelle.\n\nNo pasa nada: la puedes agregar después desde la computadora (Fase 2).\n\n¿Continuar?')) return;
   }
 
+  try {
+    if(!checklistCompleto(cotId) && !confirm('🧰 Todavía no se marcó la LISTA DE SALIDA (diablito, correas, mantas...).\n\n¿Ya revisaron que todo esté en el camión? Presiona Aceptar para finalizar de todos modos.')) return;
+  } catch(e) {}
   document.getElementById('btn-terminar').disabled = true;
   mostrarEstado('terminar-status', '⏳ Enviando...', 'info');
 
@@ -8143,7 +8170,103 @@ window.addEventListener('load', () => {
   } else {
     document.getElementById('header-sub').textContent = 'App de Campo — Configura URL';
   }
+  try { aplicarRolCampo(); renderChecklistSalida(); } catch(e) {}
 });
+
+// ===================== v13: MODO AYUDANTE (sin precios) / MODO DUEÑO =====================
+const DUENO_PIN = '98129812'; // v13.1: PIN propio para el modo dueño en el celular (el nombre NO da permisos)
+function esModoDueno() { return localStorage.getItem('campo_rol') === 'dueno'; }
+function campoPuedeCobrar() { return esModoDueno() || !!(trabajoActivo && trabajoActivo.puedeCobrar); }
+function aplicarRolCampo() {
+  const dueno = esModoDueno();
+  const cobra = campoPuedeCobrar();
+  const tb = document.getElementById('tab-terminar-btn'); if(tb) tb.style.display = cobra ? '' : 'none';
+  const bi = document.getElementById('btn-ir-terminar'); if(bi) bi.style.display = cobra ? '' : 'none';
+  const mw = document.getElementById('campo-monto-wrap'); if(mw && !cobra) mw.style.display = 'none';
+  const bd = document.getElementById('btn-modo-dueno'); if(bd) bd.textContent = dueno ? '🔒 Salir de modo dueño' : '🔓 Modo dueño';
+  const badge = document.getElementById('campo-rol-badge');
+  if(badge) badge.textContent = dueno ? '👔 Modo dueño — ves todo' : ('👷 Modo ayudante' + (cobra ? ' — puedes cobrar este trabajo' : ''));
+  // si está en Terminar sin permiso, regresar
+  const tt = document.getElementById('tab-terminar');
+  if(!cobra && tt && !tt.classList.contains('hidden')) switchTab('asignado');
+}
+function toggleModoDueno() {
+  if(esModoDueno()) {
+    if(!confirm('¿Salir del modo dueño? Este celular quedará en modo ayudante (sin precios).')) return;
+    localStorage.removeItem('campo_rol');
+  } else {
+    const pin = prompt('PIN de dueño (8 dígitos) para ver precios y cobrar:');
+    if(pin === null) return;
+    if(pin.trim() !== DUENO_PIN) { alert('PIN incorrecto'); return; }
+    localStorage.setItem('campo_rol', 'dueno');
+  }
+  aplicarRolCampo();
+  if(trabajoActivo) mostrarTrabajo(trabajoActivo, Math.max(0, trabajosCola.length - 1));
+}
+
+// ===================== v13: LISTA DE SALIDA =====================
+const CHECKLIST_SALIDA = [
+  '🛒 Diablito(s)',
+  '🔒 Candado (de la caja donde se guardan los diablitos)',
+  '🧵 Correas / straps',
+  '🟫 Mantas dobladas y guardadas',
+  '📦 Playo / stretch wrap',
+  '🛝 Rampa',
+  '🧰 Herramientas (desarmadores, llaves, taladro)',
+  '🏠 No quedó nada del cliente en el camión',
+  '🚪 Puertas del camión cerradas y aseguradas'
+];
+function checklistKey(cotId) { return 'checklist_salida_' + (cotId || ''); }
+function leerChecklist(cotId) { try { return JSON.parse(localStorage.getItem(checklistKey(cotId)) || '{}'); } catch(e) { return {}; } }
+function checklistCompleto(cotId) { const c = leerChecklist(cotId); return !!c.completo; }
+function renderChecklistSalida() {
+  const el = document.getElementById('checklist-items');
+  if(!el) return;
+  const cotId = trabajoActivo ? trabajoActivo.cotId : '';
+  const c = leerChecklist(cotId);
+  const marcas = c.marcas || [];
+  el.innerHTML = CHECKLIST_SALIDA.map((txt, i) =>
+    '<label style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid #26344A;font-size:14px;cursor:pointer">'
+    + '<input type="checkbox" style="width:22px;height:22px;accent-color:#1D9E75" ' + (marcas[i] ? 'checked' : '') + ' onchange="marcarChecklist(' + i + ', this.checked)"> ' + txt + '</label>').join('');
+  const st = document.getElementById('checklist-status');
+  if(st) {
+    if(c.completo) { st.style.display = 'block'; st.style.background = '#0D3A2B'; st.style.color = '#6ee7b7'; st.textContent = '✅ Revisado ' + (c.hora || '') + (c.nombre ? ' por ' + c.nombre : '') + '. Todo el equipo está en el camión.'; }
+    else st.style.display = 'none';
+  }
+}
+function marcarChecklist(i, val) {
+  const cotId = trabajoActivo ? trabajoActivo.cotId : '';
+  if(!cotId) return;
+  const c = leerChecklist(cotId);
+  c.marcas = c.marcas || [];
+  c.marcas[i] = val;
+  if(!val) c.completo = false;
+  localStorage.setItem(checklistKey(cotId), JSON.stringify(c));
+  renderChecklistSalida();
+}
+async function confirmarChecklistSalida() {
+  const cotId = trabajoActivo ? trabajoActivo.cotId : '';
+  if(!cotId) { alert('No hay trabajo activo.'); return; }
+  const c = leerChecklist(cotId);
+  const marcas = c.marcas || [];
+  const faltan = CHECKLIST_SALIDA.filter((_, i) => !marcas[i]);
+  if(faltan.length) { alert('⚠️ Todavía falta revisar:\n\n' + faltan.join('\n')); return; }
+  const nombre = localStorage.getItem('campo_ayudante_nombre') || '';
+  c.completo = true;
+  c.hora = new Date().toLocaleTimeString('es-US', { hour:'numeric', minute:'2-digit' });
+  c.nombre = nombre;
+  localStorage.setItem(checklistKey(cotId), JSON.stringify(c));
+  renderChecklistSalida();
+  // Avisar al administrador (queda como registro de campo del trabajo)
+  try {
+    if(CAMPO_APPS_URL && !CAMPO_APPS_URL.includes('PEGA_AQUI')) {
+      await fetch(CAMPO_APPS_URL, { method:'POST', body: JSON.stringify({
+        action:'subirRegistro', id:'SALIDA-' + cotId + '-' + Date.now(), nombre: nombre || 'Ayudante', tel:'', cotId,
+        direccion:'', notas:'✅ LISTA DE SALIDA COMPLETA — todo el equipo en el camión (' + c.hora + ')',
+        fecha: new Date().toISOString(), totalFotosTrabajo:0, totalFotosDanado:0 }) });
+    }
+  } catch(e) {}
+}
 
 </script>
 
