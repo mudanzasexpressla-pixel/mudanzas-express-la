@@ -199,7 +199,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v11.2</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v12.1</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -234,6 +234,10 @@ table.data-table tr:hover td{background:#1A2A42!important}
     <div id="dash-fecha" style="font-size:12px;color:#b0c4d8"></div>
   </div>
   <div class="stat-grid" id="dash-stats"></div>
+  <div class="card" id="meta-mes-card" style="border-left:4px solid #1D9E75">
+    <div class="card-title" id="meta-mes-titulo">🎯 Meta del mes — cubrir gastos fijos</div>
+    <div id="meta-mes"></div>
+  </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
     <div class="card">
       <div class="card-title">💵 Ingresos totales</div>
@@ -952,6 +956,15 @@ table.data-table tr:hover td{background:#1A2A42!important}
     </div>
   </div>
   <div class="card">
+    <div class="card-title">🎯 Gastos fijos mensuales</div>
+    <div class="notice notice-blue">Gastos que pagas cada mes aunque no trabajes. El Dashboard te dice cuáles ya cubriste con los trabajos del mes y cuántos trabajos te faltan. El orden de la lista es el orden en que se van cubriendo.</div>
+    <div id="cfg-fijos-lista"></div>
+    <div class="btn-row">
+      <button class="btn btn-sm" onclick="agregarGastoFijoCfg()">➕ Agregar gasto fijo</button>
+      <button class="btn btn-primary" onclick="guardarGastosFijosCfg()">💾 Guardar gastos fijos</button>
+    </div>
+  </div>
+  <div class="card">
     <div class="card-title">🧹 Corregir rentas contadas dos veces</div>
     <div class="notice notice-blue">Las versiones anteriores guardaban la renta de camión en el trabajo y además la copiaban a Gastos Generales, así que se sumaba dos veces. Este botón quita solo las copias repetidas y te enseña la lista antes de hacerlo. Descarga un respaldo automático primero.</div>
     <div class="btn-row"><button class="btn btn-primary" onclick="limpiarRentasDuplicadas()">🧹 Buscar y limpiar rentas duplicadas</button></div>
@@ -1298,7 +1311,7 @@ function showTab(t) {
   if(t==='cancelados') renderCancelados();
   if(t==='gastos') renderGastos();
   if(t==='dashboard') renderDash();
-  if(t==='config') { const cfEl = document.getElementById('cfg-casa'); if(cfEl) cfEl.value = getCfg().dirCasa || ''; const lrEl = document.getElementById('cfg-link-resena'); if(lrEl) lrEl.value = getCfg().linkResena || LINK_RESENA_DEF; }
+  if(t==='config') { try { renderGastosFijosCfg(); } catch(e) {} } if(t==='config') { const cfEl = document.getElementById('cfg-casa'); if(cfEl) cfEl.value = getCfg().dirCasa || ''; const lrEl = document.getElementById('cfg-link-resena'); if(lrEl) lrEl.value = getCfg().linkResena || LINK_RESENA_DEF; }
   if(t==='vehiculos') { renderVehiculos(); poblarSelectoresVehiculo(); }
   if(t==='gigs') { renderGigs(); poblarSelectoresVehiculo(); }
   if(t==='galeria') renderGaleria();
@@ -2983,6 +2996,148 @@ function generarComprobanteNombreCompleto(nombre) {
   generarComprobanteAyudante(nombre, 'Historial completo', todos);
 }
 
+// ===================== v12: META DEL MES / GASTOS FIJOS =====================
+const GASTOS_FIJOS_DEF = [
+  { nombre:'Teléfono e internet', monto:120, tipo:'mensual' },
+  { nombre:'Publicidad Facebook ($5 + $10 al día)', monto:15, tipo:'diario' },
+  { nombre:'Seguro Tacoma + Ford', monto:992.35, tipo:'mensual' }
+];
+// Categorías de Gastos Generales que ya están contadas como gasto fijo (para no restarlas dos veces)
+const CATS_FIJAS = ['Seguro del vehículo','Flota (Tacoma + Ford) — pago combinado','Teléfono / internet','Marketing y publicidad'];
+function gastosFijosCfg() {
+  const c = getCfg();
+  return Array.isArray(c.gastosFijos) ? c.gastosFijos : GASTOS_FIJOS_DEF.map(x => Object.assign({}, x));
+}
+function diasDelMes(anio, mes) { return new Date(anio, mes + 1, 0).getDate(); }
+function claveMes(fecha) { // 'YYYY-MM' desde Date o texto 'YYYY-MM-DD'
+  if(!fecha) return '';
+  if(typeof fecha === 'string') {
+    if(/^\d{4}-\d{2}/.test(fecha)) return fecha.slice(0,7);
+    const f = new Date(fecha); return isNaN(f) ? '' : f.getFullYear() + '-' + String(f.getMonth()+1).padStart(2,'0');
+  }
+  return fecha.getFullYear() + '-' + String(fecha.getMonth()+1).padStart(2,'0');
+}
+function costoAyudanteTrabajo(c, tarifa) {
+  if((c.pagoAyudante||0) > 0) return c.pagoAyudante;
+  if(c.ayudantePendiente) return (c.horasTrabajadas||0) * tarifa + (c.huboDificultad ? 15 : 0);
+  return 0;
+}
+function estadoMetaMes(d) {
+  d = d || getData();
+  const hoy = new Date();
+  const mesKey = claveMes(hoy);
+  const dias = diasDelMes(hoy.getFullYear(), hoy.getMonth());
+  const tarifa = getCfg().tarifaAyudanteHr || 22.50;
+  const fijos = gastosFijosCfg().map(f => ({ nombre: f.nombre, monto: +( (parseFloat(f.monto)||0) * (f.tipo === 'diario' ? dias : 1) ).toFixed(2), tipo: f.tipo, base: parseFloat(f.monto)||0 }));
+  const totalFijos = fijos.reduce((a,f) => a + f.monto, 0);
+
+  const trabajos = (d.cots||[]).filter(c => c.estatus === 'terminado' && claveMes(c.fechaTerminadoISO || parseFechaTerminadoOrdenable(c)) === mesKey);
+  const idsMes = new Set(trabajos.map(c => c.id));
+  const ingresos = trabajos.reduce((a,c) => a + (c.montoFinal||c.total||0) + (c.propina||0), 0)
+                 + (d.gigs||[]).filter(g => claveMes(g.fecha) === mesKey).reduce((a,g) => a + (g.total||0), 0);
+  const ayudantes = trabajos.reduce((a,c) => a + costoAyudanteTrabajo(c, tarifa), 0)
+                  + (d.ay||[]).filter(a => !a.esAutoComprobante && claveMes(a.fecha) === mesKey && (a.adicional || !(a.trabajo && idsMes.has((a.trabajo||'').trim()))))
+                               .reduce((s,a) => s + (parseFloat(a.monto)||0), 0);
+  const pendAyudantes = trabajos.filter(c => c.ayudantePendiente && !((c.pagoAyudante||0) > 0)).reduce((a,c) => a + costoAyudanteTrabajo(c, tarifa), 0);
+  const renta = trabajos.reduce((a,c) => a + (c.rentaCosto||0), 0);
+  const gasolina = (d.gas||[]).filter(g => claveMes(g.fecha) === mesKey).reduce((a,g) => a + (g.monto||0), 0);
+  const otros = (d.gg||[]).filter(g => claveMes(g.fecha) === mesKey && !CATS_FIJAS.includes(g.cat || g.categoria || '')).reduce((a,g) => a + (g.monto||0), 0);
+  const variables = ayudantes + renta + gasolina + otros;
+  const ganancia = ingresos - variables; // lo que queda para cubrir gastos fijos
+
+  // Cobertura en orden
+  let acumulado = 0;
+  const items = fijos.map(f => {
+    const antes = acumulado; acumulado += f.monto;
+    const cubierto = ganancia >= acumulado;
+    const parcial = !cubierto && ganancia > antes ? ganancia - antes : 0;
+    return Object.assign({}, f, { cubierto, parcial, falta: cubierto ? 0 : f.monto - parcial });
+  });
+
+  // Ganancia promedio por trabajo (del mes, o histórica si todavía no hay trabajos este mes)
+  let promedio = trabajos.length ? ganancia / trabajos.length : 0;
+  if(!(promedio > 0)) {
+    const todos = (d.cots||[]).filter(c => c.estatus === 'terminado');
+    const sum = todos.reduce((a,c) => a + (c.montoFinal||c.total||0) + (c.propina||0) - (c.pagoAyudante||0) - (c.rentaCosto||0), 0);
+    promedio = todos.length ? sum / todos.length : 0;
+  }
+  const falta = Math.max(0, totalFijos - ganancia);
+  const trabajosFaltan = falta > 0 && promedio > 0 ? Math.ceil(falta / promedio) : 0;
+  const costoFijoPorTrabajo = trabajos.length ? totalFijos / trabajos.length : 0;
+
+  return { mesKey, dias, fijos: items, totalFijos, trabajos: trabajos.length, ingresos, ayudantes, pendAyudantes, renta, gasolina, otros, variables, ganancia, falta, promedio, trabajosFaltan, costoFijoPorTrabajo, libre: Math.max(0, ganancia - totalFijos) };
+}
+function mensajeCoberturaNueva(antes, despues) {
+  if(!despues) return '';
+  const nuevos = despues.fijos.filter((f,i) => f.cubierto && !(antes && antes.fijos[i] && antes.fijos[i].cubierto));
+  let m = '';
+  if(nuevos.length) m += '\n\n🎯 Con este trabajo ya tienes para pagar: ' + nuevos.map(f => f.nombre + ' ($' + f.monto.toFixed(2) + ')').join(', ') + '.';
+  if(despues.falta > 0) m += '\n📊 Faltan $' + despues.falta.toFixed(2) + ' para cubrir los gastos fijos del mes' + (despues.trabajosFaltan ? ' (≈ ' + despues.trabajosFaltan + ' trabajo' + (despues.trabajosFaltan>1?'s':'') + ' más)' : '') + '.';
+  else if(antes && antes.falta > 0) m += '\n🎉 ¡Ya cubriste TODOS los gastos fijos del mes! Desde ahora todo es utilidad.';
+  return m;
+}
+function renderMetaMes() {
+  const el = document.getElementById('meta-mes');
+  if(!el) return;
+  const e = estadoMetaMes();
+  const f = n => '$' + (n||0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const nombreMes = new Date().toLocaleDateString('es-US', { month:'long', year:'numeric' });
+  const tit = document.getElementById('meta-mes-titulo');
+  if(tit) tit.textContent = '🎯 Meta de ' + nombreMes + ' — cubrir gastos fijos';
+  const pct = e.totalFijos > 0 ? Math.min(100, Math.max(0, e.ganancia / e.totalFijos * 100)) : 100;
+  const color = pct >= 100 ? '#1D9E75' : (pct >= 50 ? '#EF9F27' : '#E24B4A');
+  const lista = e.fijos.map(x => '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line-soft);font-size:13px">'
+      + '<span>' + (x.cubierto ? '✅' : (x.parcial > 0 ? '🟡' : '⏳')) + ' ' + ayEsc(x.nombre) + (x.tipo === 'diario' ? ' <span style="font-size:11px;color:#b0c4d8">(' + f(x.base) + '/día × ' + e.dias + ')</span>' : '') + '</span>'
+      + '<span style="font-weight:700;color:' + (x.cubierto ? '#1D9E75' : '#b0c4d8') + '">' + (x.cubierto ? f(x.monto) : (x.parcial > 0 ? f(x.parcial) + ' de ' + f(x.monto) : f(x.monto))) + '</span></div>').join('');
+  const resumen = e.falta > 0
+    ? '<div class="notice notice-amber" style="margin:12px 0 0">Te faltan <strong>' + f(e.falta) + '</strong> para cubrir los gastos fijos del mes' + (e.trabajosFaltan ? ' — aproximadamente <strong>' + e.trabajosFaltan + ' trabajo' + (e.trabajosFaltan>1?'s':'') + '</strong> más (ganancia promedio ' + f(e.promedio) + ' por trabajo).' : '.') + '</div>'
+    : '<div class="notice notice-green" style="margin:12px 0 0">🎉 <strong>Ya cubriste todos los gastos fijos del mes.</strong> Utilidad libre hasta hoy: <strong>' + f(e.libre) + '</strong></div>';
+  el.innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;text-align:center">'
+    + '<div><div style="font-size:11px;color:#b0c4d8">Gastos fijos del mes</div><div style="font-size:20px;font-weight:800;color:#E24B4A">' + f(e.totalFijos) + '</div></div>'
+    + '<div><div style="font-size:11px;color:#b0c4d8">Trabajos este mes</div><div style="font-size:20px;font-weight:800">' + e.trabajos + '</div></div>'
+    + '<div><div style="font-size:11px;color:#b0c4d8">Costo fijo por trabajo</div><div style="font-size:20px;font-weight:800;color:#EF9F27">' + (e.trabajos ? f(e.costoFijoPorTrabajo) : '—') + '</div></div>'
+    + '<div><div style="font-size:11px;color:#b0c4d8">Ganancia para cubrirlos</div><div style="font-size:20px;font-weight:800;color:#1D9E75">' + f(e.ganancia) + '</div></div>'
+    + '</div>'
+    + '<div class="progress-bar" style="height:12px"><div class="progress-fill" style="width:' + pct.toFixed(0) + '%;background:' + color + '"></div></div>'
+    + '<div style="font-size:11px;color:#b0c4d8;margin:4px 0 10px;text-align:right">' + pct.toFixed(0) + '% cubierto</div>'
+    + lista + resumen
+    + '<div style="font-size:11px;color:#b0c4d8;margin-top:10px;line-height:1.6">"Ganancia para cubrirlos" = cobrado este mes (con propinas y gigs) − ayudantes (' + f(e.ayudantes) + (e.pendAyudantes > 0 ? ', de los cuales ' + f(e.pendAyudantes) + ' están pendientes de pagar' : '') + ') − renta de camión (' + f(e.renta) + ') − gasolina (' + f(e.gasolina) + ') − otros gastos (' + f(e.otros) + '). Los gastos fijos se editan en ⚙️ Configuración.</div>';
+}
+function renderGastosFijosCfg() {
+  const el = document.getElementById('cfg-fijos-lista');
+  if(!el) return;
+  const lista = gastosFijosCfg();
+  el.innerHTML = lista.map((g,i) => '<div class="fijo-row" style="display:grid;grid-template-columns:2fr 1fr 1fr 36px;gap:8px;margin-bottom:8px;align-items:center">'
+    + '<input type="text" class="fijo-nombre" value="' + ayEsc(g.nombre) + '" placeholder="Nombre">'
+    + '<input type="number" class="fijo-monto" value="' + (parseFloat(g.monto)||0) + '" step="0.01" min="0" placeholder="0.00">'
+    + '<select class="fijo-tipo"><option value="mensual"' + (g.tipo !== 'diario' ? ' selected' : '') + '>por mes</option><option value="diario"' + (g.tipo === 'diario' ? ' selected' : '') + '>por día</option></select>'
+    + '<button type="button" onclick="this.closest(\'.fijo-row\').remove()" style="background:none;border:none;color:#E24B4A;font-size:16px;cursor:pointer">✕</button></div>').join('')
+    || '<div style="font-size:12px;color:#b0c4d8">Sin gastos fijos. Agrega uno.</div>';
+}
+function agregarGastoFijoCfg() {
+  const el = document.getElementById('cfg-fijos-lista');
+  if(!el) return;
+  if(!el.querySelector('.fijo-row')) el.innerHTML = '';
+  el.insertAdjacentHTML('beforeend', '<div class="fijo-row" style="display:grid;grid-template-columns:2fr 1fr 1fr 36px;gap:8px;margin-bottom:8px;align-items:center">'
+    + '<input type="text" class="fijo-nombre" placeholder="Ej: Pago de la Ford">'
+    + '<input type="number" class="fijo-monto" step="0.01" min="0" placeholder="0.00">'
+    + '<select class="fijo-tipo"><option value="mensual">por mes</option><option value="diario">por día</option></select>'
+    + '<button type="button" onclick="this.closest(\'.fijo-row\').remove()" style="background:none;border:none;color:#E24B4A;font-size:16px;cursor:pointer">✕</button></div>');
+}
+function guardarGastosFijosCfg() {
+  const filas = Array.from(document.querySelectorAll('#cfg-fijos-lista .fijo-row'));
+  const lista = filas.map(r => ({
+    nombre: r.querySelector('.fijo-nombre').value.trim(),
+    monto: parseFloat(r.querySelector('.fijo-monto').value) || 0,
+    tipo: r.querySelector('.fijo-tipo').value
+  })).filter(g => g.nombre && g.monto > 0);
+  getCfg(); CFG.gastosFijos = lista; saveCfg();
+  renderGastosFijosCfg();
+  try { renderMetaMes(); } catch(e) {}
+  alert('✅ Gastos fijos guardados (' + lista.length + ').');
+}
+
 // ===================== v10: FUENTE ÚNICA DE GASTO EN AYUDANTES =====================
 // Pago por trabajo (cot.pagoAyudante) + pagos manuales que NO sean de un trabajo ya pagado.
 // Los registros automáticos del cronómetro (esAutoComprobante) son solo horas, no pagos.
@@ -3196,6 +3351,7 @@ function renderDash() {
   if(!recs.length) recs.push('✅ Todo en orden. Exporta tu Excel mensualmente para mantener tus registros seguros.');
   document.getElementById('dash-recs').innerHTML = recs.map(r=>'<div class="notice notice-blue" style="margin-bottom:8px">'+r+'</div>').join('');
   try { renderResenasPendientes(); } catch(e) {}
+  try { renderMetaMes(); } catch(e) { console.error(e); }
 
   const recientes = d.cots.slice(-6).reverse();
   document.getElementById('dash-recientes').innerHTML = recientes.length ?
@@ -3546,6 +3702,8 @@ function calcResumenTerminar() {
 }
 
 function confirmarTerminar() {
+  let _cobAntes = null;
+  try { _cobAntes = estadoMetaMes(getData()); } catch(e) {}
   const d = getData();
   const cot = d.cots.find(c=>c.id===currentId);
   if(!cot) return;
@@ -3571,8 +3729,11 @@ function confirmarTerminar() {
   const rentoVehiculo = document.getElementById('tm-rento-vehiculo').value;
   const rentaTipo     = rentoVehiculo==='si' ? document.getElementById('tm-renta-tipo').value.trim() : '';
   const rentaCosto    = rentoVehiculo==='si' ? (parseFloat(document.getElementById('tm-renta-costo').value)||0) : 0;
-  const horasTrabajadas = dc ? (dc.horasTrabajadas||0) : (parseFloat(document.getElementById('crono-horas').value)||0);
-  const huboDificultad  = dc ? (dc.huboDificultad||false) : (document.getElementById('crono-dificil') ? document.getElementById('crono-dificil').checked : false);
+  // v12.1: lo que el admin ve/ajusta en la ventana es lo que se guarda (ya viene prellenado con lo del campo)
+  const _hrsInput = parseFloat(document.getElementById('crono-horas').value);
+  const horasTrabajadas = (_hrsInput > 0) ? _hrsInput : (dc ? (dc.horasTrabajadas||0) : 0);
+  const _chkDificil = document.getElementById('crono-dificil');
+  const huboDificultad  = _chkDificil ? _chkDificil.checked : (dc ? !!dc.huboDificultad : false);
   const horasExtra     = Math.max(0, horasTrabajadas - CRONO_HORAS_BASE);
   const cargoExtraHoras = horasExtra * CRONO_TARIFA_EXTRA_CLIENTE;
 
@@ -3620,7 +3781,9 @@ function confirmarTerminar() {
   document.getElementById('tm-renta-wrap').style.display='none';
   document.getElementById('tm-ayudante-extra').style.display='none';
   document.getElementById('tm-resumen').style.display='none';
-  alert('✅ Trabajo marcado como TERMINADO.\n\nAhora puedes generar el recibo PDF oficial en la pestaña Terminados.' + (usaAyudante==='si' ? '\n\n👷 El pago de '+(nombreAyudante||'tu ayudante')+' quedó PENDIENTE en Gastos → Ayudantes.' : ''));
+  let _msgMeta = '';
+  try { _msgMeta = mensajeCoberturaNueva(_cobAntes, estadoMetaMes(getData())); } catch(e) {}
+  alert('✅ Trabajo marcado como TERMINADO.\n\nAhora puedes generar el recibo PDF oficial en la pestaña Terminados.' + (usaAyudante==='si' ? '\n\n👷 El pago de '+(nombreAyudante||'tu ayudante')+' quedó PENDIENTE en Gastos → Ayudantes.' : '') + _msgMeta);
   showTab('terminados');
 }
 
