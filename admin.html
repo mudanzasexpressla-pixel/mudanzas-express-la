@@ -199,7 +199,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v11.1</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v11.2</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -1049,7 +1049,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
     <div class="modal-title">✅ Fase 2 — Cierre del trabajo</div>
 
     <!-- Banner verde cuando vienen datos de campo -->
-    <div id="tm-campo-datos-banner" style="display:none;background:#EEF9F4;border:1px solid #1D9E75;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;line-height:1.7">
+    <div id="tm-campo-datos-banner" style="display:none;background:#EEF9F4;color:#0f3d2e;border:1px solid #1D9E75;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;line-height:1.7">
       <!-- populated by abrirTerminar -->
     </div>
 
@@ -3383,7 +3383,12 @@ function abrirTerminar(id) {
     if(nomAy && selAy && inAy) { selAy.value='si'; inAy.value=nomAy; toggleAyudanteFields(); }
   } catch(e) {}
 
+  // v11.2: cronoReset() borraba las horas y la casilla de escaleras que venían de campo.
+  const _hrsGuardadas = horasEl ? horasEl.value : '';
+  const _dificilGuardado = dificilEl ? dificilEl.checked : false;
   cronoReset();
+  if(horasEl) horasEl.value = _hrsGuardadas;
+  if(dificilEl) dificilEl.checked = _dificilGuardado;
   abrir('m-terminar');
   // Auto-calcular pago al abrir el modal
   setTimeout(calcResumenTerminar, 100);
