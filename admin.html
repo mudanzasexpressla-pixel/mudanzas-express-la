@@ -199,7 +199,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v12.5</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v12.6</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -1209,6 +1209,9 @@ table.data-table tr:hover td{background:#1A2A42!important}
 
 <script>
 // ===================== STORAGE =====================
+// v12.6: fechas en hora LOCAL (antes se usaba la hora de Londres y después de las 5 pm salía el día siguiente)
+function fechaLocal(d) { d = d ? new Date(d) : new Date(); if(isNaN(d)) d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function hoyLocal() { return fechaLocal(new Date()); }
 const KEY = 'mudanzas_express_la_v3';
 let CFG = { pin: '1234', nombre: 'Mudanzas Express LA', tel: '(323) 946-2008', email: 'mudanzasexpressla@gmail.com', tarifaMilla: 2.50, dirCasa: '', tarifaAyudanteHr: 22.50 };
 
@@ -2024,7 +2027,7 @@ function renderCalendarioAgenda() {
     html += `<div></div>`;
   }
 
-  const hoyStr = new Date().toISOString().split('T')[0];
+  const hoyStr = hoyLocal();
   const escAttr = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
   for (let dia = 1; dia <= diasEnMes; dia++) {
     const fechaStr = calAnio + '-' + String(calMes+1).padStart(2,'0') + '-' + String(dia).padStart(2,'0');
@@ -2672,7 +2675,7 @@ function showGTab(t, btn) {
   document.querySelectorAll('.tab-inner-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   if(t==='resumen') renderResumen();
-  if(t==='ayudantes') { const tHr=document.getElementById('ay-tarifa-hr'); if(tHr&&!tHr.value) tHr.value=(getCfg().tarifaAyudanteHr||22.50); const fec=document.getElementById('ay-fecha'); if(fec&&!fec.value) fec.value=new Date().toISOString().split('T')[0]; renderAyHistorial(); renderAyPendientes(); }
+  if(t==='ayudantes') { const tHr=document.getElementById('ay-tarifa-hr'); if(tHr&&!tHr.value) tHr.value=(getCfg().tarifaAyudanteHr||22.50); const fec=document.getElementById('ay-fecha'); if(fec&&!fec.value) fec.value=hoyLocal(); renderAyHistorial(); renderAyPendientes(); }
 }
 
 // ===================== HISTORIAL ACUMULADO AYUDANTES =====================
@@ -3252,7 +3255,7 @@ function ayPrellenarPendiente(id) {
   const cli = c.cliente ? (c.cliente.nombre || c.cliente) : '';
   set('ay-nombre', c.nombreAyudante || '');
   set('ay-trabajo', c.id);
-  set('ay-fecha', new Date().toISOString().split('T')[0]);
+  set('ay-fecha', hoyLocal());
   set('ay-tarifa-hr', (getCfg().tarifaAyudanteHr || 22.50));
   set('ay-horas', c.horasTrabajadas > 0 ? (+c.horasTrabajadas).toFixed(2) : '');
   set('ay-bono', c.huboDificultad ? 15 : '');
@@ -3432,7 +3435,7 @@ function abrirAgendar(id) {
   const d = getData();
   const cot = d.cots.find(c => c.id === id);
   // BUG 1 FIX: Si el trabajo ya tiene fecha agendada, mostrarla en el modal para editarla
-  document.getElementById('ag-fecha').value = (cot && cot.fechaAgendada) ? cot.fechaAgendada : new Date().toISOString().split('T')[0];
+  document.getElementById('ag-fecha').value = (cot && cot.fechaAgendada) ? cot.fechaAgendada : hoyLocal();
   document.getElementById('ag-hora').value = (cot && cot.horaAgendada) ? cot.horaAgendada : '08:00';
   document.getElementById('ag-notas').value = (cot && cot.notasAgenda) ? cot.notasAgenda : '';
   abrir('m-agendar');
@@ -3508,7 +3511,7 @@ function abrirTerminar(id) {
   // ── Fecha real del servicio ──
   const fechaRealEl = document.getElementById('tm-fecha-real');
   if(fechaRealEl) {
-    const fechaBase = dc ? new Date(dc.fechaTerminado).toISOString().split('T')[0] : (cot.fechaAgendada || new Date().toISOString().split('T')[0]);
+    const fechaBase = dc ? fechaLocal(dc.fechaTerminado) : (cot.fechaAgendada || hoyLocal());
     fechaRealEl.value = fechaBase;
     fechaRealEl.disabled = false; // fecha siempre editable por el jefe
   }
@@ -3815,12 +3818,12 @@ function confirmarTerminar() {
   cot.horasExtra       = horasExtra;
   cot.cargoExtraHoras  = cargoExtraHoras;
   cot.gananciaReal=monto+propina-pagoAyudante-rentaCosto;
-  if(horasTrabajadas>0&&nombreAyudante&&nombreAyudante.trim()){var tAr=getCfg().tarifaAyudanteHr||23;var bAr=huboDificultad?15:0;if(!d.ay)d.ay=[];if(!d.ay.some(function(a){return a.trabajo===cot.id&&a.esAutoComprobante;})){d.ay.push({id:"AY-AUTO-"+Date.now(),nombre:nombreAyudante,trabajo:cot.id,cliente:cot.cliente?(cot.cliente.nombre||cot.cliente):"",fecha:new Date().toISOString().split("T")[0],horas:horasTrabajadas,tarifaHr:tAr,bono:bAr,monto:Math.round(horasTrabajadas*tAr)+bAr,pagoReal:pagoAyudante,tipo:"Por trabajo terminado",esAutoComprobante:true,pagadoEnSemana:false});}}
+  if(horasTrabajadas>0&&nombreAyudante&&nombreAyudante.trim()){var tAr=getCfg().tarifaAyudanteHr||23;var bAr=huboDificultad?15:0;if(!d.ay)d.ay=[];if(!d.ay.some(function(a){return a.trabajo===cot.id&&a.esAutoComprobante;})){d.ay.push({id:"AY-AUTO-"+Date.now(),nombre:nombreAyudante,trabajo:cot.id,cliente:cot.cliente?(cot.cliente.nombre||cot.cliente):"",fecha:hoyLocal(),horas:horasTrabajadas,tarifaHr:tAr,bono:bAr,monto:Math.round(horasTrabajadas*tAr)+bAr,pagoReal:pagoAyudante,tipo:"Por trabajo terminado",esAutoComprobante:true,pagadoEnSemana:false});}}
   // Guardar también pago doble si vino de campo
   if(dc && dc.formaPago2) { cot.formaPago2=dc.formaPago2; cot.montoPago1=dc.montoPago1; cot.montoPago2=dc.montoPago2; cot.refPago2=dc.refPago2||''; }
   const fechaRealVal = document.getElementById('tm-fecha-real') ? document.getElementById('tm-fecha-real').value : '';
   cot.fechaTerminado    = fechaRealVal ? new Date(fechaRealVal+'T12:00:00').toLocaleDateString('es-US') : new Date().toLocaleDateString('es-US');
-  cot.fechaTerminadoISO = fechaRealVal || new Date().toISOString().split('T')[0];
+  cot.fechaTerminadoISO = fechaRealVal || hoyLocal();
   // v10: la renta se guarda SOLO en el trabajo (antes también se copiaba a Gastos Generales y se contaba doble)
   saveData(d);
 
@@ -4156,7 +4159,7 @@ function pedirResena(id, idioma) {
     : '¡Hola' + (nom ? ' ' + nom : '') + '! 👋 Le saluda Mudanzas Express LA. Gracias por confiar en nosotros para su mudanza. 🚛\n\nSi quedó contento con el servicio, ¿nos ayudaría con una reseña? Toma menos de un minuto y nos ayuda muchísimo como negocio pequeño:\n' + link + '\n\n¡Muchas gracias! 🙏';
   const tel = telWa(c.cliente && c.cliente.tel);
   window.open('https://wa.me/' + tel + '?text=' + encodeURIComponent(msg), '_blank');
-  c.resenaPedida = new Date().toISOString().split('T')[0];
+  c.resenaPedida = hoyLocal();
   saveData(d);
   try { renderResenasPendientes(); } catch(e) {}
   const tt = document.getElementById('tab-terminados');
@@ -4166,7 +4169,7 @@ function marcarResenaPedida(id) {
   const d = getData();
   const c = (d.cots||[]).find(x => x.id === id);
   if(!c) return;
-  c.resenaPedida = new Date().toISOString().split('T')[0];
+  c.resenaPedida = hoyLocal();
   saveData(d);
   renderResenasPendientes();
 }
@@ -5318,7 +5321,7 @@ function exportarExcel(tipo) {
     XLSX.utils.book_append_sheet(wb, wsr, 'Resumen Financiero');
   }
 
-  const fecha = new Date().toISOString().split('T')[0];
+  const fecha = hoyLocal();
   const nombres = { completo:'MudanzasExpressLA_COMPLETO_', terminados:'MudanzasExpressLA_Terminados_', gastos:'MudanzasExpressLA_Gastos_' };
   XLSX.writeFile(wb, (nombres[tipo]||'MudanzasExpressLA_') + fecha + '.xlsx');
 }
@@ -5353,7 +5356,7 @@ function exportarBackup() {
   const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'MudanzasExpressLA_Backup_' + new Date().toISOString().split('T')[0] + '.json';
+  a.href = url; a.download = 'MudanzasExpressLA_Backup_' + hoyLocal() + '.json';
   a.click(); URL.revokeObjectURL(url);
 }
 
@@ -6461,7 +6464,7 @@ window.initMapsCallback = function() { initMapsAutocomplete(); };
 getCfg();
 
 // Drive via Apps Script (no OAuth needed for field workers)
-const today = new Date().toISOString().split('T')[0];
+const today = hoyLocal();
 ['c-fecha-pref','g-fecha','gg-fecha','ay-fecha','ag-fecha','gig-fecha','odo-fecha'].forEach(id => { const e=document.getElementById(id); if(e) e.value=today; });
 document.getElementById('c-tarifa-milla').value = CFG.tarifaMilla;
 // Tarifa ayudante
@@ -7662,7 +7665,7 @@ async function enviarTerminado() {
             nombre:   nombreAy,
             trabajo:  cotId,
             cliente:  cot.cliente ? (cot.cliente.nombre || '') : '',
-            fecha:    new Date().toISOString().split('T')[0],
+            fecha:    hoyLocal(),
             horas:    horasTrabajadas,
             tarifaHr: tarifaAy,
             bono:     huboDificultad ? 15 : 0,
@@ -8160,7 +8163,7 @@ let galPendientes = [];
 function abrirModalFoto(){
   galPendientes = [];
   document.getElementById('gf-desc').value='';
-  document.getElementById('gf-fecha').value=new Date().toISOString().split('T')[0];
+  document.getElementById('gf-fecha').value=hoyLocal();
   document.getElementById('gf-preview').innerHTML='';
   document.getElementById('modal-foto').classList.add('open');
 }
