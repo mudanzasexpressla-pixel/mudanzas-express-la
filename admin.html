@@ -199,7 +199,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.2</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.3</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -8195,7 +8195,7 @@ function toggleModoDueno() {
     if(!confirm('¿Salir del modo administrador? Este celular quedará en modo ayudante (sin precios).')) return;
     localStorage.removeItem('campo_rol');
   } else {
-    const pin = prompt('PIN de administrador (8 dígitos) para ver precios y cobrar:');
+    const pin = prompt('PIN de 8 dígitos:');
     if(pin === null) return;
     if(pin.trim() !== DUENO_PIN) { alert('PIN incorrecto'); return; }
     localStorage.setItem('campo_rol', 'dueno');
