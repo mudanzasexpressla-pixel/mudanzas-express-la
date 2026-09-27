@@ -199,7 +199,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.1</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.2</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -730,7 +730,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div id="gt-sueldos" style="display:none">
     <div class="card">
       <div class="card-title">🧑‍💼 Registrar sueldo / retiro de utilidades</div>
-      <div class="notice notice-blue">Esto es dinero que TÚ (el dueño) u otro empleado fijo se lleva de las ganancias del negocio. Se muestra separado de los gastos operativos (gasolina, ayudantes por trabajo, materiales), porque no es un costo de operar — es una distribución de la utilidad.</div>
+      <div class="notice notice-blue">Esto es dinero que TÚ (el administrador) u otro empleado fijo se lleva de las ganancias del negocio. Se muestra separado de los gastos operativos (gasolina, ayudantes por trabajo, materiales), porque no es un costo de operar — es una distribución de la utilidad.</div>
       <div class="form-row">
         <div><label>¿Quién retira?</label>
           <select id="sl-quien"><option>Propietario</option><option>Empleado fijo</option></select>
@@ -754,7 +754,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
     <div class="card">
       <div class="card-title">🏦 Registrar aportación de capital</div>
       <div class="notice notice-blue" style="margin-bottom:12px">
-        💡 Aquí registras dinero <strong>tuyo personal</strong> que pusiste en el negocio (ahorros, préstamos propios, herencia, etc.). Esto NO es ingreso del negocio — es capital del dueño. Importante para impuestos y para que el IRS no lo cuestione.
+        💡 Aquí registras dinero <strong>tuyo personal</strong> que pusiste en el negocio (ahorros, préstamos propios, herencia, etc.). Esto NO es ingreso del negocio — es capital aportado por el administrador. Importante para impuestos y para que el IRS no lo cuestione.
       </div>
       <div class="form-row">
         <div><label>Fecha</label><input type="date" id="cap-fecha"></div>
@@ -963,7 +963,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   </div>
   <div class="card">
     <div class="card-title">👷 Permisos del ayudante (app de campo)</div>
-    <div class="notice notice-blue">En su celular, el ayudante entra con "Soy Ayudante" y ve los trabajos con direcciones, horario, notas y fotos, pero <strong>no ve precios ni puede cobrar</strong>. En tu celular, entra también como "Soy Ayudante" y presiona <strong>🔓 Modo dueño</strong> (con tu PIN) para ver todo.</div>
+    <div class="notice notice-blue">En su celular, el ayudante entra con "Soy Ayudante" y ve los trabajos con direcciones, horario, notas y fotos, pero <strong>no ve precios ni puede cobrar</strong>. En tu celular, entra también como "Soy Ayudante" y presiona <strong>🔓 Modo administrador</strong> (con tu PIN) para ver todo.</div>
     <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;color:var(--ink)">
       <input type="checkbox" id="cfg-ay-cobra" onchange="getCfg(); CFG.ayudantePuedeCobrar=this.checked; saveCfg(); alert(this.checked ? '✅ El ayudante podrá ver el precio y cobrar en los trabajos que envíes a campo desde ahora.' : '🔒 El ayudante ya no verá precios ni podrá cobrar en los trabajos que envíes desde ahora.');">
       Permitir que el ayudante vea el precio y cobre (para días en que él cobra)
@@ -4114,7 +4114,7 @@ function renderCapital() {
   const total = lista.reduce((s,c) => s + (c.monto||0), 0);
   el.innerHTML = `<div class="card" style="background:#e8f5f0">
     <div style="font-weight:700;color:#7ab8d8;font-size:15px">Total aportado al negocio: <span style="font-size:20px">$${total.toFixed(2)}</span></div>
-    <div style="font-size:11px;color:#b0c4d8;margin-top:2px">Este dinero es capital del dueño — NO es ingreso del negocio</div>
+    <div style="font-size:11px;color:#b0c4d8;margin-top:2px">Este dinero es capital aportado por el administrador — NO es ingreso del negocio</div>
   </div>` + lista.map((c,i) => `
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -5279,7 +5279,7 @@ function exportarExcel(tipo) {
     const rcap = capitalList.map(c=>[c.fecha, c.monto||0, c.origen||'', c.destino||'', c.notas||'']);
     const totCap = capitalList.reduce((a,c)=>a+(c.monto||0),0);
     rcap.push(['','','','TOTAL APORTADO:', totCap]);
-    rcap.push(['','','','','⚠️ Este dinero es capital del dueño, NO es ingreso del negocio.']);
+    rcap.push(['','','','','⚠️ Este dinero es capital aportado por el administrador, NO es ingreso del negocio.']);
     const wscap = XLSX.utils.aoa_to_sheet([hcap,...rcap]);
     wscap['!cols']=[{wch:12},{wch:11},{wch:28},{wch:32},{wch:50}];
     XLSX.utils.book_append_sheet(wb, wscap, 'Capital-Aportaciones');
@@ -6836,7 +6836,7 @@ initDarkMode();
 <input type="file" id="file-trabajo" accept="image/*" capture="environment" style="display:none" onchange="handleFoto(event,'trabajo')">
 <input type="file" id="file-danado" accept="image/*" capture="environment" style="display:none" onchange="handleFoto(event,'danado')">
 
-<button id="btn-modo-dueno" onclick="toggleModoDueno()" style="display:block;margin:10px auto 6px;padding:10px 24px;background:#1a2535;color:#b0c4d8;border:1px solid #33445E;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">🔓 Modo dueño</button>
+<button id="btn-modo-dueno" onclick="toggleModoDueno()" style="display:block;margin:10px auto 6px;padding:10px 24px;background:#1a2535;color:#b0c4d8;border:1px solid #33445E;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">🔓 Modo administrador</button>
 <button onclick="volverAlSelector()" style="display:block;margin:6px auto 30px;padding:10px 24px;background:#1a2535;color:#b0c4d8;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Cambiar modo</button>
 </div>
 
@@ -8183,19 +8183,19 @@ function aplicarRolCampo() {
   const tb = document.getElementById('tab-terminar-btn'); if(tb) tb.style.display = cobra ? '' : 'none';
   const bi = document.getElementById('btn-ir-terminar'); if(bi) bi.style.display = cobra ? '' : 'none';
   const mw = document.getElementById('campo-monto-wrap'); if(mw && !cobra) mw.style.display = 'none';
-  const bd = document.getElementById('btn-modo-dueno'); if(bd) bd.textContent = dueno ? '🔒 Salir de modo dueño' : '🔓 Modo dueño';
+  const bd = document.getElementById('btn-modo-dueno'); if(bd) bd.textContent = dueno ? '🔒 Salir de modo administrador' : '🔓 Modo administrador';
   const badge = document.getElementById('campo-rol-badge');
-  if(badge) badge.textContent = dueno ? '👔 Modo dueño — ves todo' : ('👷 Modo ayudante' + (cobra ? ' — puedes cobrar este trabajo' : ''));
+  if(badge) badge.textContent = dueno ? '👔 Modo administrador — ves todo' : ('👷 Modo ayudante' + (cobra ? ' — puedes cobrar este trabajo' : ''));
   // si está en Terminar sin permiso, regresar
   const tt = document.getElementById('tab-terminar');
   if(!cobra && tt && !tt.classList.contains('hidden')) switchTab('asignado');
 }
 function toggleModoDueno() {
   if(esModoDueno()) {
-    if(!confirm('¿Salir del modo dueño? Este celular quedará en modo ayudante (sin precios).')) return;
+    if(!confirm('¿Salir del modo administrador? Este celular quedará en modo ayudante (sin precios).')) return;
     localStorage.removeItem('campo_rol');
   } else {
-    const pin = prompt('PIN de dueño (8 dígitos) para ver precios y cobrar:');
+    const pin = prompt('PIN de administrador (8 dígitos) para ver precios y cobrar:');
     if(pin === null) return;
     if(pin.trim() !== DUENO_PIN) { alert('PIN incorrecto'); return; }
     localStorage.setItem('campo_rol', 'dueno');
