@@ -199,7 +199,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.3</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.4</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -6907,7 +6907,7 @@ let firmaIsDrawing = false;
 
 // ===================== TABS =====================
 function switchTab(t) {
-  if(t === 'terminar' && typeof campoPuedeCobrar === 'function' && !campoPuedeCobrar()) t = 'asignado';
+  if(t === 'terminar' && typeof campoPuedeCobrar === 'function' && !campoPuedeCobrar()) return;
   ['asignado','nuevo','terminar','cola'].forEach(x => {
     const el = document.getElementById('tab-'+x);
     if(el) el.classList.toggle('hidden', x !== t);
@@ -7456,7 +7456,7 @@ function mostrarTrabajo(t, pendientes) {
   // v12.4: si había un cierre a medias de este trabajo (se recargó la página), volver a Terminar
   try {
     const b = JSON.parse(localStorage.getItem(BORRADOR_KEY) || 'null');
-    if(b && b.cotId === t.cotId && (Date.now() - (b.fecha||0)) < 12*3600*1000) setTimeout(() => switchTab('terminar'), 300);
+    if(b && b.tieneDatos && b.cotId === t.cotId && (Date.now() - (b.fecha||0)) < 12*3600*1000 && (typeof campoPuedeCobrar !== 'function' || campoPuedeCobrar())) setTimeout(() => switchTab('terminar'), 300);
   } catch(e) {}
   try { aplicarRolCampo(); renderChecklistSalida(); } catch(e) {}
 }
@@ -7493,7 +7493,7 @@ function initFirma() {
 
   const start = (e) => { e.preventDefault(); firmaIsDrawing = true; const p = getPos(e); firmaCtx.beginPath(); firmaCtx.moveTo(p.x, p.y); };
   const draw  = (e) => { e.preventDefault(); if(!firmaIsDrawing) return; const p = getPos(e); firmaCtx.lineTo(p.x, p.y); firmaCtx.stroke(); };
-  const end   = ()  => { if(firmaIsDrawing) { firmaIsDrawing = false; guardarBorradorCampo(); } };
+  const end   = ()  => { if(firmaIsDrawing) { firmaIsDrawing = false; window._firmaHecha = true; guardarBorradorCampo(); } };
 
   canvas.addEventListener('mousedown', start);
   canvas.addEventListener('mousemove', draw);
@@ -7504,6 +7504,7 @@ function initFirma() {
 }
 
 function limpiarFirma() {
+  window._firmaHecha = false;
   if(!firmaCtx) return;
   const canvas = document.getElementById('firma-canvas');
   firmaCtx.clearRect(0, 0, canvas.width, canvas.height);
@@ -8103,6 +8104,7 @@ const BORRADOR_CHECKS = ['t-pago2-activo','campo-crono-dificil'];
 let _restaurandoBorrador = false;
 function guardarBorradorCampo() {
   if(_restaurandoBorrador) return;
+  if(typeof campoPuedeCobrar === 'function' && !campoPuedeCobrar()) return;
   try {
     const cotId = (document.getElementById('t-cotid')||{}).value || (trabajoActivo && trabajoActivo.cotId) || '';
     if(!cotId) return;
@@ -8110,7 +8112,10 @@ function guardarBorradorCampo() {
     BORRADOR_CAMPOS.forEach(id => { const e = document.getElementById(id); if(e) b.valores[id] = e.value; });
     BORRADOR_CHECKS.forEach(id => { const e = document.getElementById(id); if(e) b.checks[id] = !!e.checked; });
     const cv = document.getElementById('firma-canvas');
-    if(cv && cv._iniciado) b.firma = cv.toDataURL('image/png');
+    if(cv && cv._iniciado && window._firmaHecha) b.firma = cv.toDataURL('image/png');
+    b.tieneDatos = ['t-propina','t-ref','t-monto-pago1','t-monto-pago2','t-ref2','t-obs'].some(id => String(b.valores[id]||'').trim() !== '')
+                   || Object.values(b.checks).some(Boolean) || !!b.firma;
+    if(!b.tieneDatos) { localStorage.removeItem(BORRADOR_KEY); return; }
     localStorage.setItem(BORRADOR_KEY, JSON.stringify(b));
   } catch(e) {}
 }
@@ -8125,6 +8130,7 @@ function restaurarBorradorCampo() {
     Object.keys(b.checks||{}).forEach(id => { const e = document.getElementById(id); if(e) e.checked = b.checks[id]; });
     try { togglePago2(); mostrarQRZelle(); mostrarQRZelle2(); actualizarTotalCampo(); } catch(e) {}
     if(b.firma) {
+      window._firmaHecha = true;
       initFirma();
       const img = new Image();
       img.onload = () => { const cv = document.getElementById('firma-canvas'); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); };
@@ -8134,6 +8140,7 @@ function restaurarBorradorCampo() {
     mostrarEstado('terminar-status', '💾 Se recuperó lo que ya habías capturado (pago, propina y firma).', 'info');
   } catch(e) { _restaurandoBorrador = false; }
 }
+try { const _b = JSON.parse(localStorage.getItem('campo_borrador_terminar') || 'null'); if(_b && !_b.tieneDatos) localStorage.removeItem('campo_borrador_terminar'); } catch(e) {}
 function borrarBorradorCampo() { try { localStorage.removeItem(BORRADOR_KEY); } catch(e) {} }
 // Guardar mientras escribe, y al salir de la app (por ejemplo, para abrir el banco)
 document.addEventListener('input', e => { if(e.target && e.target.closest && e.target.closest('#tab-terminar')) guardarBorradorCampo(); });
@@ -8188,7 +8195,12 @@ function aplicarRolCampo() {
   if(badge) badge.textContent = dueno ? '👔 Modo administrador — ves todo' : ('👷 Modo ayudante' + (cobra ? ' — puedes cobrar este trabajo' : ''));
   // si está en Terminar sin permiso, regresar
   const tt = document.getElementById('tab-terminar');
-  if(!cobra && tt && !tt.classList.contains('hidden')) switchTab('asignado');
+  if(!cobra && tt && !tt.classList.contains('hidden')) {
+    ['asignado','nuevo','terminar','cola'].forEach(x => {
+      const e = document.getElementById('tab-'+x); if(e) e.classList.toggle('hidden', x !== 'asignado');
+      const b = document.getElementById('tab-'+x+'-btn'); if(b) b.classList.toggle('active', x === 'asignado');
+    });
+  }
 }
 function toggleModoDueno() {
   if(esModoDueno()) {
