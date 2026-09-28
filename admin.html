@@ -199,7 +199,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.4</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.6</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -3249,7 +3249,9 @@ function renderAyPendientes() {
       + '<td>' + ayEsc(c.nombreAyudante || '—') + '</td>'
       + '<td style="color:var(--brand-dark,#4A9EE8)">' + (hrs > 0 ? hrs.toFixed(2) + ' h' : '⚠️ sin horas') + '</td>'
       + '<td style="color:#1D9E75;font-weight:700">' + (sug > 0 ? '$' + sug.toFixed(2) : '—') + '</td>'
-      + '<td><button class="btn btn-primary btn-sm" onclick="ayPrellenarPendiente(\'' + ayEsc(c.id) + '\')">💳 Registrar pago</button></td>'
+      + '<td><button class="btn btn-primary btn-sm" onclick="ayPrellenarPendiente(\'' + ayEsc(c.id) + '\')">💳 Registrar pago</button>'
+      + (ayPagosSueltosPara(d, c).length ? '<div style="margin-top:6px"><button class="btn btn-sm" style="background:#EF9F27;color:#fff;border-color:#EF9F27" onclick="ayLigarPagoExistente(\'' + ayEsc(c.id) + '\')">🔗 Ya lo registré</button></div>' : '')
+      + '</td>'
       + '</tr>';
   }).join('');
   el.innerHTML = '<div class="card" style="border-left:4px solid #EF9F27">'
@@ -3258,6 +3260,57 @@ function renderAyPendientes() {
     + '<div style="overflow-x:auto"><table class="data-table" style="font-size:12px"><thead><tr><th>Recibo</th><th>Cliente</th><th>Fecha</th><th>Ayudante</th><th>Horas</th><th>Sugerido</th><th></th></tr></thead><tbody>'
     + filas + '</tbody></table></div></div>';
 }
+// v13.5: pagos registrados a mano SIN número de trabajo que podrían ser de este trabajo pendiente
+function ayNormNombre(n) { return String(n||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z ]/g,'').replace(/\s+/g,' ').trim(); }
+function ayPagosSueltosPara(d, c) {
+  const nom = ayNormNombre(c.nombreAyudante);
+  const primer = nom.split(' ')[0];
+  const fc = ayParseFecha(c.fechaTerminadoISO || '');
+  return (d.ay||[]).filter(a => {
+    if(a.esAutoComprobante || (a.trabajo||'').trim()) return false;
+    const na = ayNormNombre(a.nombre);
+    if(!(na === nom || (primer && na.split(' ')[0] === primer))) return false;
+    const fa = ayParseFecha(a.fecha);
+    if(fc && fa && Math.abs(fa - fc) > 4 * 86400000) return false;
+    return true;
+  });
+}
+function ayLigarPagoExistente(cotId) {
+  const d = getData();
+  const c = (d.cots||[]).find(x => x.id === cotId);
+  if(!c) return;
+  const cands = ayPagosSueltosPara(d, c);
+  if(!cands.length) { alert('No encontré pagos sin trabajo para ' + (c.nombreAyudante||'este ayudante') + ' en esas fechas.'); return; }
+  const desc = a => '$' + (parseFloat(a.monto)||0).toFixed(2) + ' del ' + a.fecha + (a.horas ? ' · ' + a.horas + ' h' : '') + (a.bonoNota ? ' · ' + a.bonoNota : '');
+  const cli = c.cliente ? (c.cliente.nombre || '') : '';
+  let elegido = null;
+  if(cands.length === 1) {
+    if(!confirm('Encontré este pago registrado SIN número de trabajo:\n\n' + desc(cands[0]) + '\n\n¿Es el pago de ' + (c.folioTerminado||c.id) + ' · ' + cli + '?\n\nSe ligará a ese trabajo y ya no aparecerá como pendiente (no se paga dos veces).')) return;
+    elegido = cands[0];
+  } else {
+    const r = prompt('¿Cuál de estos pagos es de ' + (c.folioTerminado||c.id) + ' · ' + cli + '? Escribe el número:\n\n' + cands.map((a,i) => (i+1) + ') ' + desc(a)).join('\n'));
+    if(r === null) return;
+    elegido = cands[(parseInt(r)||0) - 1];
+    if(!elegido) { alert('Número no válido.'); return; }
+  }
+  const monto = parseFloat(elegido.monto) || 0;
+  c.pagoAyudante = monto;
+  c.nombreAyudante = c.nombreAyudante || elegido.nombre;
+  c.usaAyudante = 'si';
+  c.ayudantePendiente = false;
+  c.bonoAyudante = parseFloat(elegido.bono) || 0;
+  c.propinaAyudante = parseFloat(elegido.propina) || 0;
+  c.bonoNotaAyudante = elegido.bonoNota || '';
+  c.formaPagoAyudante = elegido.formaPago || '';
+  c.fechaPagoAyudante = elegido.fecha || '';
+  if(!(c.horasTrabajadas > 0) && elegido.horas > 0) c.horasTrabajadas = elegido.horas;
+  c.gananciaReal = (c.montoFinal||0) + (c.propina||0) - monto - (c.rentaCosto||0);
+  d.ay = (d.ay||[]).filter(a => a !== elegido); // el pago ahora vive en el trabajo (una sola vez)
+  saveData(d);
+  renderGastos(); renderAyHistorial(); renderAyPendientes();
+  alert('✅ Listo. El pago de $' + monto.toFixed(2) + ' quedó ligado a ' + (c.folioTerminado||c.id) + ' · ' + cli + '.');
+}
+
 function ayPrellenarPendiente(id) {
   const d = getData();
   const c = (d.cots||[]).find(x => x.id === id);
@@ -4011,6 +4064,12 @@ function guardarAy() {
   if(!d.ay) d.ay=[];
   // v10: si el pago es de un trabajo terminado, se guarda EN el trabajo (una sola vez)
   const trabajoId = (document.getElementById('ay-trabajo').value||'').trim();
+  // v13.5: avisar si se guarda sin trabajo y hay trabajos pendientes de ese ayudante
+  if(!trabajoId) {
+    const nn = ayNormNombre(nombre);
+    const pend = ayPendientes(d).filter(c => ayNormNombre(c.nombreAyudante).split(' ')[0] === nn.split(' ')[0]);
+    if(pend.length && !confirm('⚠️ Este pago NO tiene número de trabajo.\n\n' + nombre + ' tiene ' + pend.length + ' trabajo(s) pendiente(s) de pago:\n' + pend.map(c => '• ' + (c.folioTerminado||c.id) + ' · ' + (c.cliente ? (c.cliente.nombre||'') : '')).join('\n') + '\n\nSi es de uno de esos, presiona CANCELAR y usa "Registrar pago" en la tabla de Pendientes.\n\n¿Guardarlo sin trabajo de todos modos?')) return;
+  }
   const formaPagoAy = (document.getElementById('ay-forma-pago')||{}).value || '';
   const cotLig = trabajoId ? (d.cots||[]).find(c => c.id === trabajoId && c.estatus === 'terminado') : null;
   let esAdicional = false;
@@ -8082,13 +8141,24 @@ function mostrarReciboEnApp(html) {
   document.body.appendChild(ov);
   const fr = document.getElementById('rec-frame');
   fr.srcdoc = html;
-  document.getElementById('rec-volver').onclick = () => ov.remove();
+  // v13.6: el botón ATRÁS del celular solo cierra el recibo (antes sacaba de la app y se perdía la firma)
+  try { history.pushState({ recibo: true }, ''); } catch(e) {}
+  document.getElementById('rec-volver').onclick = () => {
+    if(history.state && history.state.recibo) history.back(); else ov.remove();
+  };
   document.getElementById('rec-imprimir').onclick = () => {
     try { fr.contentWindow.focus(); fr.contentWindow.print(); }
     catch(e) { abrirReciboAparte(html); }
   };
   document.getElementById('rec-aparte').onclick = () => abrirReciboAparte(html);
 }
+window.addEventListener('popstate', () => {
+  const ov = document.getElementById('recibo-overlay');
+  if(ov) { ov.remove(); try { restaurarBorradorCampo(); } catch(e) {} }
+});
+// v13.6: guardar también cuando el cliente toca la firma (por si el celular recarga)
+document.addEventListener('touchend', e => { if(e.target && e.target.id === 'firma-canvas') { window._firmaHecha = true; guardarBorradorCampo(); } }, { passive: true });
+
 function abrirReciboAparte(html) {
   guardarBorradorCampo();
   const w = window.open('', '_blank');
