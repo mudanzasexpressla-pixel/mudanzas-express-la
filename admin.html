@@ -2322,7 +2322,7 @@ function renderCancelados() {
   const paraMostrar = lista.slice(0, canceladosMostrar);
   const restantes = lista.length - paraMostrar.length;
   el.innerHTML = paraMostrar.map(c => {
-    const totalFotos = (c.registrosCampo||[]).reduce((a,r)=>a+(r.fotosTrabajo?.length||0)+(r.fotosDanado?.length||0),0);
+    const totalFotos = (c.registrosCampo||[]).reduce((a,r)=>a+((r.fotosTrabajo?r.fotosTrabajo.length:0)||0)+((r.fotosDanado?r.fotosDanado.length:0)||0),0);
     return `
     <div class="list-item" style="border-left:4px solid #888;opacity:0.9">
       <div class="list-item-header">
@@ -4780,11 +4780,11 @@ function generarRecibo(id, idioma) {
   // ── TABLA: DESCRIPCIÓN | CANT. | PRECIO | TOTAL ──
   const tipoTrabajo = (c.millas > 50) ? L.foranea : L.locales;
   const extras = [];
-  if(c.usaAyudante==='si' || c.servicios?.ayudante) extras.push(L.ayudante);
-  if(c.servicios?.escaleras) extras.push(L.escaleras);
-  if(c.servicios?.armar) extras.push(L.armar);
-  if(c.servicios?.embalaje) extras.push(L.embalaje);
-  if(c.servicios?.piano) extras.push(L.piano);
+  if(c.usaAyudante==='si' || (c.servicios&&c.servicios.ayudante)) extras.push(L.ayudante);
+  if((c.servicios&&c.servicios.escaleras)) extras.push(L.escaleras);
+  if((c.servicios&&c.servicios.armar)) extras.push(L.armar);
+  if((c.servicios&&c.servicios.embalaje)) extras.push(L.embalaje);
+  if((c.servicios&&c.servicios.piano)) extras.push(L.piano);
 
   const encabezadoTabla = (yy) => {
     doc.setFillColor(NAVY[0],NAVY[1],NAVY[2]); doc.rect(12,yy-5,186,8,'F');
@@ -5015,8 +5015,8 @@ function generarRecibo(id, idioma) {
 
 // ===================== PDF COMPROBANTE PAGO AYUDANTE =====================
 function generarComprobanteSeleccionado() {
-  const nombre = document.getElementById('comp-ayudante-nombre')?.value;
-  const semanaKey = document.getElementById('comp-semana-key')?.value;
+  const nombre = (document.getElementById('comp-ayudante-nombre')||{}).value;
+  const semanaKey = (document.getElementById('comp-semana-key')||{}).value;
   if(!nombre || !semanaKey) { alert('Selecciona ayudante y semana'); return; }
   const d = getData();
   const ay = d.ay||[];
@@ -6436,7 +6436,7 @@ async function verificarTerminadosCampo() {
           // Notificación visible al jefe
           const notif = document.createElement('div');
           notif.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1D9E75;color:#fff;padding:14px 20px;border-radius:12px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px #0005;cursor:pointer;max-width:320px';
-          notif.innerHTML = '📲 <strong>' + (cot.cliente?.nombre||cot.id) + '</strong> terminó el trabajo desde campo.<br><span style="font-size:12px;opacity:.9">Ve a Trabajos → ✅ Terminar para completar Fase 2</span>';
+          notif.innerHTML = '📲 <strong>' + ((cot.cliente&&cot.cliente.nombre)||cot.id) + '</strong> terminó el trabajo desde campo.<br><span style="font-size:12px;opacity:.9">Ve a Trabajos → ✅ Terminar para completar Fase 2</span>';
           notif.onclick = () => { showTab('trabajos'); notif.remove(); };
           document.body.appendChild(notif);
           setTimeout(() => notif.remove(), 8000);
@@ -8603,16 +8603,16 @@ function qrCalcTotal(){
     const size = activeBtn.getAttribute('onclick').match(/qrSetSize\(this,'([^']+)'\)/);
     if(size && QR_PRECIOS_BASE[size[1]]) base = QR_PRECIOS_BASE[size[1]].base;
   }
-  const horas = parseFloat(document.getElementById('qr-horas')?.value)||3;
-  const camion = document.getElementById('qr-camion-tipo')?.value;
-  const millas = parseFloat(document.getElementById('qr-millas')?.value)||0;
-  const tarMilla = parseFloat(document.getElementById('qr-tarifa-milla')?.value)||3;
-  const ayudante = document.getElementById('qr-ayudante')?.checked;
-  const escaleras = document.getElementById('qr-escaleras')?.checked;
-  const armar = document.getElementById('qr-armar')?.checked;
-  const pAy = parseFloat(document.getElementById('qrp-ayudante')?.value)||40;
-  const pEsc = parseFloat(document.getElementById('qrp-escaleras')?.value)||20;
-  const pAr = parseFloat(document.getElementById('qrp-armar')?.value)||20;
+  const horas = parseFloat((document.getElementById('qr-horas')||{}).value)||3;
+  const camion = (document.getElementById('qr-camion-tipo')||{}).value;
+  const millas = parseFloat((document.getElementById('qr-millas')||{}).value)||0;
+  const tarMilla = parseFloat((document.getElementById('qr-tarifa-milla')||{}).value)||3;
+  const ayudante = !!(document.getElementById('qr-ayudante')||{}).checked;
+  const escaleras = !!(document.getElementById('qr-escaleras')||{}).checked;
+  const armar = !!(document.getElementById('qr-armar')||{}).checked;
+  const pAy = parseFloat((document.getElementById('qrp-ayudante')||{}).value)||40;
+  const pEsc = parseFloat((document.getElementById('qrp-escaleras')||{}).value)||20;
+  const pAr = parseFloat((document.getElementById('qrp-armar')||{}).value)||20;
 
   // Si no hay botón activo, usar tarifa de horas directamente
   if(!activeBtn) base = horas * 50;
@@ -8640,10 +8640,10 @@ function qrCalcTotal(){
 
   // WhatsApp preview
   const cfg = getCfg();
-  const origen = document.getElementById('qr-origen')?.value||'tu origen';
-  const destino = document.getElementById('qr-destino')?.value||'tu destino';
+  const origen = (document.getElementById('qr-origen')||{}).value||'tu origen';
+  const destino = (document.getElementById('qr-destino')||{}).value||'tu destino';
   const arts = [...qrArticulosSeleccionados, ...qrArticulosCustom];
-  const nota = document.getElementById('qr-nota')?.value||'';
+  const nota = (document.getElementById('qr-nota')||{}).value||'';
   let msg = `*${cfg.nombre || 'Mudanzas Express LA'}* 🚛\n`;
   msg += `━━━━━━━━━━━━━━━━\n`;
   msg += `📍 *${origen}* → *${destino}*\n`;
@@ -8662,25 +8662,25 @@ function qrCalcTotal(){
 
 function qrEnviarWhatsApp(){
   const prev = document.getElementById('qr-wa-preview');
-  const msg = prev?._msg || prev?.textContent || '';
+  const msg = (prev&&prev._msg) || (prev&&prev.textContent) || '';
   if(!msg){ alert('Llena los datos primero'); return; }
-  const tel = document.getElementById('qr-tel')?.value.replace(/\D/g,'')||'';
+  const tel = (document.getElementById('qr-tel')||{}).value.replace(/\D/g,'')||'';
   const url = tel ? `https://wa.me/1${tel}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
   window.open(url,'_blank');
 }
 
 function qrCopiarMensaje(){
   const prev = document.getElementById('qr-wa-preview');
-  const msg = prev?._msg || prev?.textContent || '';
+  const msg = (prev&&prev._msg) || (prev&&prev.textContent) || '';
   navigator.clipboard.writeText(msg).then(()=>alert('✅ Mensaje copiado')).catch(()=>{
     const ta = document.createElement('textarea'); ta.value=msg; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); alert('✅ Copiado');
   });
 }
 
 function qrPasarACotizacion(){
-  const origen = document.getElementById('qr-origen')?.value||'';
-  const destino = document.getElementById('qr-destino')?.value||'';
-  const millas = document.getElementById('qr-millas')?.value||'';
+  const origen = (document.getElementById('qr-origen')||{}).value||'';
+  const destino = (document.getElementById('qr-destino')||{}).value||'';
+  const millas = (document.getElementById('qr-millas')||{}).value||'';
   showTab('nueva-cot');
   setTimeout(()=>{
     if(origen && document.getElementById('c-origen')) document.getElementById('c-origen').value=origen;
