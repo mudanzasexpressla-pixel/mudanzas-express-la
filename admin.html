@@ -199,7 +199,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.6</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.9</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -380,7 +380,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
           <option value="320">🛏️🛏️ 2 Recámaras — $320</option>
           <option value="420">🏡 3 Recámaras — $420</option>
           <option value="550">🏘️ 4+ Recámaras / casa grande — $550</option>
-          <option value="190">🏋️ Labor Only 2h (sin camión) — $190</option>
+          <option value="labor">🏋️ Labor Only — cobro POR HORA (sin camión)</option>
           <option value="0">✏️ Precio libre (escribir manualmente)</option>
         </select>
       </div>
@@ -394,6 +394,17 @@ table.data-table tr:hover td{background:#1A2A42!important}
       </div>
     </div>
 
+    <!-- v13.8: Labor Only por hora -->
+    <div id="c-labor-wrap" style="display:none;background:rgba(239,159,39,.1);border:1px solid #EF9F27;border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:#EF9F27;margin-bottom:8px">🏋️ Labor Only — se cobra por hora</div>
+      <div class="form-row three" style="margin-bottom:6px">
+        <div><label>Tarifa por hora ($)</label><input id="c-tarifa-hora" type="number" step="1" min="0" oninput="calcTotal()"></div>
+        <div><label>Mínimo de horas</label><input id="c-horas-min" type="number" value="2" step="0.5" min="0" oninput="calcTotal()"></div>
+        <div style="display:flex;align-items:flex-end"><div id="c-labor-calc" style="font-size:13px;font-weight:700;color:#1D9E75"></div></div>
+      </div>
+      <div style="font-size:11px;color:#b0c4d8">"Horas estimadas" × tarifa = precio estimado. Al terminar, se cobra con las horas REALES del cronómetro (mínimo respetado), más extras y menos descuento.</div>
+    </div>
+    <div id="t-hora-fin" style="display:none;font-size:12px;color:#7ab8d8;margin-bottom:10px"></div>
     <!-- ══ FUENTE / CANAL DE ORIGEN DEL CLIENTE ══ -->
     <div class="form-row" style="margin-bottom:4px">
       <div>
@@ -931,6 +942,11 @@ table.data-table tr:hover td{background:#1A2A42!important}
       <div><label>Tarifa por milla predeterminada ($)</label><input type="number" id="cfg-milla" value="2.50" step="0.25"></div>
       <div><label>💵 Tarifa por hora — ayudantes ($/hr)</label><input type="number" id="cfg-tarifa-ayudante" value="22.50" step="0.50" min="0" placeholder="22.50"><div style="font-size:11px;color:#b0c4d8;margin-top:3px">La app usa este valor para calcular el pago automático al terminar el cronómetro.</div></div>
     </div>
+    <div class="form-row"><div>
+      <label>🏋️ Tarifa por hora — Labor Only ($/hr)</label>
+      <input type="number" id="cfg-tarifa-labor" step="1" min="0" placeholder="95">
+      <div style="font-size:11px;color:#b0c4d8;margin-top:3px">Precio por hora que cobras al cliente en trabajos de solo mano de obra.</div>
+    </div><div></div></div>
     <div class="form-row full"><div>
       <label>🏠 Dirección de TU CASA (punto de partida para calcular millas)</label>
       <input type="text" id="cfg-casa" placeholder="Ej: 1234 W 30th St, Los Angeles, CA 90007" autocomplete="off">
@@ -1205,6 +1221,13 @@ table.data-table tr:hover td{background:#1A2A42!important}
 
     <hr class="divider">
 
+    <!-- v13.9: Detalles del trabajo (informativo) -->
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-faint);margin-bottom:6px">🧾 Detalles del trabajo</div>
+      <div style="font-size:11px;color:#b0c4d8;margin-bottom:8px">Solo informativo: <strong>NO suma al cobro</strong>. Aparece en el recibo para que el cliente vea por qué tomó ese tiempo.</div>
+      <div id="tm-detalles"></div>
+      <input type="text" id="tm-detalles-otro" placeholder="Otro detalle (opcional)..." style="margin-top:8px">
+    <hr class="divider">
+
     <!-- Resumen ganancia -->
     <div id="tm-resumen" class="notice notice-green" style="display:none;font-size:13px"></div>
 
@@ -1329,6 +1352,7 @@ function showTab(t) {
   if(t==='cancelados') renderCancelados();
   if(t==='gastos') renderGastos();
   if(t==='dashboard') renderDash();
+  if(t==='config') { try { const _tl=document.getElementById('cfg-tarifa-labor'); if(_tl) _tl.value = getCfg().tarifaLaborHr || 95; } catch(e) {} }
   if(t==='config') { try { renderGastosFijosCfg(); const ac=document.getElementById('cfg-ay-cobra'); if(ac) ac.checked=!!getCfg().ayudantePuedeCobrar; } catch(e) {} } if(t==='config') { const cfEl = document.getElementById('cfg-casa'); if(cfEl) cfEl.value = getCfg().dirCasa || ''; const lrEl = document.getElementById('cfg-link-resena'); if(lrEl) lrEl.value = getCfg().linkResena || LINK_RESENA_DEF; }
   if(t==='vehiculos') { renderVehiculos(); poblarSelectoresVehiculo(); }
   if(t==='gigs') { renderGigs(); poblarSelectoresVehiculo(); }
@@ -1501,6 +1525,12 @@ function buscarClienteFrecuente() {
 // ===================== COTIZACIÓN - CÁLCULO =====================
 function aplicarTipoTrabajo() {
   const sel = document.getElementById('c-tipo-trabajo');
+  if(sel.value === 'labor') {
+    const th = document.getElementById('c-tarifa-hora');
+    if(th && !th.value) th.value = getCfg().tarifaLaborHr || 95;
+    calcTotal();
+    return;
+  }
   const val = parseFloat(sel.value);
   if(sel.value && val > 0) {
     document.getElementById('c-base').value = val;
@@ -1509,6 +1539,32 @@ function aplicarTipoTrabajo() {
 }
 
 function calcTotal() {
+  // v13.8: Labor Only por hora
+  const _esLabor = (document.getElementById('c-tipo-trabajo')||{}).value === 'labor';
+  const _lw = document.getElementById('c-labor-wrap'); if(_lw) _lw.style.display = _esLabor ? '' : 'none';
+  const _baseEl = document.getElementById('c-base');
+  if(_esLabor) {
+    const th = parseFloat((document.getElementById('c-tarifa-hora')||{}).value) || getCfg().tarifaLaborHr || 95;
+    const hmin = parseFloat((document.getElementById('c-horas-min')||{}).value) || 0;
+    const hrs = parseFloat(document.getElementById('c-horas').value) || 0;
+    const cobrables = Math.max(hrs, hmin);
+    _baseEl.value = (cobrables * th).toFixed(2);
+    _baseEl.readOnly = true;
+    const lc = document.getElementById('c-labor-calc'); if(lc) lc.textContent = cobrables + ' h × $' + th + ' = $' + (cobrables*th).toFixed(2);
+  } else if(_baseEl) { _baseEl.readOnly = false; }
+  // Hora estimada de terminar
+  try {
+    const hf = document.getElementById('t-hora-fin');
+    const hi = (document.getElementById('c-hora')||{}).value;
+    const hrsEst = parseFloat(document.getElementById('c-horas').value) || 0;
+    if(hf && hi && hrsEst > 0) {
+      const [hh, mm] = hi.split(':').map(Number);
+      const fin = new Date(2000, 0, 1, hh, mm + Math.round(hrsEst * 60));
+      const fmt = x => { const h = x.getHours(); return ((h % 12) || 12) + ':' + String(x.getMinutes()).padStart(2,'0') + (h >= 12 ? ' PM' : ' AM'); };
+      hf.style.display = 'block';
+      hf.textContent = '⏰ Si empiezan a las ' + fmt(new Date(2000,0,1,hh,mm)) + ', terminarían aprox. a las ' + fmt(fin) + ' (' + hrsEst + ' h estimadas).';
+    } else if(hf) hf.style.display = 'none';
+  } catch(e) {}
   const base = parseFloat(document.getElementById('c-base').value) || 0;
   const millas = parseFloat(document.getElementById('c-millas').value) || 0;
   const millasX = parseFloat(document.getElementById('c-millas-extra').value) || 0;
@@ -1702,6 +1758,9 @@ function guardarCotizacion() {
       descCargo: document.getElementById('desc-cargo').value||'Cargo adicional',
     },
     tipoTrabajo: document.getElementById('c-tipo-trabajo').value,
+    laborOnly: document.getElementById('c-tipo-trabajo').value === 'labor',
+    tarifaHora: parseFloat((document.getElementById('c-tarifa-hora')||{}).value) || 0,
+    horasMin: parseFloat((document.getElementById('c-horas-min')||{}).value) || 0,
     fotosInventario: fotosInventario,
     articulosDetalle: recolectarArticulosAdmin(),
     base, horas: parseFloat(document.getElementById('c-horas').value)||3,
@@ -1793,7 +1852,9 @@ function editarCot(id) {
   document.getElementById('s-cargo').checked = !!cot.servicios.cargo;
   document.getElementById('p-cargo').value = cot.servicios.pCargo || 0;
   document.getElementById('desc-cargo').value = cot.servicios.descCargo || '';
-  document.getElementById('c-tipo-trabajo').value = cot.tipoTrabajo || '';
+  document.getElementById('c-tipo-trabajo').value = (cot.laborOnly || cot.tipoTrabajo === '190') ? 'labor' : (cot.tipoTrabajo || '');
+  const _th = document.getElementById('c-tarifa-hora'); if(_th) _th.value = cot.tarifaHora || getCfg().tarifaLaborHr || 95;
+  const _hm = document.getElementById('c-horas-min'); if(_hm) _hm.value = (cot.horasMin != null && cot.laborOnly) ? cot.horasMin : 2;
   pintarArticulosAdmin(cot.articulosDetalle);
   calcTotal();
   showTab('nueva-cot');
@@ -2206,6 +2267,11 @@ function enviarTrabajoCampoDesdeTrabajos(cotId) {
     millas: cot.millas || 0,
     monto: cot.total || 0,
     puedeCobrar: !!getCfg().ayudantePuedeCobrar,
+    // v13.8: Labor Only por hora (el cobro final se calcula con el cronómetro)
+    laborOnly: !!cot.laborOnly,
+    tarifaHora: cot.tarifaHora || 0,
+    horasMin: cot.horasMin || 0,
+    ajusteFijo: cot.laborOnly ? +((cot.total||0) - Math.max(cot.horas||0, cot.horasMin||0) * (cot.tarifaHora||0)).toFixed(2) : 0,
     ayudanteId: 'default',
     enviado: new Date().toISOString()
   };
@@ -2301,6 +2367,7 @@ function renderTerminados() {
         <button class="btn btn-sm" onclick="verFotosCampo('${c.id}')">📸 Fotos de campo${registrosCampoDe(c.id).length ? ' ('+registrosCampoDe(c.id).length+')' : ''}</button>
         <button class="btn btn-sm" style="${c.resenaPedida?'':'background:#EF9F27;color:#fff;border-color:#EF9F27'}" onclick="pedirResena('${c.id}','es')">⭐ ${c.resenaPedida?'Reseña pedida ✓':'Pedir reseña'}</button>
         <button class="btn btn-sm" onclick="pedirResena('${c.id}','en')" title="Pedir reseña en inglés">⭐ EN</button>
+        <button class="btn btn-sm" style="background:#2F74C0;color:#fff;border-color:#2F74C0" onclick="regresarAAgenda('${c.id}')" title="Si lo terminaste por error">↩ Regresar a Agenda</button>
         <button class="btn btn-danger btn-sm" onclick="solicitarPin('${c.id}')">🔒 Cancelar (requiere PIN)</button>
       </div>
     </div>`;
@@ -2322,7 +2389,7 @@ function renderCancelados() {
   const paraMostrar = lista.slice(0, canceladosMostrar);
   const restantes = lista.length - paraMostrar.length;
   el.innerHTML = paraMostrar.map(c => {
-    const totalFotos = (c.registrosCampo||[]).reduce((a,r)=>a+((r.fotosTrabajo?r.fotosTrabajo.length:0)||0)+((r.fotosDanado?r.fotosDanado.length:0)||0),0);
+    const totalFotos = (c.registrosCampo||[]).reduce((a,r)=>a+(r.fotosTrabajo?.length||0)+(r.fotosDanado?.length||0),0);
     return `
     <div class="list-item" style="border-left:4px solid #888;opacity:0.9">
       <div class="list-item-header">
@@ -3625,6 +3692,7 @@ function abrirTerminar(id) {
   if(refEl) { refEl.value = dc ? (dc.refPago||'') : ''; refEl.disabled = false; refEl.style.background = ''; refEl.placeholder = 'Puedes agregarla aquí si no se puso en campo'; }
 
   // ── Observaciones — pre-llenar pero editable ──
+  try { renderDetallesTrabajo('tm-detalles'); } catch(e) {}
   const obsEl = document.getElementById('tm-obs');
   if(obsEl) { obsEl.value = dc ? (dc.observaciones||'') : ''; obsEl.disabled = false; }
 
@@ -3749,7 +3817,67 @@ function toggleAyudanteFields() {
   calcResumenTerminar();
 }
 
+// ===================== v13.9: DETALLES DEL TRABAJO (solo informativo, no suma) =====================
+const DETALLES_TRABAJO_LISTA = [
+  '🪜 Escaleras',
+  '🛗 Elevador lento u ocupado',
+  '🧊 Se desarmó el refrigerador (puertas)',
+  '🛏️ Se desarmaron / armaron camas',
+  '🛋️ Muebles muy pesados o grandes',
+  '📦 El cliente no tenía todo empacado',
+  '🧴 Se envolvieron muebles (mantas / plástico)',
+  '🚶 Estacionamiento lejos de la entrada',
+  '🚧 Acceso difícil (pasillos o puertas angostas)',
+  '⏳ Esperas por el cliente',
+  '🌧️ Clima (lluvia / mucho calor)'
+];
+function renderDetallesTrabajo(id, marcados) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  const set = new Set(marcados || []);
+  el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:4px 12px">'
+    + DETALLES_TRABAJO_LISTA.map(t => {
+        const txt = t.replace(/^\S+\s/, '');
+        return '<label style="display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px;cursor:pointer;margin:0">'
+          + '<input type="checkbox" class="det-chk" data-txt="' + txt.replace(/"/g,'&quot;') + '" style="width:18px;height:18px;accent-color:#2F74C0"' + (set.has(txt) ? ' checked' : '') + '> ' + t + '</label>';
+      }).join('') + '</div>';
+  const otro = document.getElementById(id + '-otro'); if(otro && !marcados) otro.value = '';
+}
+function leerDetalles(id) {
+  const out = Array.from(document.querySelectorAll('#' + id + ' .det-chk')).filter(c => c.checked).map(c => c.dataset.txt);
+  const otro = (document.getElementById(id + '-otro') || {}).value;
+  if(otro && otro.trim()) out.push(otro.trim());
+  return out;
+}
+function marcarDetalles(id, lista) {
+  const set = new Set(lista || []);
+  document.querySelectorAll('#' + id + ' .det-chk').forEach(c => { c.checked = set.has(c.dataset.txt); });
+  const extra = (lista || []).filter(x => !DETALLES_TRABAJO_LISTA.some(t => t.replace(/^\S+\s/, '') === x));
+  const otro = document.getElementById(id + '-otro'); if(otro) otro.value = extra.join(', ');
+}
+function obsConDetalles(id, obs) {
+  const det = leerDetalles(id);
+  obs = (obs || '').trim();
+  if(!det.length) return obs;
+  const linea = 'Detalles del trabajo: ' + det.join(', ') + '.';
+  if(obs.indexOf(linea) >= 0) return obs;
+  return linea + (obs ? '\n' + obs : '');
+}
+
+function laborMontoDe(c, horas) {
+  const th = c.tarifaHora || getCfg().tarifaLaborHr || 95;
+  const hmin = c.horasMin || 0;
+  const ajuste = (c.total||0) - Math.max(c.horas||0, hmin) * th; // extras, millas y descuento de la cotización
+  return Math.max(0, Math.max(horas, hmin) * th + ajuste);
+}
 function calcResumenTerminar() {
+  // v13.8: Labor Only → el monto se calcula con las horas
+  try {
+    const _c = (getData().cots||[]).find(x => x.id === currentId);
+    const _h = parseFloat((document.getElementById('crono-horas')||{}).value) || 0;
+    const _m = document.getElementById('tm-monto');
+    if(_c && _c.laborOnly && _m && !_m.disabled && _h > 0) _m.value = laborMontoDe(_c, _h).toFixed(2);
+  } catch(e) {}
   // Actualizar tarifa ayudante desde Configuración
   var cfgTarifa = getCfg ? getCfg().tarifaAyudanteHr : null;
   if (cfgTarifa && cfgTarifa > 0) CRONO_TARIFA_AYUDANTE = cfgTarifa;
@@ -3867,7 +3995,8 @@ function confirmarTerminar() {
   cot.propina       = propina;
   cot.pagoFinal     = pago;
   cot.refPago       = ref;
-  cot.obsFinales    = document.getElementById('tm-obs').value || (dc ? dc.observaciones : '');
+  cot.obsFinales    = obsConDetalles('tm-detalles', document.getElementById('tm-obs').value || (dc ? dc.observaciones : ''));
+  cot.detallesTrabajo = leerDetalles('tm-detalles').length ? leerDetalles('tm-detalles') : ((dc && dc.detallesTrabajo) || []);
   cot.firmaCliente  = dc ? (dc.firmaCliente||'') : (cot.firmaCliente||'');
   cot.usaAyudante   = usaAyudante;
   cot.pagoAyudante  = pagoAyudante;
@@ -3960,6 +4089,45 @@ function cancelarTrabajo(id) {
   renderTrabajos();
   updateBadges();
   alert('✅ Cancelado y archivado en la pestaña Cancelados.');
+}
+
+// v13.7: regresar a la agenda un trabajo que se marcó como terminado por error
+function regresarAAgenda(id) {
+  const d = getData();
+  const c = (d.cots||[]).find(x => x.id === id);
+  if(!c) return;
+  const cli = c.cliente ? (c.cliente.nombre || '') : '';
+  const pagoAy = c.pagoAyudante || 0;
+  const manuales = (d.ay||[]).filter(a => !a.esAutoComprobante && (a.trabajo||'').trim() === id);
+  let aviso = '↩ ¿Regresar ' + (c.folioTerminado||c.id) + ' · ' + cli + ' a la AGENDA?\n\n'
+    + 'Se quitará el cobro registrado ($' + ((c.montoFinal||0) + (c.propina||0)).toFixed(2) + '), las horas y el pago pendiente del ayudante de este trabajo. '
+    + 'Conserva su número de recibo para cuando lo termines de verdad.';
+  if(pagoAy > 0 || manuales.length) aviso += '\n\n⚠️ Este trabajo ya tiene un PAGO AL AYUDANTE registrado ($' + (pagoAy + manuales.reduce((s,a)=>s+(parseFloat(a.monto)||0),0)).toFixed(2) + '). También se quitará. Si de verdad le pagaste algo, regístralo después sin número de trabajo.';
+  if(!confirm(aviso)) return;
+  const pin = prompt('PIN de seguridad para confirmar:');
+  if(pin === null) return;
+  if(pin !== getCfg().pin) { alert('❌ PIN incorrecto.'); return; }
+  const fechaNueva = prompt('Fecha del trabajo (AAAA-MM-DD):', c.fechaAgendada || '');
+  if(fechaNueva === null) return;
+  c.estatus = 'agendado';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(fechaNueva.trim())) c.fechaAgendada = fechaNueva.trim();
+  ['montoFinal','propina','pagoAyudante','rentaCosto','horasTrabajadas','horasExtra','cargoExtraHoras','gananciaReal','bonoAyudante','propinaAyudante'].forEach(k => { c[k] = 0; });
+  ['pagoFinal','refPago','obsFinales','fechaTerminado','fechaTerminadoISO','rentaTipo','firmaCliente','usaAyudante','resenaPedida',
+   'formaPago2','refPago2','formaPagoAyudante','fechaPagoAyudante','bonoNotaAyudante'].forEach(k => { delete c[k]; });
+  c.rentoVehiculo = 'no';
+  c.huboDificultad = false;
+  c.ayudantePendiente = false;
+  c.datosCampoRecibidos = false;
+  c.reabiertoEn = new Date().toISOString(); // para ignorar el cierre viejo que quedó en Drive
+  delete c.datosCampo;
+  delete c.enviadoCampo;
+  delete c.montoPago1; delete c.montoPago2;
+  d.ay = (d.ay||[]).filter(a => (a.trabajo||'').trim() !== id);
+  try { localStorage.removeItem('terminado_' + id); } catch(e) {}
+  saveData(d);
+  renderTerminados(); renderAgenda(); updateBadges();
+  try { renderAyPendientes(); renderAyHistorial(); renderGastos(); } catch(e) {}
+  alert('✅ ' + (c.folioTerminado||c.id) + ' · ' + cli + ' regresó a la Agenda' + (c.fechaAgendada ? ' para el ' + c.fechaAgendada : '') + '.\n\nCuando llegue el día: Agenda → 🚛 Iniciar trabajo → Terminar, como siempre.');
 }
 
 function solicitarPin(id) {
@@ -4780,11 +4948,11 @@ function generarRecibo(id, idioma) {
   // ── TABLA: DESCRIPCIÓN | CANT. | PRECIO | TOTAL ──
   const tipoTrabajo = (c.millas > 50) ? L.foranea : L.locales;
   const extras = [];
-  if(c.usaAyudante==='si' || (c.servicios&&c.servicios.ayudante)) extras.push(L.ayudante);
-  if((c.servicios&&c.servicios.escaleras)) extras.push(L.escaleras);
-  if((c.servicios&&c.servicios.armar)) extras.push(L.armar);
-  if((c.servicios&&c.servicios.embalaje)) extras.push(L.embalaje);
-  if((c.servicios&&c.servicios.piano)) extras.push(L.piano);
+  if(c.usaAyudante==='si' || c.servicios?.ayudante) extras.push(L.ayudante);
+  if(c.servicios?.escaleras) extras.push(L.escaleras);
+  if(c.servicios?.armar) extras.push(L.armar);
+  if(c.servicios?.embalaje) extras.push(L.embalaje);
+  if(c.servicios?.piano) extras.push(L.piano);
 
   const encabezadoTabla = (yy) => {
     doc.setFillColor(NAVY[0],NAVY[1],NAVY[2]); doc.rect(12,yy-5,186,8,'F');
@@ -5015,8 +5183,8 @@ function generarRecibo(id, idioma) {
 
 // ===================== PDF COMPROBANTE PAGO AYUDANTE =====================
 function generarComprobanteSeleccionado() {
-  const nombre = (document.getElementById('comp-ayudante-nombre')||{}).value;
-  const semanaKey = (document.getElementById('comp-semana-key')||{}).value;
+  const nombre = document.getElementById('comp-ayudante-nombre')?.value;
+  const semanaKey = document.getElementById('comp-semana-key')?.value;
   if(!nombre || !semanaKey) { alert('Selecciona ayudante y semana'); return; }
   const d = getData();
   const ay = d.ay||[];
@@ -5413,6 +5581,7 @@ function guardarConfig() {
   CFG.email = document.getElementById('cfg-email').value;
   CFG.tarifaMilla = parseFloat(document.getElementById('cfg-milla').value)||2.50;
   CFG.tarifaAyudanteHr = parseFloat(document.getElementById('cfg-tarifa-ayudante').value)||22.50;
+  CFG.tarifaLaborHr = parseFloat((document.getElementById('cfg-tarifa-labor')||{}).value)||95;
   CFG.dirCasa = (document.getElementById('cfg-casa').value||'').trim();
   CFG.linkResena = (document.getElementById('cfg-link-resena').value||'').trim();
   saveCfg();
@@ -6410,6 +6579,7 @@ async function verificarTerminadosCampo() {
       const data = await res.json();
       if(data.ok && data.terminado && data.terminado.cotId) {
         const t = data.terminado;
+        if(cot.reabiertoEn && (t.fechaTerminado || '') < cot.reabiertoEn) continue; // cierre viejo (antes de regresarlo a agenda)
         const dx = getData();
         const idx = dx.cots.findIndex(c => c.id === cot.id);
         if(idx >= 0 && dx.cots[idx].estatus === 'en_trabajo' && !dx.cots[idx].datosCampoRecibidos) {
@@ -6436,7 +6606,7 @@ async function verificarTerminadosCampo() {
           // Notificación visible al jefe
           const notif = document.createElement('div');
           notif.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1D9E75;color:#fff;padding:14px 20px;border-radius:12px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px #0005;cursor:pointer;max-width:320px';
-          notif.innerHTML = '📲 <strong>' + ((cot.cliente&&cot.cliente.nombre)||cot.id) + '</strong> terminó el trabajo desde campo.<br><span style="font-size:12px;opacity:.9">Ve a Trabajos → ✅ Terminar para completar Fase 2</span>';
+          notif.innerHTML = '📲 <strong>' + (cot.cliente?.nombre||cot.id) + '</strong> terminó el trabajo desde campo.<br><span style="font-size:12px;opacity:.9">Ve a Trabajos → ✅ Terminar para completar Fase 2</span>';
           notif.onclick = () => { showTab('trabajos'); notif.remove(); };
           document.body.appendChild(notif);
           setTimeout(() => notif.remove(), 8000);
@@ -6788,6 +6958,7 @@ initDarkMode();
 
       <input id="t-cotid" type="text" placeholder="COT-005" readonly style="background:#1a2535;display:none">
 
+      <div id="labor-campo-box" style="display:none;background:rgba(239,159,39,.12);border:1px solid #EF9F27;border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px;color:#EF9F27;font-weight:700"></div>
       <div style="background:#143F7415;border-radius:10px;padding:12px;margin-bottom:12px">
         <div style="font-size:12px;color:#7ab8d8;font-weight:700;margin-bottom:4px">💵 Total acordado del servicio</div>
         <div id="t-monto-display" style="font-size:26px;font-weight:900;color:#7ab8d8">$0.00</div>
@@ -6848,6 +7019,14 @@ initDarkMode();
 
       <label>📝 Observaciones finales del trabajo</label>
       <textarea id="t-obs" placeholder="Todo salió bien, el cliente quedó satisfecho..."></textarea>
+    </div>
+
+    <!-- v13.9: Detalles del trabajo (informativo) -->
+    <div class="card">
+      <div class="card-title">🧾 Detalles del trabajo</div>
+      <div style="font-size:11px;color:#b0c4d8;margin-bottom:8px">Solo informativo: <strong>NO suma al cobro</strong>. Aparece en el recibo para que el cliente vea por qué tomó ese tiempo.</div>
+      <div id="campo-detalles"></div>
+      <input type="text" id="campo-detalles-otro" placeholder="Otro detalle (opcional)..." style="margin-top:8px">
     </div>
 
     <!-- Firma del cliente -->
@@ -6995,6 +7174,7 @@ function switchTab(t) {
       if(montoDisp) montoDisp.textContent = '$' + Number(trabajoActivo.monto||0).toFixed(2);
     }
     restaurarBorradorCampo();
+    try { recalcLaborCampo(); } catch(e) {}
   }
 }
 
@@ -7146,6 +7326,7 @@ function campoCronoDetener() {
   const horas = campoCronoElapsedMs / 3600000;
   const horasEl = document.getElementById('campo-crono-horas');
   if (horasEl) horasEl.value = horas.toFixed(2);
+  try { recalcLaborCampo(); } catch(e) {}
 }
 
 function campoCronoReset() {
@@ -7683,7 +7864,8 @@ async function enviarTerminado() {
     montoPago2,
     refPago: document.getElementById('t-ref').value,
     refPago2: ref2,
-    observaciones: document.getElementById('t-obs').value,
+    observaciones: obsConDetalles('campo-detalles', document.getElementById('t-obs').value),
+    detallesTrabajo: leerDetalles('campo-detalles'),
     firmaCliente: obtenerFirmaBase64(),
     horasTrabajadas,
     huboDificultad,
@@ -7727,7 +7909,8 @@ async function enviarTerminado() {
           montoPago2,
           refPago:        document.getElementById('t-ref').value,
           refPago2:       ref2,
-          observaciones:  document.getElementById('t-obs').value,
+          observaciones:  obsConDetalles('campo-detalles', document.getElementById('t-obs').value),
+          detallesTrabajo: leerDetalles('campo-detalles'),
           firmaCliente:   obtenerFirmaBase64(),
           horasTrabajadas,
           huboDificultad,
@@ -7808,6 +7991,7 @@ async function enviarTerminado() {
     document.getElementById('t-total-display').style.display = 'none';
     document.getElementById('t-ref').value = '';
     document.getElementById('t-obs').value = '';
+    try { renderDetallesTrabajo('campo-detalles'); } catch(e) {}
     const p2a = document.getElementById('t-pago2-activo');
     if(p2a) { p2a.checked = false; togglePago2(); }
     const mp1 = document.getElementById('t-monto-pago1'); if(mp1) mp1.value='';
@@ -7830,7 +8014,7 @@ function imprimirRecibo(idioma) {
   const propina = parseFloat(document.getElementById('t-propina').value) || 0;
   const pago = document.getElementById('t-pago').value;
   const ref = document.getElementById('t-ref').value;
-  const obs = document.getElementById('t-obs').value;
+  const obs = obsConDetalles('campo-detalles', document.getElementById('t-obs').value);
   const firma = obtenerFirmaBase64();
   const nombre = trabajoActivo ? trabajoActivo.nombre : '—';
   const origen = trabajoActivo ? trabajoActivo.origen : '—';
@@ -8181,10 +8365,11 @@ function guardarBorradorCampo() {
     const b = { cotId, valores:{}, checks:{}, firma:'', fecha: Date.now() };
     BORRADOR_CAMPOS.forEach(id => { const e = document.getElementById(id); if(e) b.valores[id] = e.value; });
     BORRADOR_CHECKS.forEach(id => { const e = document.getElementById(id); if(e) b.checks[id] = !!e.checked; });
+    try { b.detalles = leerDetalles('campo-detalles'); } catch(e) { b.detalles = []; }
     const cv = document.getElementById('firma-canvas');
     if(cv && cv._iniciado && window._firmaHecha) b.firma = cv.toDataURL('image/png');
     b.tieneDatos = ['t-propina','t-ref','t-monto-pago1','t-monto-pago2','t-ref2','t-obs'].some(id => String(b.valores[id]||'').trim() !== '')
-                   || Object.values(b.checks).some(Boolean) || !!b.firma;
+                   || Object.values(b.checks).some(Boolean) || !!b.firma || (b.detalles||[]).length > 0;
     if(!b.tieneDatos) { localStorage.removeItem(BORRADOR_KEY); return; }
     localStorage.setItem(BORRADOR_KEY, JSON.stringify(b));
   } catch(e) {}
@@ -8197,6 +8382,7 @@ function restaurarBorradorCampo() {
     if(!cotId || b.cotId !== cotId) return;
     _restaurandoBorrador = true;
     Object.keys(b.valores||{}).forEach(id => { const e = document.getElementById(id); if(e && b.valores[id] !== '' && b.valores[id] != null) e.value = b.valores[id]; });
+    try { if((b.detalles||[]).length) marcarDetalles('campo-detalles', b.detalles); } catch(e) {}
     Object.keys(b.checks||{}).forEach(id => { const e = document.getElementById(id); if(e) e.checked = b.checks[id]; });
     try { togglePago2(); mostrarQRZelle(); mostrarQRZelle2(); actualizarTotalCampo(); } catch(e) {}
     if(b.firma) {
@@ -8248,9 +8434,34 @@ window.addEventListener('load', () => {
     document.getElementById('header-sub').textContent = 'App de Campo — Configura URL';
   }
   try { aplicarRolCampo(); renderChecklistSalida(); } catch(e) {}
+  try { renderDetallesTrabajo('campo-detalles'); } catch(e) {}
 });
 
 // ===================== v13: MODO AYUDANTE (sin precios) / MODO DUEÑO =====================
+// v13.8: Labor Only — el cobro se calcula con las horas del cronómetro
+function recalcLaborCampo() {
+  const t = trabajoActivo;
+  const box = document.getElementById('labor-campo-box');
+  if(!t || !t.laborOnly) { if(box) box.style.display = 'none'; return; }
+  const hrs = parseFloat((document.getElementById('campo-crono-horas')||{}).value) || 0;
+  const th = +t.tarifaHora || 95, hmin = +t.horasMin || 0, aj = +t.ajusteFijo || 0;
+  const cobrables = Math.max(hrs, hmin);
+  const monto = Math.max(0, cobrables * th + aj);
+  const mEl = document.getElementById('t-monto'); if(mEl) mEl.value = monto.toFixed(2);
+  const md = document.getElementById('t-monto-display'); if(md) md.textContent = '$' + monto.toFixed(2);
+  if(box) {
+    const hh = Math.floor(hrs), mm = Math.round((hrs - hh) * 60);
+    box.style.display = 'block';
+    box.innerHTML = '🏋️ Labor Only — cobro por hora<br>'
+      + (hrs > 0 ? '⏱️ ' + hh + ' h ' + mm + ' min (' + hrs.toFixed(2) + ' h)' : '⏱️ Inicia el cronómetro o escribe las horas')
+      + (hrs > 0 && hrs < hmin ? ' → se cobra el mínimo de ' + hmin + ' h' : '')
+      + '<br>' + cobrables.toFixed(2) + ' h × $' + th + (aj ? (aj > 0 ? ' + $' + aj.toFixed(2) + ' extras' : ' − $' + Math.abs(aj).toFixed(2) + ' descuento') : '')
+      + ' = <span style="font-size:18px;color:#1D9E75">$' + monto.toFixed(2) + '</span>';
+  }
+  try { actualizarTotalCampo(); } catch(e) {}
+}
+document.addEventListener('input', e => { if(e.target && e.target.id === 'campo-crono-horas') { try { recalcLaborCampo(); } catch(x) {} } });
+
 const DUENO_PIN = '98129812'; // v13.1: PIN propio para el modo dueño en el celular (el nombre NO da permisos)
 function esModoDueno() { return localStorage.getItem('campo_rol') === 'dueno'; }
 function campoPuedeCobrar() { return esModoDueno() || !!(trabajoActivo && trabajoActivo.puedeCobrar); }
@@ -8603,16 +8814,16 @@ function qrCalcTotal(){
     const size = activeBtn.getAttribute('onclick').match(/qrSetSize\(this,'([^']+)'\)/);
     if(size && QR_PRECIOS_BASE[size[1]]) base = QR_PRECIOS_BASE[size[1]].base;
   }
-  const horas = parseFloat((document.getElementById('qr-horas')||{}).value)||3;
-  const camion = (document.getElementById('qr-camion-tipo')||{}).value;
-  const millas = parseFloat((document.getElementById('qr-millas')||{}).value)||0;
-  const tarMilla = parseFloat((document.getElementById('qr-tarifa-milla')||{}).value)||3;
-  const ayudante = !!(document.getElementById('qr-ayudante')||{}).checked;
-  const escaleras = !!(document.getElementById('qr-escaleras')||{}).checked;
-  const armar = !!(document.getElementById('qr-armar')||{}).checked;
-  const pAy = parseFloat((document.getElementById('qrp-ayudante')||{}).value)||40;
-  const pEsc = parseFloat((document.getElementById('qrp-escaleras')||{}).value)||20;
-  const pAr = parseFloat((document.getElementById('qrp-armar')||{}).value)||20;
+  const horas = parseFloat(document.getElementById('qr-horas')?.value)||3;
+  const camion = document.getElementById('qr-camion-tipo')?.value;
+  const millas = parseFloat(document.getElementById('qr-millas')?.value)||0;
+  const tarMilla = parseFloat(document.getElementById('qr-tarifa-milla')?.value)||3;
+  const ayudante = document.getElementById('qr-ayudante')?.checked;
+  const escaleras = document.getElementById('qr-escaleras')?.checked;
+  const armar = document.getElementById('qr-armar')?.checked;
+  const pAy = parseFloat(document.getElementById('qrp-ayudante')?.value)||40;
+  const pEsc = parseFloat(document.getElementById('qrp-escaleras')?.value)||20;
+  const pAr = parseFloat(document.getElementById('qrp-armar')?.value)||20;
 
   // Si no hay botón activo, usar tarifa de horas directamente
   if(!activeBtn) base = horas * 50;
@@ -8640,10 +8851,10 @@ function qrCalcTotal(){
 
   // WhatsApp preview
   const cfg = getCfg();
-  const origen = (document.getElementById('qr-origen')||{}).value||'tu origen';
-  const destino = (document.getElementById('qr-destino')||{}).value||'tu destino';
+  const origen = document.getElementById('qr-origen')?.value||'tu origen';
+  const destino = document.getElementById('qr-destino')?.value||'tu destino';
   const arts = [...qrArticulosSeleccionados, ...qrArticulosCustom];
-  const nota = (document.getElementById('qr-nota')||{}).value||'';
+  const nota = document.getElementById('qr-nota')?.value||'';
   let msg = `*${cfg.nombre || 'Mudanzas Express LA'}* 🚛\n`;
   msg += `━━━━━━━━━━━━━━━━\n`;
   msg += `📍 *${origen}* → *${destino}*\n`;
@@ -8662,25 +8873,25 @@ function qrCalcTotal(){
 
 function qrEnviarWhatsApp(){
   const prev = document.getElementById('qr-wa-preview');
-  const msg = (prev&&prev._msg) || (prev&&prev.textContent) || '';
+  const msg = prev?._msg || prev?.textContent || '';
   if(!msg){ alert('Llena los datos primero'); return; }
-  const tel = (document.getElementById('qr-tel')||{}).value.replace(/\D/g,'')||'';
+  const tel = document.getElementById('qr-tel')?.value.replace(/\D/g,'')||'';
   const url = tel ? `https://wa.me/1${tel}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
   window.open(url,'_blank');
 }
 
 function qrCopiarMensaje(){
   const prev = document.getElementById('qr-wa-preview');
-  const msg = (prev&&prev._msg) || (prev&&prev.textContent) || '';
+  const msg = prev?._msg || prev?.textContent || '';
   navigator.clipboard.writeText(msg).then(()=>alert('✅ Mensaje copiado')).catch(()=>{
     const ta = document.createElement('textarea'); ta.value=msg; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); alert('✅ Copiado');
   });
 }
 
 function qrPasarACotizacion(){
-  const origen = (document.getElementById('qr-origen')||{}).value||'';
-  const destino = (document.getElementById('qr-destino')||{}).value||'';
-  const millas = (document.getElementById('qr-millas')||{}).value||'';
+  const origen = document.getElementById('qr-origen')?.value||'';
+  const destino = document.getElementById('qr-destino')?.value||'';
+  const millas = document.getElementById('qr-millas')?.value||'';
   showTab('nueva-cot');
   setTimeout(()=>{
     if(origen && document.getElementById('c-origen')) document.getElementById('c-origen').value=origen;
