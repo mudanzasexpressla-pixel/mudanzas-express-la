@@ -199,7 +199,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.11</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.12</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -9148,5 +9148,47 @@ function resetCotRapida(){
   <img id="admin-lb-img" src="" style="max-width:90vw;max-height:80vh;border-radius:10px;object-fit:contain">
   <p id="admin-lb-desc" style="color:#fff;margin-top:12px;font-size:14px;max-width:600px;text-align:center"></p>
 </div>
+<script>
+// v13.12: casillas de HORAS y MINUTOS junto a cada campo de horas en decimal
+(function(){
+  const CAMPOS = ['crono-horas','campo-crono-horas','ay-horas','c-horas'];
+  function crearHM(id) {
+    const dec = document.getElementById(id);
+    if(!dec || dec._hm) return;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:#b0c4d8';
+    wrap.innerHTML = '<span>o escribe:</span>'
+      + '<input type="number" min="0" step="1" placeholder="0" style="width:70px;padding:6px 8px;margin:0" class="hm-h"> <span>h</span>'
+      + '<input type="number" min="0" max="59" step="1" placeholder="0" style="width:70px;padding:6px 8px;margin:0" class="hm-m"> <span>min</span>';
+    dec.insertAdjacentElement('afterend', wrap);
+    const h = wrap.querySelector('.hm-h'), m = wrap.querySelector('.hm-m');
+    dec._hm = { h, m };
+    const aDecimal = () => {
+      const hh = parseInt(h.value) || 0, mm = Math.min(59, parseInt(m.value) || 0);
+      const v = hh + mm / 60;
+      dec.value = v > 0 ? (Math.round(v * 100) / 100).toFixed(2) : '';
+      dec.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    h.addEventListener('input', aDecimal);
+    m.addEventListener('input', aDecimal);
+  }
+  function sincronizar() {
+    CAMPOS.forEach(id => {
+      const dec = document.getElementById(id);
+      if(!dec) return;
+      if(!dec._hm) crearHM(id);
+      const { h, m } = dec._hm || {};
+      if(!h || document.activeElement === h || document.activeElement === m) return;
+      const v = parseFloat(dec.value) || 0;
+      const hh = Math.floor(v), mm = Math.round((v - hh) * 60);
+      const nh = v > 0 ? String(mm === 60 ? hh + 1 : hh) : '', nm = v > 0 ? String(mm === 60 ? 0 : mm) : '';
+      if(h.value !== nh) h.value = nh;
+      if(m.value !== nm) m.value = nm;
+    });
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sincronizar); else sincronizar();
+  setInterval(sincronizar, 1000);
+})();
+</script>
 </body>
 </html>
