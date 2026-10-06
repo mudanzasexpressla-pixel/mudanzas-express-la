@@ -711,6 +711,8 @@ table.data-table tr:hover td{background:#1A2A42!important}
             <option>Teléfono / internet</option>
             <option>Renta / almacén</option>
             <option>Impuestos</option>
+            <option>Comida y bebidas (en trabajos)</option>
+            <option>Estacionamiento y multas</option>
             <option>Otro</option>
           </select>
         </div>
@@ -2507,6 +2509,21 @@ function renderCancelados() {
 function verMasCancelados() { canceladosMostrar += 15; renderCancelados(); }
 
 // ===================== RENDER GASTOS =====================
+// v13.13: cambiar la categoría de un gasto ya registrado (desde la lista)
+function ggSelectCat(idx, actual) {
+  const cats = Array.from(document.querySelectorAll('#gg-cat option')).map(o => o.value);
+  if(actual && !cats.includes(actual)) cats.push(actual);
+  return '<select onchange="cambiarCatGG(' + idx + ', this.value)" style="padding:4px 6px;font-size:12px;border-radius:6px;max-width:190px">'
+    + cats.map(c => '<option' + (c === actual ? ' selected' : '') + '>' + c + '</option>').join('') + '</select>';
+}
+function cambiarCatGG(idx, nueva) {
+  const d = getData();
+  const item = (d.gg||[]).slice().reverse()[idx];
+  if(!item) return;
+  item.cat = nueva;
+  saveData(d);
+  try { renderGastos(); } catch(e) {}
+}
 function eliminarGastoGG(idx) {
   if(!confirm('¿Eliminar este gasto?')) return;
   const d = getData();
@@ -2551,7 +2568,7 @@ function renderGastos() {
         <table class="data-table">
           <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th>Recibo</th><th></th></tr></thead>
           <tbody>${gg.slice().reverse().map((g,i)=>`<tr>
-            <td>${g.fecha}</td><td>${g.cat&&g.cat!=='undefined'?g.cat:(g.categoria||'General')}</td><td>${g.desc||'—'}</td>
+            <td>${g.fecha}</td><td>${ggSelectCat(i, g.cat&&g.cat!=='undefined'?g.cat:(g.categoria||'Otro'))}</td><td>${g.desc||'—'}</td>
             <td><strong style="color:#E24B4A">$${g.monto.toFixed(2)}</strong></td><td>${g.recibo||'—'}</td>
             <td><button onclick="eliminarGastoGG(${i})" style="background:#E24B4A;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🗑️</button></td>
           </tr>`).join('')}</tbody>
