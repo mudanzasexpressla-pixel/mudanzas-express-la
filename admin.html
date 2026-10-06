@@ -126,6 +126,10 @@ table.data-table tr:hover td{background:var(--brand-tint)}
 .status-step.pending{background:#F1F3F6;color:var(--ink-faint);border-color:var(--line)}
 .status-arrow{color:#C4CDD8;font-size:16px}
 .nav-btn span[id^="badge-"]:empty{display:none}
+
+/* v13.13 calculadora de costo */
+.cc-span2{grid-column:span 2;align-self:end;padding-bottom:10px;color:#b0c4d8}
+@media (max-width:560px){#cc-card .form-row.three{grid-template-columns:1fr 1fr}#cc-card .cc-span2{grid-column:1 / -1;padding-bottom:0}}
 </style>
 
 <style id="dark-style" disabled>
@@ -199,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.12</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.13</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -445,6 +449,75 @@ table.data-table tr:hover td{background:#1A2A42!important}
     <div class="total-row"><span>Servicios adicionales</span><span id="t-extras" style="font-weight:600">$0.00</span></div>
     <div class="total-row"><span style="color:#E24B4A">Descuento aplicado</span><span id="t-descuento" style="color:#E24B4A;font-weight:600">- $0.00</span></div>
     <div class="total-row big"><span>TOTAL ESTIMADO</span><span id="t-total">$0.00</span></div>
+  </div>
+
+  <!-- v13.13: CALCULADORA DE COSTO (solo para el admin, no sale en el PDF) -->
+  <div class="card" id="cc-card" style="border-left:4px solid #EF9F27">
+    <div class="card-title">🧮 Calculadora de costo <span style="font-size:11px;font-weight:400;color:#b0c4d8">(solo para ti: no sale en el PDF ni la ve el ayudante)</span></div>
+    <div class="form-row three">
+      <div><label>Tamaño de la mudanza</label>
+        <select id="cc-tamano" onchange="ccAplicarTamano()">
+          <option value="">— Elegir —</option>
+          <option value="piezas">📦 1–3 piezas</option>
+          <option value="estudio">🏠 Estudio / pocas cosas</option>
+          <option value="r1">🛏️ 1 recámara</option>
+          <option value="r2">🛏️🛏️ 2 recámaras</option>
+          <option value="r3">🏡 3 recámaras</option>
+          <option value="r4">🏘️ 4+ recámaras</option>
+          <option value="labor">🏋️ Labor Only (sin mudanza)</option>
+        </select>
+      </div>
+      <div><label>Vehículo</label>
+        <select id="cc-veh" onchange="calcTotal()">
+          <option value="tacoma">Tacoma 2002</option>
+          <option value="ford" selected>Ford E450 (caja 14 ft)</option>
+          <option value="uhaul15">U-Haul 15 ft (renta)</option>
+          <option value="uhaul20">U-Haul 20 ft (renta)</option>
+          <option value="uhaul26">U-Haul 26 ft (renta)</option>
+        </select>
+      </div>
+      <div><label>Ayudantes</label><input id="cc-ayud" type="number" value="1" min="0" step="1" oninput="calcTotal()"></div>
+    </div>
+    <div class="form-row three">
+      <div><label>Millas destino → mi casa (regreso)</label><input id="cc-millas-regreso" type="number" min="0" step="0.5" placeholder="Se calcula con Maps" oninput="calcTotal()"></div>
+      <div class="cc-span2" style="font-size:11.5px">Usa las horas estimadas y las millas de arriba. El bono de escaleras/pesado se suma solo si marcas Escaleras o Piano.</div>
+    </div>
+    <div id="cc-vehiculo-hint" style="font-size:12px;margin-bottom:8px"></div>
+    <div id="cc-result"></div>
+
+    <details style="margin-top:12px">
+      <summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:#7ab8d8">⚙️ Ajustes de la calculadora</summary>
+      <div style="margin-top:10px">
+        <div class="form-row three">
+          <div><label>Precio del galón ($)</label><input id="cc-k-galon" type="number" step="0.05" min="0"></div>
+          <div><label>Tacoma (millas por galón)</label><input id="cc-k-mpgTacoma" type="number" step="0.5" min="1"></div>
+          <div><label>Ford E450 (millas por galón)</label><input id="cc-k-mpgFord" type="number" step="0.5" min="1"></div>
+        </div>
+        <div class="form-row three">
+          <div><label>U-Haul (millas por galón)</label><input id="cc-k-mpgUhaul" type="number" step="0.5" min="1"></div>
+          <div><label>Renta U-Haul 15 ft ($)</label><input id="cc-k-renta15" type="number" step="5" min="0"></div>
+          <div><label>Renta U-Haul 20 ft ($)</label><input id="cc-k-renta20" type="number" step="5" min="0"></div>
+        </div>
+        <div class="form-row three">
+          <div><label>Renta U-Haul 26 ft ($)</label><input id="cc-k-renta26" type="number" step="5" min="0"></div>
+          <div><label>Pago del ayudante por hora ($)</label><input id="cc-k-ayudanteHr" type="number" step="0.5" min="0"></div>
+          <div><label>Bono escaleras/pesado ($)</label><input id="cc-k-bonoDificil" type="number" step="1" min="0"></div>
+        </div>
+        <div class="form-row three">
+          <div><label>Mi pago por hora ($)</label><input id="cc-k-miPagoHr" type="number" step="1" min="0"></div>
+          <div><label>Para el negocio (% del precio)</label><input id="cc-k-margen" type="number" step="1" min="0" max="80"></div>
+          <div><label>Fondo de reparaciones ($/mes)</label><input id="cc-k-fondoRep" type="number" step="10" min="0"></div>
+        </div>
+        <div class="form-row three">
+          <div><label>Trabajos por mes (vacío = automático)</label><input id="cc-k-trabajosMes" type="number" step="1" min="0" placeholder="auto"></div>
+          <div class="cc-span2" style="font-size:11.5px" id="cc-fijos-info"></div>
+        </div>
+        <div class="btn-row" style="margin-top:4px">
+          <button type="button" class="btn btn-sm btn-blue" onclick="ccGuardarAjustes()">💾 Guardar ajustes</button>
+          <button type="button" class="btn btn-sm" onclick="ccRestablecerAjustes()">↩ Valores iniciales</button>
+        </div>
+      </div>
+    </details>
   </div>
 
   <div class="card">
@@ -1601,6 +1674,7 @@ function calcTotal() {
   document.getElementById('t-extras').textContent = '$' + extras.toFixed(2);
   document.getElementById('t-descuento').textContent = '- $' + (desc + descFrecuente).toFixed(2) + (descFrecuente > 0 ? ' (incl. ' + descuentoFrecuente + '% cliente frecuente)' : '');
   document.getElementById('t-total').textContent = '$' + total.toFixed(2);
+  try { renderCalcCosto(total); } catch(e) { console.error('Calculadora:', e); }
   document.getElementById('millas-display').innerHTML =
     `📍 Recorrido cliente: <strong>${millas.toFixed(1)} mi</strong> — Costo viaje: <strong>$${costoViaje.toFixed(2)}</strong>` +
     (millasX > 0 ? ` <span style="color:#b0c4d8;font-size:11px">(+ ${millasX.toFixed(1)} mi traslado interno · tarifa ajustada a $${tarMilla}/mi)</span>` : '');
@@ -1644,6 +1718,7 @@ function limpiarForm(silencioso) {
   const badgeEl = document.getElementById('cliente-frecuente-badge');
   if(badgeEl) badgeEl.style.display = 'none';
   cotEditandoId = null;
+  ccRestaurar(null);
   calcTotal();
 }
 
@@ -1777,6 +1852,7 @@ function guardarCotizacion() {
     articulosDetalle: recolectarArticulosAdmin(),
     base, horas: parseFloat(document.getElementById('c-horas').value)||3,
     descuento: desc, descuentoFrecuentePct: descuentoFrecuente,
+    calcCosto: (function(){ try { const r = calcCostoDatos(); delete r._F; delete r._k; return r; } catch(e) { return null; } })(),
     pago: document.getElementById('c-pago').value,
     canal: document.getElementById('c-canal').value || '',
     canalNombre: document.getElementById('c-canal-nombre').value.trim() || '',
@@ -1869,6 +1945,7 @@ function editarCot(id) {
   const _th = document.getElementById('c-tarifa-hora'); if(_th) _th.value = cot.laborOnly ? (cot.tarifaHora || '') : '';
   const _hm = document.getElementById('c-horas-min'); if(_hm) _hm.value = cot.laborOnly ? (cot.horasMin != null ? cot.horasMin : (_cfgL.laborHorasIncl||2)) : '';
   const _pm = document.getElementById('c-precio-min'); if(_pm) _pm.value = cot.laborOnly ? (cot.precioMin || ((cot.horasMin||0) * (cot.tarifaHora||0)) || '') : '';
+  ccRestaurar(cot.calcCosto);
   pintarArticulosAdmin(cot.articulosDetalle);
   calcTotal();
   showTab('nueva-cot');
@@ -5938,6 +6015,235 @@ async function restaurarDesdeDriveEjecutar() {
 
 
 
+
+// ===================== v13.13: CALCULADORA DE COSTO (solo admin) =====================
+// Calcula el costo real del trabajo ANTES de cotizar: ayudante, gasolina (millas de ida y
+// regreso según el vehículo), renta de U-Haul y la parte de gastos fijos que le toca.
+// Con tu pago por hora y el % para el negocio sugiere un precio.
+const CC_TAMANOS = {
+  piezas:  { veh:'tacoma',  horas:2,  ayud:1 },
+  estudio: { veh:'tacoma',  horas:3,  ayud:1 },
+  r1:      { veh:'ford',    horas:4,  ayud:1 },
+  r2:      { veh:'ford',    horas:7,  ayud:1 },
+  r3:      { veh:'uhaul20', horas:9,  ayud:1 },
+  r4:      { veh:'uhaul26', horas:10, ayud:1 },
+  labor:   { veh:'tacoma',  horas:2,  ayud:1 }
+};
+const CC_DEF = { galon:0, mpgTacoma:16, mpgFord:8.5, mpgUhaul:10, renta15:80, renta20:100, renta26:130,
+                 ayudanteHr:22, bonoDificil:15, miPagoHr:40, margen:15, fondoRep:300, trabajosMes:0 };
+const CC_KEYS = Object.keys(CC_DEF);
+
+function ccGalonReciente() {
+  // Promedio de las últimas 3 cargas de gasolina que tienen galones
+  const g = (getData().gas || []).filter(x => (x.galones||0) > 0 && (x.monto||0) > 0)
+    .sort((a,b) => String(b.fecha).localeCompare(String(a.fecha))).slice(0,3);
+  if(!g.length) return 6.10;
+  const p = g.reduce((a,x) => a + x.monto / x.galones, 0) / g.length;
+  return Math.round(p * 100) / 100;
+}
+function ccCfg() {
+  const k = Object.assign({}, CC_DEF, getCfg().calcCosto || {});
+  if(!(k.galon > 0)) { k.galon = ccGalonReciente(); k._galonAuto = true; }
+  return k;
+}
+function ccVehiculos(k) {
+  return {
+    tacoma:  { label:'Tacoma',            mpg:k.mpgTacoma, renta:0 },
+    ford:    { label:'Ford E450 14 ft',   mpg:k.mpgFord,   renta:0 },
+    uhaul15: { label:'U-Haul 15 ft',      mpg:k.mpgUhaul,  renta:k.renta15 },
+    uhaul20: { label:'U-Haul 20 ft',      mpg:k.mpgUhaul,  renta:k.renta20 },
+    uhaul26: { label:'U-Haul 26 ft',      mpg:k.mpgUhaul,  renta:k.renta26 }
+  };
+}
+function ccTrabajosMesAuto() {
+  // Promedio de trabajos terminados por mes en los últimos 60 días
+  const hace60 = Date.now() - 60 * 86400000;
+  const n = (getData().cots || []).filter(c => c.estatus === 'terminado' && parseFechaTerminadoOrdenable(c).getTime() >= hace60).length;
+  return n > 0 ? Math.max(4, Math.round(n / 2)) : 0;
+}
+function ccFijosMes(k) {
+  const lista = gastosFijosCfg();
+  let total = lista.reduce((a,f) => a + (parseFloat(f.monto)||0) * (f.tipo === 'diario' ? 30 : 1), 0);
+  // Si ya agregaste un fondo de reparaciones a los gastos fijos, no se cuenta dos veces
+  const yaTieneRep = lista.some(f => /repar/i.test(f.nombre || ''));
+  if(!yaTieneRep) total += (k.fondoRep || 0);
+  const autoN = ccTrabajosMesAuto();
+  const trabajos = k.trabajosMes > 0 ? k.trabajosMes : (autoN || 20);
+  return { total, trabajos, porTrabajo: trabajos > 0 ? total / trabajos : 0, yaTieneRep, auto: !(k.trabajosMes > 0), sinHistorial: !(k.trabajosMes > 0) && !autoN };
+}
+function ccNum(id) { const el = document.getElementById(id); return el ? (parseFloat(el.value) || 0) : 0; }
+
+function calcCostoDatos() {
+  const k = ccCfg();
+  const vehKey = (document.getElementById('cc-veh') || {}).value || 'ford';
+  const V = ccVehiculos(k)[vehKey] || ccVehiculos(k).ford;
+  const horas = ccNum('c-horas');
+  const ayudEl = document.getElementById('cc-ayud');
+  const ayud = ayudEl && ayudEl.value !== '' ? Math.max(0, parseInt(ayudEl.value) || 0) : 1;
+  const dificil = !!(document.getElementById('s-escaleras') || {}).checked || !!(document.getElementById('s-piano') || {}).checked;
+  const mOD = ccNum('c-millas'), mCO = ccNum('c-millas-extra');
+  const regEl = document.getElementById('cc-millas-regreso');
+  const regresoEstimado = !(regEl && regEl.value !== '');
+  const mDC = regresoEstimado ? mCO : ccNum('cc-millas-regreso');
+  const millas = mCO + mOD + mDC;
+  const galones = V.mpg > 0 ? millas / V.mpg : 0;
+  const gasolina = galones * k.galon;
+  const ayudante = ayud * horas * k.ayudanteHr + (dificil ? ayud * k.bonoDificil : 0);
+  const renta = V.renta || 0;
+  const F = ccFijosMes(k);
+  const fijos = F.porTrabajo;
+  const puroGasto = ayudante + gasolina + renta + fijos;
+  const tuPago = horas * k.miPagoHr;
+  const minimo = puroGasto + tuPago;
+  const m = Math.min(80, Math.max(0, k.margen)) / 100;
+  const sugerido = Math.ceil((minimo / (1 - m)) / 5) * 5;
+  return {
+    tamano: (document.getElementById('cc-tamano') || {}).value || '',
+    veh: vehKey, vehLabel: V.label, ayud, horas, dificil,
+    millas: +millas.toFixed(1), millasRegreso: regresoEstimado ? null : mDC, regresoEstimado,
+    galon: k.galon, mpg: V.mpg,
+    gasolina: +gasolina.toFixed(2), ayudante: +ayudante.toFixed(2), renta: +renta.toFixed(2),
+    fijos: +fijos.toFixed(2), puroGasto: +puroGasto.toFixed(2), tuPago: +tuPago.toFixed(2),
+    minimo: +minimo.toFixed(2), sugerido, margen: k.margen, miPagoHr: k.miPagoHr,
+    _F: F, _k: k
+  };
+}
+
+function renderCalcCosto(precioCliente) {
+  const box = document.getElementById('cc-result');
+  if(!box) return;
+  const r = calcCostoDatos();
+  const k = r._k, F = r._F;
+  const $ = v => '$' + (Math.round(v * 100) / 100).toFixed(2);
+  const $0 = v => '$' + Math.round(v).toLocaleString('en-US');
+
+  // Aviso de vehículo según el tamaño
+  const hint = document.getElementById('cc-vehiculo-hint');
+  if(hint) {
+    let t = '';
+    if((r.tamano === 'r2') && r.veh === 'ford') t = '💡 Un 2 recámaras muy lleno puede necesitar 2 viajes en la caja de 14 ft: súmale horas y millas.';
+    else if((r.tamano === 'r3' || r.tamano === 'r4') && (r.veh === 'ford' || r.veh === 'tacoma')) t = '⚠️ Para 3 o más recámaras la caja de 14 ft se queda corta: considera un U-Haul de 20 o 26 ft o 2 viajes.';
+    else if((r.tamano === 'r3' || r.tamano === 'r4') && r.ayud < 2) t = '💡 Con 3 o más recámaras considera 2 ayudantes (pon 2 en Ayudantes para ver el costo).';
+    else if((r.tamano === 'r1' || r.tamano === 'r2') && r.veh === 'tacoma') t = '⚠️ En la Tacoma no cabe una recámara completa: usa la Ford o calcula varios viajes.';
+    hint.innerHTML = t ? '<span style="color:#EF9F27">' + t + '</span>' : '';
+  }
+
+  if(!(r.horas > 0)) { box.innerHTML = '<div class="notice notice-blue">Escribe las horas estimadas para calcular el costo.</div>'; return; }
+
+  const sinMillas = r.millas <= 0;
+  const fila = (txt, val, extra) => '<div class="total-row"><span>' + txt + (extra ? ' <span style="color:#b0c4d8;font-size:11px">' + extra + '</span>' : '') + '</span><span style="font-weight:600">' + val + '</span></div>';
+
+  let html = '';
+  html += fila('👷 Ayudante' + (r.ayud !== 1 ? 's (' + r.ayud + ')' : ''), $(r.ayudante),
+               r.ayud + ' × ' + r.horas + ' h × $' + k.ayudanteHr + (r.dificil ? ' + bono $' + k.bonoDificil + (r.ayud > 1 ? ' c/u' : '') : ''));
+  html += fila('⛽ Gasolina', $(r.gasolina),
+               sinMillas ? '⚠️ faltan las millas' : r.millas + ' mi ÷ ' + r.mpg + ' mpg × $' + k.galon.toFixed(2) + (r.regresoEstimado && ccNum('c-millas-extra') > 0 ? ' (regreso estimado igual a la ida)' : ''));
+  if(r.renta > 0) html += fila('🚚 Renta ' + r.vehLabel, $(r.renta), '');
+  html += fila('🏢 Gastos fijos', $(r.fijos), $0(F.total) + '/mes ÷ ' + F.trabajos + ' trabajos');
+  html += '<div class="total-row" style="font-weight:700;color:#E24B4A"><span>Puro gasto</span><span>' + $(r.puroGasto) + '</span></div>';
+  html += fila('🙋 Tu pago', $(r.tuPago), r.horas + ' h × $' + k.miPagoHr);
+
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">'
+       +   '<div style="background:rgba(239,159,39,.12);border:1px solid #EF9F27;border-radius:10px;padding:10px;text-align:center">'
+       +     '<div style="font-size:11px;color:#b0c4d8">Mínimo (gastos + tu pago)</div>'
+       +     '<div style="font-size:20px;font-weight:800;color:#EF9F27">' + $0(r.minimo) + '</div></div>'
+       +   '<div style="background:rgba(29,158,117,.14);border:1px solid #1D9E75;border-radius:10px;padding:10px;text-align:center">'
+       +     '<div style="font-size:11px;color:#b0c4d8">Sugerido (+' + k.margen + '% para el negocio)</div>'
+       +     '<div style="font-size:20px;font-weight:800;color:#1D9E75">' + $0(r.sugerido) + '</div></div>'
+       + '</div>';
+
+  // Semáforo con el precio que tienes en la cotización
+  const p = precioCliente || 0;
+  if(p > 0) {
+    const queda = p - r.puroGasto;          // lo que queda para ti + el negocio
+    const tuHora = queda / r.horas;
+    const negocio = p - r.minimo;
+    let color, txt;
+    if(queda < 0) { color = '#E24B4A'; txt = '🔴 Pierdes ' + $0(-queda) + ' — no cubre ni los gastos.'; }
+    else if(p < r.minimo) { color = '#E24B4A'; txt = '🟠 Te pagas solo ' + $0(tuHora) + '/h (tu meta es $' + k.miPagoHr + ') y $0 para el negocio.'; }
+    else if(p < r.sugerido) { color = '#EF9F27'; txt = '🟡 Te pagas $' + k.miPagoHr + '/h y quedan ' + $0(negocio) + ' para el negocio (' + Math.round(negocio / p * 100) + '%).'; }
+    else { color = '#1D9E75'; txt = '🟢 Buen precio: te pagas $' + k.miPagoHr + '/h y quedan ' + $0(negocio) + ' para el negocio (' + Math.round(negocio / p * 100) + '%).'; }
+    html += '<div style="margin-top:12px;padding:10px 12px;border-radius:10px;border:1px solid ' + color + ';background:rgba(255,255,255,.03)">'
+         +   '<div style="font-size:12px;color:#b0c4d8;margin-bottom:4px">Con el total de esta cotización (' + $(p) + '):</div>'
+         +   '<div style="font-size:13.5px;font-weight:700;color:' + color + '">' + txt + '</div></div>';
+  }
+  const esLabor = (document.getElementById('c-tipo-trabajo') || {}).value === 'labor';
+  if(!esLabor) {
+    html += '<div style="margin-top:10px"><button type="button" class="btn btn-sm" onclick="ccUsarSugerido()">✅ Usar el precio sugerido (' + $0(r.sugerido) + ')</button></div>';
+  }
+  box.innerHTML = html;
+
+  // Info de gastos fijos en ajustes
+  const fi = document.getElementById('cc-fijos-info');
+  if(fi) fi.innerHTML = 'Gastos fijos: ' + $0(F.total) + '/mes' + (F.yaTieneRep ? ' (ya incluye reparaciones)' : ' (incluye fondo de reparaciones)')
+    + ' ÷ ' + F.trabajos + ' trabajos' + (F.sinHistorial ? ' (estimado: aún no hay historial)' : F.auto ? ' (promedio real de los últimos 60 días)' : '') + ' = <strong>' + $(F.porTrabajo) + '</strong> por trabajo.'
+    + (k._galonAuto ? '<br>Galón: ' + $(k.galon) + ' (promedio de tus últimas cargas).' : '');
+}
+
+function ccAplicarTamano() {
+  const t = CC_TAMANOS[(document.getElementById('cc-tamano') || {}).value];
+  if(t) {
+    document.getElementById('cc-veh').value = t.veh;
+    document.getElementById('c-horas').value = t.horas;
+    document.getElementById('cc-ayud').value = t.ayud;
+  }
+  calcTotal();
+}
+
+function ccUsarSugerido() {
+  const r = calcCostoDatos();
+  const totalTxt = (document.getElementById('t-total').textContent || '').replace(/[^0-9.\-]/g, '');
+  const total = parseFloat(totalTxt) || 0;
+  const baseEl = document.getElementById('c-base');
+  const base = parseFloat(baseEl.value) || 0;
+  const nuevaBase = Math.max(0, Math.round(base + (r.sugerido - total)));
+  baseEl.value = nuevaBase;
+  calcTotal();
+}
+
+function ccRestaurar(cc) {
+  const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
+  set('cc-tamano', cc && cc.tamano ? cc.tamano : '');
+  set('cc-veh', cc && cc.veh ? cc.veh : 'ford');
+  set('cc-ayud', cc && cc.ayud != null ? cc.ayud : 1);
+  set('cc-millas-regreso', cc && cc.millasRegreso != null ? cc.millasRegreso : '');
+}
+
+function ccPintarAjustes() {
+  const k = ccCfg();
+  CC_KEYS.forEach(key => {
+    const el = document.getElementById('cc-k-' + key);
+    if(!el) return;
+    if(key === 'trabajosMes') el.value = k.trabajosMes > 0 ? k.trabajosMes : '';
+    else el.value = k[key];
+  });
+}
+function ccGuardarAjustes() {
+  getCfg();
+  const nuevo = {};
+  CC_KEYS.forEach(key => {
+    const el = document.getElementById('cc-k-' + key);
+    if(!el) return;
+    const v = parseFloat(el.value);
+    nuevo[key] = isNaN(v) ? CC_DEF[key] : v;
+  });
+  // Si el galón es igual al promedio automático, se deja en automático
+  if(Math.abs(nuevo.galon - ccGalonReciente()) < 0.005) nuevo.galon = 0;
+  CFG.calcCosto = nuevo;
+  saveCfg();
+  ccPintarAjustes();
+  calcTotal();
+  alert('✅ Ajustes de la calculadora guardados.');
+}
+function ccRestablecerAjustes() {
+  if(!confirm('¿Regresar la calculadora a los valores iniciales?')) return;
+  getCfg(); delete CFG.calcCosto; saveCfg();
+  ccPintarAjustes();
+  calcTotal();
+}
+document.addEventListener('DOMContentLoaded', () => { try { ccPintarAjustes(); calcTotal(); } catch(e) {} });
+setTimeout(() => { try { ccPintarAjustes(); } catch(e) {} }, 800);
+
 // ===================== GOOGLE MAPS - CÁLCULO AUTOMÁTICO DE MILLAS =====================
 let mapsAutocompleteOrigen = null;
 let mapsAutocompleteDest = null;
@@ -6062,6 +6368,26 @@ async function calcularMillasGoogleMaps() {
       }
     } else {
       txtCasa = ' · ⚠️ Configura tu dirección de casa para calcular millas de traslado';
+    }
+
+    // v13.13: regreso destino → casa (para la calculadora de costo)
+    if(casaAddr) {
+      try {
+        const res3 = await new Promise((resolve, reject) => {
+          service.getDistanceMatrix({
+            origins: [destino], destinations: [casaAddr],
+            travelMode: google.maps.TravelMode.DRIVING,
+            unitSystem: google.maps.UnitSystem.IMPERIAL,
+          }, (res, status) => status === 'OK' ? resolve(res) : reject(status));
+        });
+        const elem3 = res3.rows[0].elements[0];
+        if(elem3.status === 'OK') {
+          const millas3 = elem3.distance.value / 1609.344;
+          const rEl = document.getElementById('cc-millas-regreso');
+          if(rEl) rEl.value = millas3.toFixed(1);
+          txtCasa += ` + ${millas3.toFixed(1)} mi de regreso a casa`;
+        }
+      } catch(e) { console.warn('Regreso no calculado:', e); }
     }
 
     calcTotal();
