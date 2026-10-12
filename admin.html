@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.13</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.14</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -226,7 +226,6 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <button class="nav-btn" data-tab="gastos" onclick="showTab('gastos')">💰 Gastos</button>
   <button class="nav-btn" data-tab="vehiculos" onclick="showTab('vehiculos')">🚛 Vehículos</button>
   <button class="nav-btn" data-tab="gigs" onclick="showTab('gigs')">📦 Gigs/Brokers <span id="badge-gigs" style="background:#2F74C0;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
-  <button class="nav-btn" data-tab="cotizacion-rapida" onclick="showTab('cotizacion-rapida')">⚡ Cotización Rápida</button>
   <button class="nav-btn" data-tab="galeria" onclick="showTab('galeria')">📸 Galería</button>
   <button class="nav-btn" data-tab="config" onclick="showTab('config')">⚙️ Configuración</button>
 </nav>
@@ -377,13 +376,13 @@ table.data-table tr:hover td{background:#1A2A42!important}
         <label>Tipo de trabajo (ajusta la tarifa base)</label>
         <select id="c-tipo-trabajo" onchange="aplicarTipoTrabajo()">
           <option value="">— Seleccionar tipo —</option>
-          <option value="90">📦 1-3 piezas / mueble solo — $90</option>
-          <option value="120">🧊 Refrigerador / artículo pesado — $120</option>
-          <option value="160">🏠 Estudio / cuarto solo — $160</option>
-          <option value="220">🛏️ 1 Recámara — $220</option>
-          <option value="320">🛏️🛏️ 2 Recámaras — $320</option>
-          <option value="420">🏡 3 Recámaras — $420</option>
-          <option value="550">🏘️ 4+ Recámaras / casa grande — $550</option>
+          <option value="90" data-tam="piezas">📦 1-3 piezas / mueble solo — $90</option>
+          <option value="120" data-tam="piezas">🧊 Refrigerador / artículo pesado — $120</option>
+          <option value="160" data-tam="estudio">🏠 Estudio / cuarto solo — $160</option>
+          <option value="220" data-tam="r1">🛏️ 1 Recámara — $220</option>
+          <option value="320" data-tam="r2">🛏️🛏️ 2 Recámaras — $320</option>
+          <option value="420" data-tam="r3">🏡 3 Recámaras — $420</option>
+          <option value="550" data-tam="r4">🏘️ 4+ Recámaras / casa grande — $550</option>
           <option value="labor">🏋️ Labor Only — cobro POR HORA (sin camión)</option>
           <option value="0">✏️ Precio libre (escribir manualmente)</option>
         </select>
@@ -480,8 +479,19 @@ table.data-table tr:hover td{background:#1A2A42!important}
     </div>
     <div class="form-row three">
       <div><label>Millas destino → mi casa (regreso)</label><input id="cc-millas-regreso" type="number" min="0" step="0.5" placeholder="Se calcula con Maps" oninput="calcTotal()"></div>
-      <div class="cc-span2" style="font-size:11.5px">Usa las horas estimadas y las millas de arriba. El bono de escaleras/pesado se suma solo si marcas Escaleras o Piano.</div>
+      <div><label>Número de viajes</label><input id="cc-viajes" type="number" value="1" min="1" step="1" oninput="calcTotal()"></div>
+      <div><label>Segundo vehículo</label>
+        <select id="cc-veh2" onchange="calcTotal()">
+          <option value="">— Ninguno —</option>
+          <option value="tacoma">Tacoma 2002</option>
+          <option value="ford">Ford E450 (caja 14 ft)</option>
+          <option value="uhaul15">U-Haul 15 ft (renta)</option>
+          <option value="uhaul20">U-Haul 20 ft (renta)</option>
+          <option value="uhaul26">U-Haul 26 ft (renta)</option>
+        </select>
+      </div>
     </div>
+    <div style="font-size:11.5px;color:#b0c4d8;margin:-4px 0 10px">Usa las horas estimadas (por viaje) y las millas de arriba. Con 2 o más viajes se multiplican las horas y el tramo origen → destino (ida cargado y regreso vacío). El bono de escaleras/pesado se suma solo si marcas Escaleras o Piano.</div>
     <div id="cc-vehiculo-hint" style="font-size:12px;margin-bottom:8px"></div>
     <div id="cc-result"></div>
 
@@ -536,7 +546,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
     </div></div>
     <div class="form-row full"><div>
       <label>Términos y condiciones (se incluyen en la cotización)</label>
-      <textarea id="c-terminos" style="min-height:90px">1. El pago completo debe realizarse ANTES de iniciar la descarga en destino. 2. Mudanzas Express LA no se responsabiliza por artículos frágiles no declarados ni empacados por el cliente. 3. Cancelación con menos de 24 horas de anticipación: se cobra depósito del 20% del total. 4. Todos los pagos por Zelle generan confirmación automática que sirve como comprobante de pago. 5. Cualquier reclamo por daños debe notificarse el mismo día del servicio antes de que nos retiremos. 6. El cliente declara conocer y aceptar estas condiciones al contratar el servicio.</textarea>
+      <textarea id="c-terminos" style="min-height:90px">1. El pago completo debe realizarse ANTES de iniciar la descarga en destino. 2. Mudanzas Express LA no se responsabiliza por artículos frágiles no declarados ni empacados por el cliente. 3. Cancelación con menos de 24 horas de anticipación: se cobra depósito del 20% del total. 4. Todos los pagos por Zelle generan confirmación automática que sirve como comprobante de pago. 5. Cualquier reclamo por daños debe notificarse el mismo día del servicio antes de que nos retiremos. 6. Cargo por espera: después de 15 minutos de espera (cliente que no llega, llaves, elevador o acceso no listo) se cobran $40 por cada 30 minutos. 7. Viaje adicional fuera del área de Los Ángeles: si las pertenencias no caben en un solo viaje, cada viaje adicional tiene un cargo de $250. 8. El cliente declara conocer y aceptar estas condiciones al contratar el servicio.</textarea>
     </div></div>
   </div>
 
@@ -684,7 +694,16 @@ table.data-table tr:hover td{background:#1A2A42!important}
         <div><label>Galones</label><input type="number" id="g-galones" placeholder="22" step="0.1" oninput="calcGas()"></div>
         <div><label>Estación de gasolina</label><input type="text" id="g-estacion" placeholder="Shell, Arco, Chevron..."></div>
       </div>
-      <div class="form-row">
+      <div class="form-row three">
+        <div><label>🚗 Vehículo *</label>
+          <select id="g-vehiculo">
+            <option value="">— Elegir —</option>
+            <option value="tacoma">🛻 Tacoma</option>
+            <option value="ford">🚚 Ford E450</option>
+            <option value="uhaul">🚛 U-Haul (renta)</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
         <div><label>Trabajos aproximados con este tanque lleno</label><input type="number" id="g-trabajos" value="4" min="1" max="30" oninput="calcGas()"></div>
         <div><label>Notas</label><input type="text" id="g-notas" placeholder="Notas opcionales..."></div>
       </div>
@@ -709,6 +728,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
             <option>Herramientas y equipo</option>
             <option>Marketing y publicidad</option>
             <option>Teléfono / internet</option>
+            <option>Software y apps</option>
             <option>Renta / almacén</option>
             <option>Impuestos</option>
             <option>Comida y bebidas (en trabajos)</option>
@@ -1438,7 +1458,6 @@ function showTab(t) {
   if(t==='vehiculos') { renderVehiculos(); poblarSelectoresVehiculo(); }
   if(t==='gigs') { renderGigs(); poblarSelectoresVehiculo(); }
   if(t==='galeria') renderGaleria();
-  if(t==='cotizacion-rapida') { qrInit(); }
   if(t==='nueva-cot') { setTimeout(() => { if(typeof google !== 'undefined') initMapsAutocomplete(); }, 300); }
 }
 
@@ -1618,6 +1637,11 @@ function aplicarTipoTrabajo() {
   if(sel.value && val > 0) {
     document.getElementById('c-base').value = val;
   }
+  // v13.14: el tipo de trabajo también acomoda la calculadora (tamaño, vehículo y horas)
+  const opt = sel.options[sel.selectedIndex];
+  const tam = opt && opt.dataset ? opt.dataset.tam : '';
+  const ccT = document.getElementById('cc-tamano');
+  if(tam && ccT) { ccT.value = tam; ccAplicarTamano(); return; }
   calcTotal();
 }
 
@@ -1701,7 +1725,7 @@ function limpiarForm(silencioso) {
   const canalEl = document.getElementById('c-canal'); if(canalEl) canalEl.value = '';
   const canalNEl = document.getElementById('c-canal-nombre'); if(canalNEl) canalNEl.value = '';
   const canalWrap = document.getElementById('c-canal-nombre-wrap'); if(canalWrap) canalWrap.style.display = 'none';
-  document.getElementById('c-terminos').value = '';
+  document.getElementById('c-terminos').value = TERMINOS_DEF;
   ['s-escaleras','s-ayudante','s-armar','s-embalaje','s-piano','s-storage'].forEach(id => { document.getElementById(id).checked = false; });
   document.getElementById('p-escaleras').value = 20;
   document.getElementById('p-ayudante').value = 40;
@@ -2085,13 +2109,13 @@ function renderCots() {
   lista = filtrarPorBusqueda(lista, 'buscar-cotizaciones');
   const el = document.getElementById('lista-cotizaciones');
   if(!lista.length) { el.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>No hay cotizaciones pendientes</p></div>'; return; }
-  el.innerHTML = lista.reverse().map(c => `
+  el.innerHTML = cotsViejasBanner() + lista.reverse().map(c => `
     <div class="list-item">
       <div class="list-item-header">
         <div>
           <div class="list-item-title">${c.id} — ${c.cliente.nombre}</div>
           <div class="list-item-detail">📍 ${c.origen||'—'} → ${c.destino||'—'}</div>
-          <div class="list-item-detail">📅 ${new Date(c.fecha).toLocaleDateString('es-US')} &nbsp;|&nbsp; 📱 ${c.cliente.tel}</div>
+          <div class="list-item-detail">📅 ${new Date(c.fecha).toLocaleDateString('es-US')} &nbsp;|&nbsp; 📱 ${c.cliente.tel}${diasCot(c) > 30 ? ' &nbsp;<span style="color:#EF9F27;font-weight:700">⏳ ' + diasCot(c) + ' días</span>' : ''}</div>
           ${c.cliente.fechaPref?'<div class="list-item-detail">📆 Fecha preferida: '+c.cliente.fechaPref+'</div>':''}
           ${c.canal?'<div class="list-item-detail"><span style="background:#0d1e2d;color:#7ab8d8;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700">'+canalLabel(c.canal)+(c.canalNombre?' · '+c.canalNombre:'')+'</span></div>':''}
         </div>
@@ -2494,6 +2518,7 @@ function renderCancelados() {
           <div class="list-item-detail">📱 ${c.cliente?c.cliente.tel:'—'}</div>
           <div class="list-item-detail">💰 Total que hubiera sido: $${(c.total||0).toFixed(2)}</div>
           ${c.motivoCancelacion?'<div class="list-item-detail" style="color:#E24B4A">📝 Motivo: '+c.motivoCancelacion+'</div>':''}
+          ${c.pagoAyudanteCancelado?'<div class="list-item-detail" style="color:#EF9F27">👷 Pago al ayudante: '+c.pagoAyudanteCancelado.nombre+' $'+Number(c.pagoAyudanteCancelado.monto).toFixed(2)+' (sí cuenta como gasto)</div>':''}
           ${totalFotos>0?'<div class="list-item-detail">📸 '+totalFotos+' foto(s) archivada(s)</div>':''}
           ${c.articulosDetalle && c.articulosDetalle.length ? '<div class="list-item-detail">📦 '+c.articulosDetalle.map(a=>(a.cantidad||1)+'x '+a.articulo).join(', ')+'</div>' : ''}
         </div>
@@ -2578,11 +2603,11 @@ function renderGastos() {
     const tot = gas.reduce((a,g)=>a+(g.monto||0),0);
     gasEl.innerHTML = gas.length ? `
       <div class="card">
-        <div style="font-weight:700;color:#1D9E75;margin-bottom:10px">Total gasolina registrada: $${tot.toFixed(2)}</div>
+        <div style="font-weight:700;color:#1D9E75;margin-bottom:10px">Total gasolina registrada: $${tot.toFixed(2)}</div>${gasResumenVehHTML(gas)}
         <table class="data-table">
-          <thead><tr><th>Fecha</th><th>Estación</th><th>Monto</th><th>Galones</th><th>$/Gal</th><th>Trabajos</th><th>$/Trabajo</th><th></th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Vehículo</th><th>Estación</th><th>Monto</th><th>Galones</th><th>$/Gal</th><th>Trabajos</th><th>$/Trabajo</th><th></th></tr></thead>
           <tbody>${gas.slice().reverse().map((g,i)=>`<tr>
-            <td>${g.fecha}</td><td>${g.estacion||'—'}</td><td><strong>$${g.monto.toFixed(2)}</strong></td>
+            <td>${g.fecha}</td><td>${gasSelectVeh(i, g.vehiculo)}</td><td>${g.estacion||'—'}</td><td><strong>$${g.monto.toFixed(2)}</strong></td>
             <td>${g.galones||'—'}</td><td>${g.galones?'$'+(g.monto/g.galones).toFixed(2):'—'}</td>
             <td>${g.trabajos}</td><td>$${(g.monto/g.trabajos).toFixed(2)}</td>
             <td style="white-space:nowrap"><button class="btn btn-sm" title="Corregir" onclick="editarGas(${i})">✏️</button> <button class="btn btn-sm" title="Borrar" onclick="eliminarGas(${i})">🗑️</button></td>
@@ -3609,6 +3634,7 @@ function renderResumen() {
     <div class="card">
       <div class="card-title">Desglose de gastos operativos</div>
       ${barraGasto('⛽ Gasolina', gasGas, totalGastos, '#EF9F27')}
+      ${gasResumenVehHTML(d.gas||[])}
       ${barraGasto('💸 Gastos generales', gasGen, totalGastos, '#2F74C0')}
       ${barraGasto('👷 Ayudantes', gasAy, totalGastos, '#E24B4A')}
       ${barraGasto('🚚 Renta de camión', gasRenta, totalGastos, '#9333EA')}
@@ -3677,6 +3703,8 @@ function renderDash() {
   let recs = [];
   if(terminados.length===0) recs.push('📢 Aún no tienes trabajos terminados. Comparte tu negocio: <a href="https://www.facebook.com/profile.php?id=61573668335964" target="_blank" style="color:#1D9E75">Mudanzas Express LA en Facebook</a>');
   if(ingresosTotal>0 && gasGas>ingresosTotal*0.3) recs.push('⛽ El gasto en gasolina es alto ('+Math.round(gasGas/ingresosTotal*100)+'% de ingresos). Considera combinar trabajos cercanos en el mismo día.');
+  const _viejas = cotsViejas(d);
+  if(_viejas.length) recs.push('⏳ Tienes ' + _viejas.length + ' cotización(es) con más de 30 días sin agendar. <a href="#" onclick="showTab(\'cotizaciones\');return false" style="color:#1D9E75">Revisarlas o cancelarlas</a>');
   if(cotPend.length>2) recs.push('📋 Tienes '+cotPend.length+' cotizaciones sin convertir. Da seguimiento por WhatsApp para no perder esos clientes.');
   if(utilidad>0 && terminados.length>0) recs.push('💚 ¡Excelente! Tu utilidad neta es $'+utilidad.toFixed(2)+' en '+terminados.length+' trabajo(s). Promedio por trabajo: $'+(utilidad/terminados.length).toFixed(2));
   if(terminados.length>0 && ingresos/terminados.length < 200) recs.push('💡 Tu ingreso promedio por trabajo es $'+(ingresos/terminados.length).toFixed(2)+'. Considera ajustar tarifas o agregar más servicios extras.');
@@ -4237,7 +4265,10 @@ function moverACancelados(id, motivo) {
 function cancelarCot(id) {
   if(!confirm('¿Cancelar esta cotización? Se archivará en "Cancelados" con todo el detalle y no contará en ningún total.')) return;
   const motivo = prompt('Motivo de la cancelación (opcional):') || '';
+  const _c = (getData().cots||[]).find(x => x.id === id);
+  const pAy = (_c && _c.estatus !== 'cotizacion') ? preguntarPagoAyCancelado(id) : null;
   moverACancelados(id, motivo);
+  registrarPagoAyCancelado(id, pAy);
   renderCots();
   renderAgenda();
   updateBadges();
@@ -4247,7 +4278,9 @@ function cancelarCot(id) {
 function cancelarTrabajo(id) {
   if(!confirm('¿Cancelar este trabajo en proceso? Se archivará en "Cancelados" con todo el detalle y no contará en ningún total.')) return;
   const motivo = prompt('Motivo de la cancelación (opcional):') || '';
+  const pAy = preguntarPagoAyCancelado(id);
   moverACancelados(id, motivo);
+  registrarPagoAyCancelado(id, pAy);
   renderTrabajos();
   updateBadges();
   alert('✅ Cancelado y archivado en la pestaña Cancelados.');
@@ -4306,7 +4339,9 @@ function verificarPin() {
   if(pin === cfg.pin) {
     cerrar('m-pin');
     const motivo = prompt('Motivo de la cancelación (opcional):') || '';
+    const pAy = preguntarPagoAyCancelado(currentId);
     moverACancelados(currentId, motivo);
+    registrarPagoAyCancelado(currentId, pAy);
     alert('✅ Trabajo cancelado y archivado en la pestaña Cancelados.');
     renderTerminados();
     updateBadges();
@@ -4352,8 +4387,10 @@ function guardarGas() {
   const monto = parseFloat(document.getElementById('g-monto').value);
   if(!fecha || !monto) { alert('Ingresa fecha y monto'); return; }
   const d = getData();
+  const vehiculo = (document.getElementById('g-vehiculo')||{}).value || '';
+  if(!vehiculo) { alert('⚠️ Elige el vehículo (Tacoma, Ford...)'); return; }
   if(!d.gas) d.gas=[];
-  d.gas.push({ fecha, monto, galones: parseFloat(document.getElementById('g-galones').value)||0, estacion: document.getElementById('g-estacion').value, trabajos: parseInt(document.getElementById('g-trabajos').value)||4, notas: document.getElementById('g-notas').value });
+  d.gas.push({ fecha, monto, vehiculo, galones: parseFloat(document.getElementById('g-galones').value)||0, estacion: document.getElementById('g-estacion').value, trabajos: parseInt(document.getElementById('g-trabajos').value)||4, notas: document.getElementById('g-notas').value });
   saveData(d);
   alert('✅ Gasto de gasolina guardado');
   renderGastos();
@@ -4526,6 +4563,124 @@ function eliminarCapital(idx) {
   renderCapital();
 }
 
+// ===================== v13.14: GASOLINA POR VEHÍCULO =====================
+const GAS_VEH = { tacoma:'🛻 Tacoma', ford:'🚚 Ford E450', uhaul:'🚛 U-Haul', otro:'Otro' };
+const GAS_VEH_TXT = { tacoma:'Tacoma', ford:'Ford E450', uhaul:'U-Haul', otro:'Otro' };
+function gasVehTexto(v) { return GAS_VEH_TXT[v] || 'Sin asignar'; }
+function gasPorVehiculo(gas) {
+  const r = {};
+  (gas||[]).forEach(g => {
+    const k = g.vehiculo || 'sin';
+    if(!r[k]) r[k] = { monto:0, galones:0, cargas:0 };
+    r[k].monto += g.monto||0; r[k].galones += g.galones||0; r[k].cargas++;
+  });
+  return r;
+}
+function gasResumenVehHTML(gas) {
+  const r = gasPorVehiculo(gas);
+  const keys = Object.keys(r);
+  if(!keys.length) return '';
+  const mes = claveMes(new Date());
+  const rMes = gasPorVehiculo((gas||[]).filter(g => claveMes(g.fecha) === mes));
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:0 0 12px">'
+    + keys.map(k => {
+        const v = r[k], vm = rMes[k];
+        return '<div style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px">'
+          + '<div style="font-size:12px;font-weight:700;color:' + (k === 'sin' ? '#EF9F27' : '#7ab8d8') + '">' + (GAS_VEH[k] || '❓ Sin asignar') + '</div>'
+          + '<div style="font-size:18px;font-weight:800;color:#1D9E75">$' + v.monto.toFixed(2) + '</div>'
+          + '<div style="font-size:11px;color:#b0c4d8">' + v.cargas + ' carga(s)' + (v.galones ? ' · $' + (v.monto / v.galones).toFixed(2) + '/gal' : '') + '</div>'
+          + '<div style="font-size:11px;color:#b0c4d8">Este mes: $' + (vm ? vm.monto.toFixed(2) : '0.00') + '</div></div>';
+      }).join('') + '</div>'
+    + (r.sin ? '<div style="font-size:11.5px;color:#EF9F27;margin-bottom:10px">⚠️ Hay cargas sin vehículo: elígelo en la columna "Vehículo" de la tabla.</div>' : '');
+}
+function gasSelectVeh(idx, actual) {
+  return '<select onchange="cambiarVehGas(' + idx + ', this.value)" style="padding:4px 6px;font-size:12px;border-radius:6px;max-width:130px">'
+    + '<option value="">❓ Sin asignar</option>'
+    + Object.keys(GAS_VEH).map(k => '<option value="' + k + '"' + (k === actual ? ' selected' : '') + '>' + GAS_VEH[k] + '</option>').join('')
+    + '</select>';
+}
+function cambiarVehGas(idx, v) {
+  const d = getData();
+  const g = (d.gas||[]).slice().reverse()[idx];
+  if(!g) return;
+  g.vehiculo = v;
+  saveData(d);
+  try { renderGastos(); } catch(e) {}
+  try { calcTotal(); } catch(e) {}
+}
+
+// ===================== v13.14: TÉRMINOS Y TRADUCCIÓN AL INGLÉS =====================
+const TERMINOS_DEF = "1. El pago completo debe realizarse ANTES de iniciar la descarga en destino. 2. Mudanzas Express LA no se responsabiliza por artículos frágiles no declarados ni empacados por el cliente. 3. Cancelación con menos de 24 horas de anticipación: se cobra depósito del 20% del total. 4. Todos los pagos por Zelle generan confirmación automática que sirve como comprobante de pago. 5. Cualquier reclamo por daños debe notificarse el mismo día del servicio antes de que nos retiremos. 6. Cargo por espera: después de 15 minutos de espera (cliente que no llega, llaves, elevador o acceso no listo) se cobran $40 por cada 30 minutos. 7. Viaje adicional fuera del área de Los Ángeles: si las pertenencias no caben en un solo viaje, cada viaje adicional tiene un cargo de $250. 8. El cliente declara conocer y aceptar estas condiciones al contratar el servicio.";
+const TERMINOS_EN_MAP = {};
+TERMINOS_EN_MAP[TERMINOS_DEF] = "1. Full payment must be made BEFORE unloading begins at the destination. 2. Mudanzas Express LA is not responsible for fragile items that were not declared or that were packed by the customer. 3. Cancellations with less than 24 hours' notice are charged a fee of 20% of the total. 4. All Zelle payments generate an automatic confirmation that serves as proof of payment. 5. Any damage claim must be reported on the day of service, before our crew leaves. 6. Waiting fee: after 15 minutes of waiting (customer not present, keys, elevator or access not ready), $40 is charged for every 30 minutes. 7. Additional trip outside the Los Angeles area: if the belongings do not fit in a single trip, each additional trip has a $250 fee. 8. The customer acknowledges and accepts these terms by hiring the service.";
+TERMINOS_EN_MAP["1. El pago completo debe realizarse ANTES de iniciar la descarga en destino. 2. Mudanzas Express LA no se responsabiliza por artículos frágiles no declarados ni empacados por el cliente. 3. Cancelación con menos de 24 horas de anticipación: se cobra depósito del 20% del total. 4. Todos los pagos por Zelle generan confirmación automática que sirve como comprobante de pago. 5. Cualquier reclamo por daños debe notificarse el mismo día del servicio antes de que nos retiremos. 6. El cliente declara conocer y aceptar estas condiciones al contratar el servicio."] = "1. Full payment must be made BEFORE unloading begins at the destination. 2. Mudanzas Express LA is not responsible for fragile items that were not declared or that were packed by the customer. 3. Cancellations with less than 24 hours' notice are charged a fee of 20% of the total. 4. All Zelle payments generate an automatic confirmation that serves as proof of payment. 5. Any damage claim must be reported on the day of service, before our crew leaves. 6. The customer acknowledges and accepts these terms by hiring the service.";
+function terminosEN(t) { return TERMINOS_EN_MAP[String(t||'').trim()] || ''; }
+function arreglarIngles(t) {
+  return String(t||'')
+    .replace(/\bthe download\b/gi, 'unloading')
+    .replace(/\bdownload(ing|s)?\b/gi, 'unloading')
+    .replace(/\bdeposits\b/gi, 'fees').replace(/\bdeposit\b/gi, 'fee')
+    .replace(/\bHe\b/g, 'The customer').replace(/\bhe\b/g, 'the customer');
+}
+function pagoEN(p) {
+  if(!p) return p;
+  return String(p).replace(/Tarjeta de crédito\/débito/g, 'Credit/debit card').replace(/Tarjeta/g, 'Card')
+    .replace(/Efectivo/g, 'Cash').replace(/Cheque/g, 'Check').replace(/ o /g, ' or ');
+}
+function fechaUS(f) {
+  if(!f) return f;
+  let m = String(f).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return m[2] + '/' + m[3] + '/' + m[1];
+  m = String(f).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); // formato viejo día/mes/año
+  if(m) return String(m[2]).padStart(2,'0') + '/' + String(m[1]).padStart(2,'0') + '/' + m[3];
+  return f;
+}
+
+// ===================== v13.14: COTIZACIONES VIEJAS Y CANCELACIONES =====================
+function diasCot(c) { const f = new Date(c.fecha); return isNaN(f) ? 0 : Math.floor((Date.now() - f.getTime()) / 86400000); }
+function cotsViejas(d) { return ((d || getData()).cots || []).filter(c => c.estatus === 'cotizacion' && diasCot(c) > 30); }
+function cotsViejasBanner() {
+  const v = cotsViejas();
+  if(!v.length) return '';
+  return '<div class="notice notice-amber" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<span>⏳ <strong>' + v.length + ' cotización(es)</strong> llevan más de 30 días sin agendarse.</span>'
+    + '<button class="btn btn-danger btn-sm" onclick="cancelarCotsViejas()">🗑️ Cancelar las ' + v.length + '</button></div>';
+}
+function cancelarCotsViejas() {
+  const v = cotsViejas();
+  if(!v.length) return;
+  const lista = v.map(c => '• ' + c.id + ' — ' + (c.cliente ? c.cliente.nombre : '') + ' (' + diasCot(c) + ' días)').join('\n');
+  if(!confirm('Se van a cancelar estas ' + v.length + ' cotizaciones:\n\n' + lista + '\n\nQuedan guardadas en 🗑️ Cancelados con el motivo "Sin respuesta +30 días". ¿Continuar?')) return;
+  v.forEach(c => moverACancelados(c.id, 'Sin respuesta +30 días'));
+  renderCots(); updateBadges();
+  try { renderDash(); } catch(e) {}
+  alert('✅ ' + v.length + ' cotización(es) movidas a Cancelados.');
+}
+function preguntarPagoAyCancelado(id) {
+  const d = getData();
+  const c = (d.cots || []).find(x => x.id === id);
+  if(!c) return null;
+  const previo = (c.pagoAyudante || 0) + (d.ay || []).filter(a => !a.esAutoComprobante && (a.trabajo || '').trim() === id).reduce((s, a) => s + (parseFloat(a.monto) || 0), 0);
+  if(!confirm('👷 ¿Se le pagó (o se le va a pagar) algo al ayudante por este trabajo?' + (previo > 0 ? '\n\nYa tenías registrado $' + previo.toFixed(2) + '.' : '') + '\n\nAceptar = Sí · Cancelar = No')) return null;
+  const nombre = prompt('Nombre del ayudante:', c.nombreAyudante || localStorage.getItem('campo_ayudante_nombre') || '');
+  if(!nombre || !nombre.trim()) return null;
+  const m = prompt('¿Cuánto se le pagó? ($)', previo > 0 ? previo.toFixed(2) : '');
+  const monto = parseFloat(String(m || '').replace(/[^0-9.]/g, '')) || 0;
+  if(monto <= 0) return null;
+  return { nombre: nombre.trim(), monto: Math.round(monto * 100) / 100 };
+}
+function registrarPagoAyCancelado(id, info) {
+  if(!info) return;
+  const d = getData();
+  if(!d.ay) d.ay = [];
+  d.ay.push({ nombre: info.nombre, monto: info.monto, fecha: hoyLocal(), horas: 0, tarifaHr: getCfg().tarifaAyudanteHr || 22.50,
+    bono: 0, propina: 0, bonoNota: 'Trabajo cancelado', tipo: 'Trabajo cancelado', trabajo: id + ' (cancelado)',
+    notas: 'Pago al ayudante de un trabajo cancelado', formaPago: '', pagadoEnSemana: false });
+  const k = (d.cancelados || []).slice().reverse().find(x => x.id === id);
+  if(k) k.pagoAyudanteCancelado = info;
+  saveData(d);
+}
+
 // ===================== PDF COTIZACIÓN =====================
 function convertirHora12(hora24) {
   if(!hora24) return '';
@@ -4644,7 +4799,7 @@ async function prepararIngles(id) {
   const c = (d.cots||[]).find(x => x.id === id);
   if(!c) return;
   const campos = {
-    notas: c.notas, terminos: c.terminos, obsFinales: c.obsFinales,
+    notas: c.notas, terminos: terminosEN(c.terminos) ? '' : c.terminos, obsFinales: c.obsFinales,
     articulos: (typeof c.articulos === 'string') ? c.articulos : '',
     notasInventario: c.notasInventario, inventario: c.inventario,
     descCargo: (c.servicios && c.servicios.cargo) ? c.servicios.descCargo : ''
@@ -4670,16 +4825,22 @@ async function prepararIngles(id) {
 }
 function versionIngles(c) {
   const e = c.en || {};
-  const g = (k, orig) => { const t = String(orig||'').trim(); return (t && e[k] && e[k].src === t) ? e[k].en : orig; };
+  const g = (k, orig) => { const t = String(orig||'').trim(); return (t && e[k] && e[k].src === t) ? arreglarIngles(e[k].en) : orig; };
   const x = Object.assign({}, c);
   x.notas = g('notas', c.notas);
-  x.terminos = g('terminos', c.terminos);
+  x.terminos = terminosEN(c.terminos) || g('terminos', c.terminos);
   x.obsFinales = g('obsFinales', c.obsFinales);
   if(typeof c.articulos === 'string') x.articulos = g('articulos', c.articulos);
   x.notasInventario = g('notasInventario', c.notasInventario);
   x.inventario = g('inventario', c.inventario);
   if(c.servicios) x.servicios = Object.assign({}, c.servicios, { descCargo: g('descCargo', c.servicios.descCargo) });
   x.articulosDetalle = (c.articulosDetalle||[]).map((a, i) => Object.assign({}, a, { articulo: g('art_' + i, a.articulo) }));
+  // v13.14: forma de pago y fechas en formato de EE. UU.
+  x.pago = pagoEN(c.pago);
+  x.pagoFinal = pagoEN(c.pagoFinal);
+  x.cliente = Object.assign({}, c.cliente || {}, { fechaPref: fechaUS((c.cliente||{}).fechaPref) });
+  x.fechaAgendada = fechaUS(c.fechaAgendada);
+  x.fechaTerminado = fechaUS(c.fechaTerminadoISO || c.fechaTerminado);
   return x;
 }
 
@@ -4775,7 +4936,7 @@ function generarPDF(id, idioma) {
   doc.setTextColor(NAVY[0],NAVY[1],NAVY[2]); doc.setFont('helvetica','bold'); doc.setFontSize(10.5);
   doc.text(L.cotizacion + ' ' + c.id, 170, 16.5, {align:'center'});
   doc.setFont('helvetica','normal'); doc.setFontSize(7.8); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
-  doc.text(L.fecha + ': ' + new Date(c.fecha).toLocaleDateString('es-US'), 170, 22.5, {align:'center'});
+  doc.text(L.fecha + ': ' + new Date(c.fecha).toLocaleDateString(idioma==='en' ? 'en-US' : 'es-US'), 170, 22.5, {align:'center'});
   y = 46;
 
   // ── BANDA DE DATOS: CLIENTE | TELÉFONO | ORIGEN | DESTINO ──
@@ -5620,12 +5781,13 @@ function exportarExcel(tipo) {
   }
 
   if(tipo === 'completo' || tipo === 'gastos') {
-    const hg = ['Fecha','Estación','Monto $','Galones','$/Galón','Trabajos por tanque','Costo por trabajo'];
-    const rg = (d.gas||[]).map(g=>[g.fecha,g.estacion||'',g.monto,g.galones||0,g.galones?+(g.monto/g.galones).toFixed(3):0,g.trabajos,+(g.monto/g.trabajos).toFixed(2)]);
+    const hg = ['Fecha','Vehículo','Estación','Monto $','Galones','$/Galón','Trabajos por tanque','Costo por trabajo'];
+    const rg = (d.gas||[]).map(g=>[g.fecha,gasVehTexto(g.vehiculo),g.estacion||'',g.monto,g.galones||0,g.galones?+(g.monto/g.galones).toFixed(3):0,g.trabajos,+(g.monto/g.trabajos).toFixed(2)]);
     const totG = (d.gas||[]).reduce((a,g)=>a+(g.monto||0),0);
-    rg.push(['','','TOTAL: $'+totG.toFixed(2),'','','','']);
+    rg.push(['','','','TOTAL: $'+totG.toFixed(2),'','','','']);
+    Object.entries(gasPorVehiculo(d.gas||[])).forEach(([k,v]) => rg.push(['', gasVehTexto(k), 'Subtotal', +v.monto.toFixed(2), +v.galones.toFixed(1), v.galones ? +(v.monto/v.galones).toFixed(3) : '', v.cargas + ' carga(s)', '']));
     const wsg = XLSX.utils.aoa_to_sheet([hg,...rg]);
-    wsg['!cols']=[{wch:12},{wch:16},{wch:10},{wch:9},{wch:9},{wch:20},{wch:16}];
+    wsg['!cols']=[{wch:12},{wch:14},{wch:16},{wch:10},{wch:9},{wch:9},{wch:20},{wch:16}];
     XLSX.utils.book_append_sheet(wb, wsg, 'Gasolina');
 
     const hgg = ['Fecha','Categoría','Descripción','Monto $','Recibo'];
@@ -6083,14 +6245,19 @@ const CC_DEF = { galon:0, mpgTacoma:16, mpgFord:8.5, mpgUhaul:10, renta15:80, re
                  ayudanteHr:22, bonoDificil:15, miPagoHr:40, margen:15, fondoRep:300, trabajosMes:0 };
 const CC_KEYS = Object.keys(CC_DEF);
 
-function ccGalonReciente() {
-  // Promedio de las últimas 3 cargas de gasolina que tienen galones
-  const g = (getData().gas || []).filter(x => (x.galones||0) > 0 && (x.monto||0) > 0)
-    .sort((a,b) => String(b.fecha).localeCompare(String(a.fecha))).slice(0,3);
+function ccGalonReciente(veh) {
+  // Promedio de las últimas 3 cargas (del vehículo, si se indica) que tienen galones
+  const todas = (getData().gas || []).filter(x => (x.galones||0) > 0 && (x.monto||0) > 0)
+    .sort((a,b) => String(b.fecha).localeCompare(String(a.fecha)));
+  let g = veh ? todas.filter(x => x.vehiculo === veh) : todas;
+  if(!g.length) g = todas;
+  g = g.slice(0,3);
   if(!g.length) return 6.10;
   const p = g.reduce((a,x) => a + x.monto / x.galones, 0) / g.length;
   return Math.round(p * 100) / 100;
 }
+function ccVehGas(vehKey) { return vehKey === 'tacoma' ? 'tacoma' : vehKey === 'ford' ? 'ford' : String(vehKey||'').indexOf('uhaul') === 0 ? 'uhaul' : ''; }
+function ccGalonDe(k, vehKey) { return k._galonAuto ? ccGalonReciente(ccVehGas(vehKey)) : k.galon; }
 function ccCfg() {
   const k = Object.assign({}, CC_DEF, getCfg().calcCosto || {});
   if(!(k.galon > 0)) { k.galon = ccGalonReciente(); k._galonAuto = true; }
@@ -6125,9 +6292,15 @@ function ccNum(id) { const el = document.getElementById(id); return el ? (parseF
 
 function calcCostoDatos() {
   const k = ccCfg();
+  const VS = ccVehiculos(k);
   const vehKey = (document.getElementById('cc-veh') || {}).value || 'ford';
-  const V = ccVehiculos(k)[vehKey] || ccVehiculos(k).ford;
-  const horas = ccNum('c-horas');
+  const V = VS[vehKey] || VS.ford;
+  const veh2Key = (document.getElementById('cc-veh2') || {}).value || '';
+  const V2 = veh2Key ? VS[veh2Key] : null;
+  const viajesEl = document.getElementById('cc-viajes');
+  const viajes = Math.max(1, parseInt(viajesEl && viajesEl.value) || 1);
+  const horasViaje = ccNum('c-horas');
+  const horas = horasViaje * viajes;
   const ayudEl = document.getElementById('cc-ayud');
   const ayud = ayudEl && ayudEl.value !== '' ? Math.max(0, parseInt(ayudEl.value) || 0) : 1;
   const dificil = !!(document.getElementById('s-escaleras') || {}).checked || !!(document.getElementById('s-piano') || {}).checked;
@@ -6135,24 +6308,33 @@ function calcCostoDatos() {
   const regEl = document.getElementById('cc-millas-regreso');
   const regresoEstimado = !(regEl && regEl.value !== '');
   const mDC = regresoEstimado ? mCO : ccNum('cc-millas-regreso');
-  const millas = mCO + mOD + mDC;
-  const galones = V.mpg > 0 ? millas / V.mpg : 0;
-  const gasolina = galones * k.galon;
-  const ayudante = ayud * horas * k.ayudanteHr + (dificil ? ayud * k.bonoDificil : 0);
+  // Con varios viajes: origen→destino se recorre (2 × viajes − 1) veces (ida cargado, regreso vacío, ida...)
+  const millas = mCO + mOD * (2 * viajes - 1) + mDC;
+  const galon = ccGalonDe(k, vehKey);
+  const gasolina = V.mpg > 0 ? millas / V.mpg * galon : 0;
   const renta = V.renta || 0;
+  let galon2 = 0, gasolina2 = 0, renta2 = 0;
+  if(V2) {
+    galon2 = ccGalonDe(k, veh2Key);
+    gasolina2 = V2.mpg > 0 ? millas / V2.mpg * galon2 : 0;
+    renta2 = V2.renta || 0;
+  }
+  const ayudante = ayud * horas * k.ayudanteHr + (dificil ? ayud * k.bonoDificil : 0);
   const F = ccFijosMes(k);
   const fijos = F.porTrabajo;
-  const puroGasto = ayudante + gasolina + renta + fijos;
+  const puroGasto = ayudante + gasolina + gasolina2 + renta + renta2 + fijos;
   const tuPago = horas * k.miPagoHr;
   const minimo = puroGasto + tuPago;
   const m = Math.min(80, Math.max(0, k.margen)) / 100;
   const sugerido = Math.ceil((minimo / (1 - m)) / 5) * 5;
   return {
     tamano: (document.getElementById('cc-tamano') || {}).value || '',
-    veh: vehKey, vehLabel: V.label, ayud, horas, dificil,
+    veh: vehKey, vehLabel: V.label, veh2: veh2Key, veh2Label: V2 ? V2.label : '',
+    ayud, horas, horasViaje, viajes, dificil,
     millas: +millas.toFixed(1), millasRegreso: regresoEstimado ? null : mDC, regresoEstimado,
-    galon: k.galon, mpg: V.mpg,
-    gasolina: +gasolina.toFixed(2), ayudante: +ayudante.toFixed(2), renta: +renta.toFixed(2),
+    galon, mpg: V.mpg, galon2, mpg2: V2 ? V2.mpg : 0,
+    gasolina: +gasolina.toFixed(2), gasolina2: +gasolina2.toFixed(2),
+    ayudante: +ayudante.toFixed(2), renta: +renta.toFixed(2), renta2: +renta2.toFixed(2),
     fijos: +fijos.toFixed(2), puroGasto: +puroGasto.toFixed(2), tuPago: +tuPago.toFixed(2),
     minimo: +minimo.toFixed(2), sugerido, margen: k.margen, miPagoHr: k.miPagoHr,
     _F: F, _k: k
@@ -6171,10 +6353,11 @@ function renderCalcCosto(precioCliente) {
   const hint = document.getElementById('cc-vehiculo-hint');
   if(hint) {
     let t = '';
-    if((r.tamano === 'r2') && r.veh === 'ford') t = '💡 Un 2 recámaras muy lleno puede necesitar 2 viajes en la caja de 14 ft: súmale horas y millas.';
+    if((r.tamano === 'r2') && r.veh === 'ford' && r.viajes === 1) t = '💡 Un 2 recámaras muy lleno puede necesitar 2 viajes en la caja de 14 ft: pon 2 en "Número de viajes".';
     else if((r.tamano === 'r3' || r.tamano === 'r4') && (r.veh === 'ford' || r.veh === 'tacoma')) t = '⚠️ Para 3 o más recámaras la caja de 14 ft se queda corta: considera un U-Haul de 20 o 26 ft o 2 viajes.';
     else if((r.tamano === 'r3' || r.tamano === 'r4') && r.ayud < 2) t = '💡 Con 3 o más recámaras considera 2 ayudantes (pon 2 en Ayudantes para ver el costo).';
     else if((r.tamano === 'r1' || r.tamano === 'r2') && r.veh === 'tacoma') t = '⚠️ En la Tacoma no cabe una recámara completa: usa la Ford o calcula varios viajes.';
+    if(r.veh2) t = (t ? t + '<br>' : '') + '⚠️ Dos vehículos = dos choferes con licencia. Gelacio ya no maneja.';
     hint.innerHTML = t ? '<span style="color:#EF9F27">' + t + '</span>' : '';
   }
 
@@ -6184,14 +6367,21 @@ function renderCalcCosto(precioCliente) {
   const fila = (txt, val, extra) => '<div class="total-row"><span>' + txt + (extra ? ' <span style="color:#b0c4d8;font-size:11px">' + extra + '</span>' : '') + '</span><span style="font-weight:600">' + val + '</span></div>';
 
   let html = '';
+  const txtHoras = r.viajes > 1 ? r.horasViaje + ' h × ' + r.viajes + ' viajes' : r.horas + ' h';
   html += fila('👷 Ayudante' + (r.ayud !== 1 ? 's (' + r.ayud + ')' : ''), $(r.ayudante),
-               r.ayud + ' × ' + r.horas + ' h × $' + k.ayudanteHr + (r.dificil ? ' + bono $' + k.bonoDificil + (r.ayud > 1 ? ' c/u' : '') : ''));
-  html += fila('⛽ Gasolina', $(r.gasolina),
-               sinMillas ? '⚠️ faltan las millas' : r.millas + ' mi ÷ ' + r.mpg + ' mpg × $' + k.galon.toFixed(2) + (r.regresoEstimado && ccNum('c-millas-extra') > 0 ? ' (regreso estimado igual a la ida)' : ''));
+               r.ayud + ' × ' + txtHoras + ' × $' + k.ayudanteHr + (r.dificil ? ' + bono $' + k.bonoDificil + (r.ayud > 1 ? ' c/u' : '') : ''));
+  const txtMillas = r.millas + ' mi' + (r.viajes > 1 ? ' (' + r.viajes + ' viajes)' : '');
+  html += fila('⛽ Gasolina ' + r.vehLabel, $(r.gasolina),
+               sinMillas ? '⚠️ faltan las millas' : txtMillas + ' ÷ ' + r.mpg + ' mpg × $' + r.galon.toFixed(2) + (r.regresoEstimado && ccNum('c-millas-extra') > 0 ? ' (regreso estimado igual a la ida)' : ''));
   if(r.renta > 0) html += fila('🚚 Renta ' + r.vehLabel, $(r.renta), '');
+  if(r.veh2) {
+    html += fila('⛽ Gasolina ' + r.veh2Label, $(r.gasolina2),
+                 sinMillas ? '⚠️ faltan las millas' : txtMillas + ' ÷ ' + r.mpg2 + ' mpg × $' + r.galon2.toFixed(2));
+    if(r.renta2 > 0) html += fila('🚚 Renta ' + r.veh2Label, $(r.renta2), '');
+  }
   html += fila('🏢 Gastos fijos', $(r.fijos), $0(F.total) + '/mes ÷ ' + F.trabajos + ' trabajos');
   html += '<div class="total-row" style="font-weight:700;color:#E24B4A"><span>Puro gasto</span><span>' + $(r.puroGasto) + '</span></div>';
-  html += fila('🙋 Tu pago', $(r.tuPago), r.horas + ' h × $' + k.miPagoHr);
+  html += fila('🙋 Tu pago', $(r.tuPago), txtHoras + ' × $' + k.miPagoHr);
 
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">'
        +   '<div style="background:rgba(239,159,39,.12);border:1px solid #EF9F27;border-radius:10px;padding:10px;text-align:center">'
@@ -6227,7 +6417,7 @@ function renderCalcCosto(precioCliente) {
   const fi = document.getElementById('cc-fijos-info');
   if(fi) fi.innerHTML = 'Gastos fijos: ' + $0(F.total) + '/mes' + (F.yaTieneRep ? ' (ya incluye reparaciones)' : ' (incluye fondo de reparaciones)')
     + ' ÷ ' + F.trabajos + ' trabajos' + (F.sinHistorial ? ' (estimado: aún no hay historial)' : F.auto ? ' (promedio real de los últimos 60 días)' : '') + ' = <strong>' + $(F.porTrabajo) + '</strong> por trabajo.'
-    + (k._galonAuto ? '<br>Galón: ' + $(k.galon) + ' (promedio de tus últimas cargas).' : '');
+    + (k._galonAuto ? '<br>Galón (promedio de las últimas 3 cargas de cada vehículo): Tacoma ' + $(ccGalonReciente('tacoma')) + ' · Ford ' + $(ccGalonReciente('ford')) + ' · U-Haul ' + $(ccGalonReciente('uhaul')) + '.' : '');
 }
 
 function ccAplicarTamano() {
@@ -6257,6 +6447,8 @@ function ccRestaurar(cc) {
   set('cc-veh', cc && cc.veh ? cc.veh : 'ford');
   set('cc-ayud', cc && cc.ayud != null ? cc.ayud : 1);
   set('cc-millas-regreso', cc && cc.millasRegreso != null ? cc.millasRegreso : '');
+  set('cc-viajes', cc && cc.viajes ? cc.viajes : 1);
+  set('cc-veh2', cc && cc.veh2 ? cc.veh2 : '');
 }
 
 function ccPintarAjustes() {
@@ -8480,6 +8672,9 @@ function imprimirRecibo(idioma) {
   };
   const T = txt[idioma];
   const otroIdioma = idioma === 'es' ? 'en' : 'es';
+  const E = idioma === 'en';
+  const t2 = (es, en) => E ? en : es;
+  const pagoTxt = p => E ? pagoEN(p) : p;
 
   const pagoIconos = {
     'Efectivo': '💵', 'Zelle': '🔵', 'Tarjeta': '💳', 'Cheque': '📄',
@@ -8499,13 +8694,13 @@ function imprimirRecibo(idioma) {
     '<div style="background:#F8FAFC;border-radius:10px;padding:14px;margin:14px 0;border:1px solid #E3E8EF">' +
     '<div style="font-size:11px;font-weight:700;color:#7ab8d8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📦 ' + (idioma==='en'?'ITEMS MOVED':'ARTÍCULOS MOVIDOS') + '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">' +
-    articulos.map(function(a){ var cant=a.cantidad||1; var nom=a.articulo||a; return '<div style="font-size:12px;color:#333;padding:3px 0;border-bottom:1px solid #eee">• '+(cant>1?cant+'x ':'')+nom+'</div>'; }).join('') +
+    articulos.map(function(a){ var cant=a.cantidad||1; var nom=a.articulo||a; if(E && DIC_EN[String(nom).toLowerCase()]) nom=DIC_EN[String(nom).toLowerCase()]; return '<div style="font-size:12px;color:#333;padding:3px 0;border-bottom:1px solid #eee">• '+(cant>1?cant+'x ':'')+nom+'</div>'; }).join('') +
     '</div></div>'
   ) : '';
 
-    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+    const html = `<!DOCTYPE html><html lang="${idioma}"><head><meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Recibo ${cotId}</title>
+  <title>${t2('Recibo','Receipt')} ${cotId}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Arial,Helvetica,sans-serif;background:#1a2535;color:#1C2530;font-size:13px;padding:0}
@@ -8603,90 +8798,90 @@ function imprimirRecibo(idioma) {
   <div class="hdr">
     <div class="hdr-left">
       <h1>MUDANZAS EXPRESS LA</h1>
-      <div class="sub">SERVICIOS PROFESIONALES DE MUDANZA Y TRANSPORTE</div>
+      <div class="sub">${t2('SERVICIOS PROFESIONALES DE MUDANZA Y TRANSPORTE','PROFESSIONAL MOVING & TRANSPORT SERVICES')}</div>
       <div class="contact">
         Los Angeles, CA • Tel/WhatsApp/Zelle: (323) 946-2008 • mudanzasexpressla@gmail.com<br>
         facebook.com/MudanzasExpressLA
       </div>
     </div>
     <div class="folio-box">
-      <div class="folio-title">RECIBO ${cotId}</div>
-      <div class="folio-fecha">Fecha: ${fecha}</div>
-      ${trabajoActivo && trabajoActivo.cotId ? '<div class="folio-ref">Ref. cotización: '+(trabajoActivo.cotId||'')+'</div>' : ''}
+      <div class="folio-title">${t2('RECIBO','RECEIPT')} ${cotId}</div>
+      <div class="folio-fecha">${t2('Fecha','Date')}: ${fecha}</div>
+      ${trabajoActivo && trabajoActivo.cotId ? '<div class="folio-ref">'+t2('Ref. cotización','Quote ref')+': '+(trabajoActivo.cotId||'')+'</div>' : ''}
     </div>
   </div>
 
   <div class="banda">
-    <div class="banda-col"><div class="lbl">Cliente</div><div class="val">${nombre}</div></div>
-    <div class="banda-col"><div class="lbl">Teléfono</div><div class="val">${tel||'—'}</div></div>
-    <div class="banda-col"><div class="lbl">Origen</div><div class="val">${origen}</div></div>
-    <div class="banda-col"><div class="lbl">Destino</div><div class="val">${destino}</div></div>
+    <div class="banda-col"><div class="lbl">${t2('Cliente','Customer')}</div><div class="val">${nombre}</div></div>
+    <div class="banda-col"><div class="lbl">${t2('Teléfono','Phone')}</div><div class="val">${tel||'—'}</div></div>
+    <div class="banda-col"><div class="lbl">${t2('Origen','From')}</div><div class="val">${origen}</div></div>
+    <div class="banda-col"><div class="lbl">${t2('Destino','To')}</div><div class="val">${destino}</div></div>
   </div>
 
   <table>
     <thead><tr>
-      <th>Descripción del servicio</th>
-      <th class="right" style="width:60px">Cant.</th>
-      <th class="right" style="width:70px">Precio</th>
+      <th>${t2('Descripción del servicio','Service description')}</th>
+      <th class="right" style="width:60px">${t2('Cant.','Qty')}</th>
+      <th class="right" style="width:70px">${t2('Precio','Price')}</th>
       <th class="right" style="width:70px">Total</th>
     </tr></thead>
     <tbody>
       <tr>
         <td>
-          <div class="td-desc">Servicio de mudanza — Mudanza local</div>
+          <div class="td-desc">${t2('Servicio de mudanza — Mudanza local','Moving service — Local move')}</div>
           <div class="td-sub">
-            Fecha del servicio: ${fecha}${hora?' · Hora: '+hora:''}${millas>0?' · Distancia recorrida: '+millas+' millas':''}${horasCrono>0?' · ⏱️ Duración: '+horasCrono.toFixed(1)+' hrs'+(horasExtra>0?' (+'+horasExtra.toFixed(1)+' extra)':''):''}
-            ${articulos.length > 0 ? '<br>Incluye: Con ayudante adicional.' : ''}
+            ${t2('Fecha del servicio','Service date')}: ${fecha}${hora?' · '+t2('Hora','Time')+': '+hora:''}${millas>0?' · '+t2('Distancia recorrida','Distance')+': '+millas+' '+t2('millas','miles'):''}${horasCrono>0?' · ⏱️ '+t2('Duración','Duration')+': '+horasCrono.toFixed(1)+' hrs'+(horasExtra>0?' (+'+horasExtra.toFixed(1)+' extra)':''):''}
+            ${articulos.length > 0 ? '<br>'+t2('Incluye: Con ayudante adicional.','Includes: additional helper.') : ''}
           </div>
         </td>
         <td class="right">1</td>
         <td class="right">$${monto.toFixed(2)}</td>
         <td class="right">$${monto.toFixed(2)}</td>
       </tr>
-      ${propina>0?'<tr><td><div class="td-desc">Propina recibida</div><div class="td-sub">Propina voluntaria del cliente.</div></td><td class="right">1</td><td class="right">$'+propina.toFixed(2)+'</td><td class="right">$'+propina.toFixed(2)+'</td></tr>':''}
+      ${propina>0?'<tr><td><div class="td-desc">'+t2('Propina recibida','Tip received')+'</div><div class="td-sub">'+t2('Propina voluntaria del cliente.','Voluntary tip from the customer.')+'</div></td><td class="right">1</td><td class="right">$'+propina.toFixed(2)+'</td><td class="right">$'+propina.toFixed(2)+'</td></tr>':''}
     </tbody>
   </table>
 
   ${articulosHTML.replace('<div style="background:#F8FAFC;border-radius:10px;padding:14px;margin:14px 0;border:1px solid #E3E8EF">','<div class="art-box">').replace('<div style="font-size:11px;font-weight:700;color:#7ab8d8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📦 ARTÍCULOS MOVIDOS</div>','<div class="art-title">Artículos movidos:</div>').replace('<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">','<div class="art-grid">')}
 
-  ${notasTrabajo?'<div class="notas-box"><strong>📝 Notas del trabajo:</strong> '+notasTrabajo+'</div>':''}
+  ${notasTrabajo?'<div class="notas-box"><strong>📝 '+t2('Notas del trabajo:','Job notes:')+'</strong> '+notasTrabajo+'</div>':''}
 
   <div style="margin:10px 14px">
-    ${descuentoCampo()>0 ? '<div class="subtotal-row"><span>Servicio:</span><span>$'+(monto+descuentoCampo()).toFixed(2)+'</span></div><div class="subtotal-row" style="color:#1D9E75"><span>Descuento acordado:</span><span>−$'+descuentoCampo().toFixed(2)+'</span></div>' : ''}
+    ${descuentoCampo()>0 ? '<div class="subtotal-row"><span>'+t2('Servicio:','Service:')+'</span><span>$'+(monto+descuentoCampo()).toFixed(2)+'</span></div><div class="subtotal-row" style="color:#1D9E75"><span>'+t2('Descuento acordado:','Agreed discount:')+'</span><span>−$'+descuentoCampo().toFixed(2)+'</span></div>' : ''}
     <div class="subtotal-row"><span>Subtotal:</span><span>$${monto.toFixed(2)}</span></div>
-    ${propina>0?'<div class="subtotal-row propina"><span>Propina recibida:</span><span>+$'+propina.toFixed(2)+'</span></div>':''}
+    ${propina>0?'<div class="subtotal-row propina"><span>'+t2('Propina recibida:','Tip received:')+'</span><span>+$'+propina.toFixed(2)+'</span></div>':''}
   </div>
 
   ${pago2Activo ? `
   <div class="pago-box" style="flex-direction:column;gap:6px">
-    <div style="font-size:9px;font-weight:700;color:#b0c4d8;text-transform:uppercase;letter-spacing:.4px;width:100%">Forma de pago</div>
+    <div style="font-size:9px;font-weight:700;color:#b0c4d8;text-transform:uppercase;letter-spacing:.4px;width:100%">${t2('Forma de pago','Payment method')}</div>
     <div style="display:flex;justify-content:space-between;width:100%;font-size:13px">
-      <span>${icono} ${pago}</span>
+      <span>${icono} ${pagoTxt(pago)}</span>
       <strong style="color:#7ab8d8">$${montoPago1.toFixed(2)}${ref?' <small style="color:#b0c4d8;font-weight:400">· Ref: '+ref+'</small>':''}</strong>
     </div>
     <div style="display:flex;justify-content:space-between;width:100%;font-size:13px;border-top:1px solid #ddd;padding-top:6px">
-      <span>${pagoIconos[pago2]||'💳'} ${pago2}</span>
+      <span>${pagoIconos[pago2]||'💳'} ${pagoTxt(pago2)}</span>
       <strong style="color:#7ab8d8">$${montoPago2.toFixed(2)}${ref2?' <small style="color:#b0c4d8;font-weight:400">· Ref: '+ref2+'</small>':''}</strong>
     </div>
   </div>` : `
   <div class="pago-box">
     <div class="pago-icono">${icono}</div>
     <div>
-      <div class="pago-lbl">Forma de pago</div>
-      <div class="pago-val">${pago}</div>
+      <div class="pago-lbl">${t2('Forma de pago','Payment method')}</div>
+      <div class="pago-val">${pagoTxt(pago)}</div>
       ${ref?'<div class="pago-ref">Ref: '+ref+'</div>':''}
     </div>
   </div>`}
 
   <div class="total-band">
-    <div class="tlbl">TOTAL PAGADO:</div>
+    <div class="tlbl">${t2('TOTAL PAGADO:','TOTAL PAID:')}</div>
     <div class="tval">$${totalConPropina.toFixed(2)}</div>
   </div>
 
-  ${obs?'<div class="notas-box" style="border-left-color:#2F74C0;background:#EAF2FC"><strong>Observaciones:</strong> '+obs+'</div>':''}
+  ${obs?'<div class="notas-box" style="border-left-color:#2F74C0;background:#EAF2FC"><strong>'+t2('Observaciones:','Notes:')+'</strong> '+obs+'</div>':''}
 
   <div class="firma-section">
-    <div class="firma-title">Firma del cliente — Conformidad con el servicio</div>
+    <div class="firma-title">${t2('Firma del cliente — Conformidad con el servicio','Customer signature — Service acceptance')}</div>
     <div class="firma-cols">
       <div class="firma-box">
         ${firma?'<img src="'+firma+'" alt="Firma">':'<div class="firma-line"></div>'}
@@ -8696,19 +8891,19 @@ function imprimirRecibo(idioma) {
         <div class="firma-empresa-name">Mudanzas Express LA</div>
         <div class="firma-empresa-sub">(323) 946-2008</div>
         <div class="firma-line"></div>
-        <div class="firma-name">Representante autorizado</div>
+        <div class="firma-name">${t2('Representante autorizado','Authorized representative')}</div>
       </div>
     </div>
   </div>
 
-  <div class="legal">Este recibo es el comprobante oficial del servicio prestado por Mudanzas Express LA. El pago realizado acredita el pago total del servicio descrito. Cualquier disputa o reclamo por daños debe ser notificado el mismo día del servicio antes del retiro del equipo de trabajo. Artículos no declarados previamente quedan fuera de la responsabilidad de la empresa.</div>
+  <div class="legal">${t2('Este recibo es el comprobante oficial del servicio prestado por Mudanzas Express LA. El pago realizado acredita el pago total del servicio descrito. Cualquier disputa o reclamo por daños debe ser notificado el mismo día del servicio antes del retiro del equipo de trabajo. Artículos no declarados previamente quedan fuera de la responsabilidad de la empresa.', T.legal)}</div>
 
-  <div style="font-size:12px;font-weight:800;color:#1F5EA8;text-align:center;margin:14px 0 4px">¡GRACIAS POR SU PREFERENCIA!</div>
+  <div style="font-size:12px;font-weight:800;color:#1F5EA8;text-align:center;margin:14px 0 4px">${t2('¡GRACIAS POR SU PREFERENCIA!','THANK YOU FOR YOUR BUSINESS!')}</div>
   <div style="font-size:10px;color:#b0c4d8;text-align:center">Mudanzas Express LA · (323) 946-2008 · mudanzasexpressla@gmail.com</div>
 
   <div class="social">
-    <div class="social-title">¿Te gustó nuestro servicio?</div>
-    <div class="social-sub">¡Regálanos un like, déjanos un comentario o síguenos! Haz clic en un ícono para visitarnos.</div>
+    <div class="social-title">${T.social}</div>
+    <div class="social-sub">${t2('¡Regálanos un like, déjanos un comentario o síguenos! Haz clic en un ícono para visitarnos.','Leave us a review, a comment, or follow us! Tap an icon to visit us.')}</div>
     <div class="social-icons">
       <a href="https://facebook.com/MudanzasExpressLA" target="_blank" class="social-icon-wrap">
         <div class="social-circle" style="background:#3862B3">f</div>
@@ -8726,12 +8921,12 @@ function imprimirRecibo(idioma) {
   </div>
 
   <div class="footer-line"></div>
-  <div class="footer-txt">¡Gracias por confiar en Mudanzas Express LA! • Comprobante Oficial de Pago<br>
-  Mudanzas Express LA · (323) 946-2008 · mudanzasexpressla@gmail.com · facebook.com/MudanzasExpressLA · Pagos: Efectivo · Zelle</div>
+  <div class="footer-txt">${t2('¡Gracias por confiar en Mudanzas Express LA! • Comprobante Oficial de Pago','Thank you for trusting Mudanzas Express LA! • Official Proof of Payment')}<br>
+  Mudanzas Express LA · (323) 946-2008 · mudanzasexpressla@gmail.com · facebook.com/MudanzasExpressLA · ${t2('Pagos: Efectivo · Zelle','Payments: Cash · Zelle')}</div>
 
   <div class="no-print">
-    <button onclick="window.print()" style="flex:2;padding:14px;background:#1F5EA8;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">🖨️ Imprimir / Guardar PDF</button>
-    <button onclick="(window.parent && window.parent !== window && window.parent.imprimirRecibo) ? window.parent.imprimirRecibo('en') : (window.opener && window.opener.imprimirRecibo ? window.opener.imprimirRecibo('en') : window.close())" style="flex:1;padding:14px;background:#1a2535;color:#333;border:none;border-radius:10px;font-size:13px;cursor:pointer">🇺🇸 English version</button>
+    <button onclick="window.print()" style="flex:2;padding:14px;background:#1F5EA8;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">${T.imprimir}</button>
+    <button onclick="(window.parent && window.parent !== window && window.parent.imprimirRecibo) ? window.parent.imprimirRecibo('${otroIdioma}') : (window.opener && window.opener.imprimirRecibo ? window.opener.imprimirRecibo('${otroIdioma}') : window.close())" style="flex:1;padding:14px;background:#1a2535;color:#333;border:none;border-radius:10px;font-size:13px;cursor:pointer">${T.cambiar}</button>
   </div>
 
 </div>
@@ -9207,269 +9402,7 @@ function eliminarFotoGal(id){
   }
 }
 
-// ===================== COTIZACIÓN RÁPIDA =====================
-const QR_ARTICULOS = ['📦 Cajas','🛋️ Sofá','🛏️ Cama matrimonial','🛏️ Cama individual','🖥️ Computadora','📺 Televisión','🍽️ Mesa comedor','🚿 Lavadora','🌀 Secadora','🧊 Refrigerador','🪑 Sillas','🗄️ Escritorio','🪞 Espejo','🌿 Plantas','🎸 Instrumentos','🏋️ Pesas/equipo','📚 Libreros','🧳 Maletas'];
-
-let qrArticulosCustom = [];
-let qrArticulosSeleccionados = new Set();
-
-const QR_PRECIOS_BASE = {
-  '1mueble':{ base:80, horas:1.5 }, 'refri':{ base:80, horas:1.5 },
-  'estudio':{ base:160, horas:2.5 }, '1rec':{ base:200, horas:3 },
-  '2rec':{ base:270, horas:4 }, '3rec':{ base:340, horas:5.5 },
-  '4rec':{ base:420, horas:7 }, 'labor':{ base:120, horas:2 }
-};
-
-function qrInit(){
-  const grid = document.getElementById('qr-articulos-grid');
-  if(!grid || grid.dataset.init) return;
-  grid.dataset.init = '1';
-  grid.innerHTML = QR_ARTICULOS.map(a=>`
-    <label style="display:flex;align-items:center;gap:6px;background:var(--bg,#111c27);padding:7px 10px;border-radius:8px;border:1px solid var(--line,#2a3a4a);cursor:pointer;font-size:12px">
-      <input type="checkbox" onchange="qrToggleArt('${a}',this.checked)" style="accent-color:#1D9E75"> ${a}
-    </label>`).join('');
-  const tarifaEl = document.getElementById('qr-tarifa-milla');
-  if(tarifaEl) tarifaEl.value = (getCfg().tarifaMilla||2.50).toFixed(2);
-  qrCalcTotal();
-}
-
-function qrToggleArt(a, checked){ if(checked) qrArticulosSeleccionados.add(a); else qrArticulosSeleccionados.delete(a); }
-
-function qrAddCustomArt(){
-  const inp = document.getElementById('qr-art-custom');
-  const v = inp.value.trim();
-  if(!v) return;
-  qrArticulosCustom.push(v);
-  inp.value='';
-  const list = document.getElementById('qr-art-custom-list');
-  list.innerHTML = qrArticulosCustom.map((x,i)=>`<span style="background:#0d1e2d;color:#7ab8d8;border-radius:20px;padding:4px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px">${x} <button onclick="qrRemoveCustomArt(${i})" style="background:none;border:none;color:#E24B4A;cursor:pointer;font-size:14px;line-height:1;padding:0">×</button></span>`).join('');
-}
-function qrRemoveCustomArt(i){ qrArticulosCustom.splice(i,1); qrAddCustomArt(); /* re-render */ document.getElementById('qr-art-custom').value='x'; qrAddCustomArt(); }
-
-function qrSetSize(btn, size){
-  document.querySelectorAll('.qr-size-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  const p = QR_PRECIOS_BASE[size];
-  if(p){ const horasEl=document.getElementById('qr-horas'); if(horasEl) horasEl.value=p.horas; }
-  const sug = document.getElementById('qr-horas-sugeridas');
-  if(sug && p){ sug.style.display=''; sug.textContent='Sugerido: '+p.horas+' hrs para este tamaño'; }
-  qrCalcTotal();
-}
-
-function qrCalcTotal(){
-  // Base por tamaño activo
-  const activeBtn = document.querySelector('.qr-size-btn.active');
-  let base = 0;
-  if(activeBtn){
-    const size = activeBtn.getAttribute('onclick').match(/qrSetSize\(this,'([^']+)'\)/);
-    if(size && QR_PRECIOS_BASE[size[1]]) base = QR_PRECIOS_BASE[size[1]].base;
-  }
-  const horas = parseFloat(document.getElementById('qr-horas')?.value)||3;
-  const camion = document.getElementById('qr-camion-tipo')?.value;
-  const millas = parseFloat(document.getElementById('qr-millas')?.value)||0;
-  const tarMilla = parseFloat(document.getElementById('qr-tarifa-milla')?.value)||3;
-  const ayudante = document.getElementById('qr-ayudante')?.checked;
-  const escaleras = document.getElementById('qr-escaleras')?.checked;
-  const armar = document.getElementById('qr-armar')?.checked;
-  const pAy = parseFloat(document.getElementById('qrp-ayudante')?.value)||40;
-  const pEsc = parseFloat(document.getElementById('qrp-escaleras')?.value)||20;
-  const pAr = parseFloat(document.getElementById('qrp-armar')?.value)||20;
-
-  // Si no hay botón activo, usar tarifa de horas directamente
-  if(!activeBtn) base = horas * 50;
-
-  let total = base;
-  if(camion==='uhaul') total += 130;
-  total += millas * tarMilla;
-  if(ayudante) total += pAy;
-  if(escaleras) total += pEsc;
-  if(armar) total += pAr;
-
-  const totalEl = document.getElementById('qr-total');
-  if(totalEl) totalEl.textContent = '$' + total.toFixed(2);
-
-  // Desglose
-  const items = [];
-  items.push({ lbl:'Servicio base ('+(activeBtn?activeBtn.textContent.trim():`${horas} hrs`)+')', val:base });
-  if(camion==='uhaul') items.push({ lbl:'🚛 U-Haul extra', val:130 });
-  if(millas>0) items.push({ lbl:`🛣️ ${millas} millas × $${tarMilla}`, val:millas*tarMilla });
-  if(ayudante) items.push({ lbl:'👷 Ayudante adicional', val:pAy });
-  if(escaleras) items.push({ lbl:'🪜 Escaleras', val:pEsc });
-  if(armar) items.push({ lbl:'🛋️ Armar/Desarmar', val:pAr });
-  const desEl = document.getElementById('qr-desglose');
-  if(desEl) desEl.innerHTML = items.map(i=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed rgba(128,128,128,0.2)"><span>${i.lbl}</span><strong>$${i.val.toFixed(2)}</strong></div>`).join('');
-
-  // WhatsApp preview
-  const cfg = getCfg();
-  const origen = document.getElementById('qr-origen')?.value||'tu origen';
-  const destino = document.getElementById('qr-destino')?.value||'tu destino';
-  const arts = [...qrArticulosSeleccionados, ...qrArticulosCustom];
-  const nota = document.getElementById('qr-nota')?.value||'';
-  let msg = `*${cfg.nombre || 'Mudanzas Express LA'}* 🚛\n`;
-  msg += `━━━━━━━━━━━━━━━━\n`;
-  msg += `📍 *${origen}* → *${destino}*\n`;
-  if(arts.length) msg += `📦 Artículos: ${arts.join(', ')}\n`;
-  msg += `\n💰 *ESTIMADO: $${total.toFixed(2)}*\n`;
-  msg += `━━━━━━━━━━━━━━━━\n`;
-  items.forEach(i => { msg += `• ${i.lbl}: $${i.val.toFixed(2)}\n`; });
-  msg += `━━━━━━━━━━━━━━━━\n`;
-  if(nota) msg += `📝 ${nota}\n`;
-  msg += `\n📞 ${cfg.tel||'(323) 946-2008'}\n💳 Efectivo · Zelle`;
-  const prev = document.getElementById('qr-wa-preview');
-  if(prev) prev.textContent = msg;
-  // Store msg for send
-  prev._msg = msg;
-}
-
-function qrEnviarWhatsApp(){
-  const prev = document.getElementById('qr-wa-preview');
-  const msg = prev?._msg || prev?.textContent || '';
-  if(!msg){ alert('Llena los datos primero'); return; }
-  const tel = document.getElementById('qr-tel')?.value.replace(/\D/g,'')||'';
-  const url = tel ? `https://wa.me/1${tel}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
-  window.open(url,'_blank');
-}
-
-function qrCopiarMensaje(){
-  const prev = document.getElementById('qr-wa-preview');
-  const msg = prev?._msg || prev?.textContent || '';
-  navigator.clipboard.writeText(msg).then(()=>alert('✅ Mensaje copiado')).catch(()=>{
-    const ta = document.createElement('textarea'); ta.value=msg; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); alert('✅ Copiado');
-  });
-}
-
-function qrPasarACotizacion(){
-  const origen = document.getElementById('qr-origen')?.value||'';
-  const destino = document.getElementById('qr-destino')?.value||'';
-  const millas = document.getElementById('qr-millas')?.value||'';
-  showTab('nueva-cot');
-  setTimeout(()=>{
-    if(origen && document.getElementById('c-origen')) document.getElementById('c-origen').value=origen;
-    if(destino && document.getElementById('c-destino')) document.getElementById('c-destino').value=destino;
-    if(millas && document.getElementById('c-millas')) document.getElementById('c-millas').value=millas;
-    if(typeof calcTotal==='function') calcTotal();
-  },400);
-}
-
-function resetCotRapida(){
-  if(!confirm('¿Limpiar todos los campos de la cotización rápida?')) return;
-  ['qr-origen','qr-destino','qr-tel','qr-millas','qr-nota'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
-  document.getElementById('qr-horas').value='3';
-  document.getElementById('qr-camion-tipo').value='propio';
-  document.querySelectorAll('.qr-size-btn').forEach(b=>b.classList.remove('active'));
-  ['qr-ayudante','qr-escaleras','qr-armar'].forEach(id=>{ const e=document.getElementById(id); if(e) e.checked=false; });
-  qrArticulosCustom=[];
-  qrArticulosSeleccionados.clear();
-  document.querySelectorAll('#qr-articulos-grid input[type=checkbox]').forEach(c=>c.checked=false);
-  document.getElementById('qr-art-custom-list').innerHTML='';
-  qrCalcTotal();
-}
 </script>
-
-<!-- ═══════════════ COTIZACIÓN RÁPIDA ═══════════════ -->
-<div id="tab-cotizacion-rapida" class="tab-content">
-  <div style="background:rgba(29,158,117,0.15);border:1px solid rgba(29,158,117,0.3);border-radius:14px;padding:16px 20px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
-    <div>
-      <div style="font-size:17px;font-weight:800">⚡ Cotización Rápida</div>
-      <div style="font-size:12px;opacity:.85;margin-top:2px">Captura datos mientras chateas → genera estimado → manda por WhatsApp</div>
-    </div>
-    <button onclick="resetCotRapida()" class="btn" style="font-size:12px">🔄 Nueva</button>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-    <div>
-      <div class="card" style="margin-bottom:12px">
-        <div class="card-title">👤 Cliente</div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <div><label>Nombre</label><input id="qr-nombre" type="text" placeholder="Nombre del cliente"></div>
-          <div><label>WhatsApp</label><input id="qr-tel" type="tel" placeholder="(323) 000-0000"></div>
-          <div><label>Fecha preferida</label><input id="qr-fecha" type="date"></div>
-          <div><label>Hora</label><input id="qr-hora" type="time" value="08:00"></div>
-        </div>
-      </div>
-      <div class="card" style="margin-bottom:12px">
-        <div class="card-title">📍 Direcciones</div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <div><label>Origen</label><input id="qr-origen" type="text" placeholder="Calle, Ciudad, CA"></div>
-          <div><label>Destino</label><input id="qr-destino" type="text" placeholder="Calle, Ciudad, CA"></div>
-          <div style="display:flex;gap:8px">
-            <div style="flex:1"><label>Millas</label><input id="qr-millas" type="number" placeholder="15" min="0" step="0.5" oninput="qrCalcTotal()"></div>
-            <div style="flex:1"><label>$/milla extra</label><input id="qr-tarifa-milla" type="number" value="3.00" step="0.25" oninput="qrCalcTotal()"></div>
-          </div>
-          <div id="qr-millas-info" style="display:none;background:rgba(29,158,117,0.1);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;color:#1D9E75"></div>
-        </div>
-      </div>
-      <div class="card" style="margin-bottom:12px">
-        <div class="card-title">🏠 Tamaño de mudanza</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <button class="qr-size-btn" onclick="qrSetSize(this,'1mueble')">📦 1-3 piezas</button>
-          <button class="qr-size-btn" onclick="qrSetSize(this,'refri')">🧊 Refri/pesado</button>
-          <button class="qr-size-btn" onclick="qrSetSize(this,'estudio')">🏠 Estudio</button>
-          <button class="qr-size-btn" onclick="qrSetSize(this,'1rec')">🛏️ 1 Recámara</button>
-          <button class="qr-size-btn" onclick="qrSetSize(this,'2rec')">🛏️🛏️ 2 Recámaras</button>
-          <button class="qr-size-btn" onclick="qrSetSize(this,'3rec')">🏡 3 Recámaras</button>
-          <button class="qr-size-btn" onclick="qrSetSize(this,'4rec')">🏘️ 4+ Recámaras</button>
-          <button class="qr-size-btn" onclick="qrSetSize(this,'labor')">🏋️ Labor Only</button>
-        </div>
-        <div style="margin-top:10px;display:flex;gap:8px">
-          <div style="flex:1"><label>Horas est.</label><input id="qr-horas" type="number" value="3" min="1" max="16" step="0.5" oninput="qrCalcTotal()"><div id="qr-horas-sugeridas" style="display:none;font-size:11px;color:#1D9E75;margin-top:4px;font-weight:600"></div></div>
-          <div style="flex:1"><label>Camión</label><select id="qr-camion-tipo" onchange="qrCalcTotal()"><option value="propio">✅ Mi camión 14 pies</option><option value="uhaul">🚛 U-Haul (+$130)</option><option value="tacoma">🛻 Solo Tacoma</option></select></div>
-        </div>
-      </div>
-      <div class="card" style="margin-bottom:12px">
-        <div class="card-title">🔧 Extras</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#111c27);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#2a3a4a);cursor:pointer">
-            <span style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="qr-ayudante" onchange="qrCalcTotal()"> 👷 Ayudante adicional</span>
-            <span>+$<input type="number" id="qrp-ayudante" value="40" min="0" step="5" style="width:60px;padding:4px 6px;font-size:13px;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
-          </label>
-          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#111c27);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#2a3a4a);cursor:pointer">
-            <span style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="qr-escaleras" onchange="qrCalcTotal()"> 🪜 Escaleras</span>
-            <span>+$<input type="number" id="qrp-escaleras" value="20" min="0" step="5" style="width:60px;padding:4px 6px;font-size:13px;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
-          </label>
-          <label style="display:flex;align-items:center;justify-content:space-between;background:var(--bg,#111c27);padding:9px 12px;border-radius:8px;border:1px solid var(--line,#2a3a4a);cursor:pointer">
-            <span style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="qr-armar" onchange="qrCalcTotal()"> 🛋️ Armar/Desarmar</span>
-            <span>+$<input type="number" id="qrp-armar" value="20" min="0" step="5" style="width:60px;padding:4px 6px;font-size:13px;border:1px solid #ccc;border-radius:6px" oninput="qrCalcTotal()"></span>
-          </label>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">📋 Artículos principales</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="qr-articulos-grid"></div>
-        <div style="display:flex;gap:6px;margin-top:8px">
-          <input id="qr-art-custom" type="text" placeholder="Otro artículo..." style="flex:1;font-size:13px">
-          <button class="btn btn-primary btn-sm" onclick="qrAddCustomArt()">+ Agregar</button>
-        </div>
-        <div id="qr-art-custom-list" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
-      </div>
-    </div>
-    <div>
-      <div class="card" style="margin-bottom:12px;border:1px solid rgba(29,158,117,0.4)">
-        <div class="card-title" style="color:#1D9E75">💰 Estimado</div>
-        <div id="qr-desglose" style="font-size:12px;color:var(--ink-soft,#888);margin-bottom:12px"></div>
-        <div style="background:rgba(29,158,117,0.1);border:1px solid rgba(29,158,117,0.3);border-radius:10px;padding:14px;text-align:center">
-          <div style="font-size:12px;color:rgba(29,158,117,0.8);font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">TOTAL ESTIMADO</div>
-          <div id="qr-total" style="font-size:36px;font-weight:900;color:#1D9E75">$0.00</div>
-        </div>
-        <div style="margin-top:10px">
-          <label style="font-size:12px;font-weight:600">Nota adicional</label>
-          <textarea id="qr-nota" rows="2" placeholder="Ej: Precio puede variar si hay más artículos..."></textarea>
-        </div>
-      </div>
-      <div class="card" style="margin-bottom:12px">
-        <div class="card-title">💬 Mensaje WhatsApp</div>
-        <div id="qr-wa-preview" style="background:rgba(255,255,255,0.05);border-radius:10px;padding:14px;font-size:12px;line-height:1.7;white-space:pre-wrap;color:var(--ink-soft,#888);max-height:300px;overflow-y:auto;border:1px solid rgba(255,255,255,0.1)"></div>
-      </div>
-      <div class="card">
-        <div class="card-title">🚀 Acciones</div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="qrEnviarWhatsApp()">📲 Enviar por WhatsApp</button>
-          <button class="btn" style="width:100%;justify-content:center;padding:11px;background:#25D366;color:#fff;border-color:#25D366" onclick="qrCopiarMensaje()">📋 Copiar mensaje</button>
-          <button class="btn btn-blue" style="width:100%;justify-content:center;padding:11px" onclick="qrPasarACotizacion()">📄 Pasar a cotización formal</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- ═══════════════ GALERÍA ═══════════════ -->
 <div id="tab-galeria" class="tab-content">
