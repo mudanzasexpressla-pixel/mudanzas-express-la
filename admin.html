@@ -2524,6 +2524,38 @@ function cambiarCatGG(idx, nueva) {
   saveData(d);
   try { renderGastos(); } catch(e) {}
 }
+// v13.13: corregir o borrar una carga de gasolina (idx = posición en la lista mostrada, más reciente primero)
+function _gasItem(d, idx) { return (d.gas||[]).slice().reverse()[idx]; }
+function editarGas(idx) {
+  const d = getData();
+  const g = _gasItem(d, idx);
+  if(!g) return;
+  const m = prompt('Monto correcto ($) — como dice el recibo:', g.monto);
+  if(m === null) return;
+  const monto = parseFloat(m);
+  if(!(monto > 0)) { alert('Monto no válido.'); return; }
+  const gl = prompt('Galones (déjalo vacío si no los sabes):', g.galones || '');
+  if(gl === null) return;
+  const f = prompt('Fecha (AAAA-MM-DD):', g.fecha);
+  if(f === null) return;
+  g.monto = Math.round(monto * 100) / 100;
+  g.galones = parseFloat(gl) || 0;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(f.trim())) g.fecha = f.trim();
+  saveData(d);
+  try { renderGastos(); } catch(e) {}
+  try { calcTotal(); } catch(e) {}
+}
+function eliminarGas(idx) {
+  const d = getData();
+  const g = _gasItem(d, idx);
+  if(!g) return;
+  if(!confirm('¿Borrar la carga de gasolina del ' + g.fecha + ' por $' + (g.monto||0).toFixed(2) + '?')) return;
+  const i = d.gas.indexOf(g);
+  if(i >= 0) d.gas.splice(i, 1);
+  saveData(d);
+  try { renderGastos(); } catch(e) {}
+  try { calcTotal(); } catch(e) {}
+}
 function eliminarGastoGG(idx) {
   if(!confirm('¿Eliminar este gasto?')) return;
   const d = getData();
@@ -2548,11 +2580,12 @@ function renderGastos() {
       <div class="card">
         <div style="font-weight:700;color:#1D9E75;margin-bottom:10px">Total gasolina registrada: $${tot.toFixed(2)}</div>
         <table class="data-table">
-          <thead><tr><th>Fecha</th><th>Estación</th><th>Monto</th><th>Galones</th><th>$/Gal</th><th>Trabajos</th><th>$/Trabajo</th></tr></thead>
-          <tbody>${gas.slice().reverse().map(g=>`<tr>
+          <thead><tr><th>Fecha</th><th>Estación</th><th>Monto</th><th>Galones</th><th>$/Gal</th><th>Trabajos</th><th>$/Trabajo</th><th></th></tr></thead>
+          <tbody>${gas.slice().reverse().map((g,i)=>`<tr>
             <td>${g.fecha}</td><td>${g.estacion||'—'}</td><td><strong>$${g.monto.toFixed(2)}</strong></td>
             <td>${g.galones||'—'}</td><td>${g.galones?'$'+(g.monto/g.galones).toFixed(2):'—'}</td>
             <td>${g.trabajos}</td><td>$${(g.monto/g.trabajos).toFixed(2)}</td>
+            <td style="white-space:nowrap"><button class="btn btn-sm" title="Corregir" onclick="editarGas(${i})">✏️</button> <button class="btn btn-sm" title="Borrar" onclick="eliminarGas(${i})">🗑️</button></td>
           </tr>`).join('')}</tbody>
         </table>
       </div>` : '<div class="empty-state" style="padding:30px"><p>Sin registros de gasolina</p></div>';
