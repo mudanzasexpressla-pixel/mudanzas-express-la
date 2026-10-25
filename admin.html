@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.14</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.15</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -311,6 +311,11 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="card">
     <div class="card-title">📍 Direcciones y cálculo de millas</div>
     <div class="form-row full"><div><label>📦 Dirección de ORIGEN (donde se recoge) *</label><input id="c-origen" type="text" placeholder="123 Main St, Los Angeles, CA 90001" autocomplete="off"></div></div>
+    <div id="c-paradas-wrap">
+      <div class="form-row full" id="c-parada-1-row" style="display:none"><div><label>📍 Parada 2 — otra dirección para recoger o entregar <a href="#" onclick="quitarParada(1);return false" style="color:#E24B4A;font-weight:400;margin-left:6px">quitar</a></label><input id="c-parada-1" type="text" placeholder="Dirección de la parada" autocomplete="off"></div></div>
+      <div class="form-row full" id="c-parada-2-row" style="display:none"><div><label>📍 Parada 3 — otra dirección para recoger o entregar <a href="#" onclick="quitarParada(2);return false" style="color:#E24B4A;font-weight:400;margin-left:6px">quitar</a></label><input id="c-parada-2" type="text" placeholder="Dirección de la parada" autocomplete="off"></div></div>
+      <button type="button" class="btn btn-sm" id="btn-agregar-parada" style="margin:-4px 0 12px" onclick="agregarParada()">➕ Agregar otra dirección (parada)</button>
+    </div>
     <div class="form-row full"><div><label>🏠 Dirección de DESTINO (donde se entrega) *</label><input id="c-destino" type="text" placeholder="456 Oak Ave, Pasadena, CA 91101" autocomplete="off"></div></div>
     <div style="margin-bottom:12px">
       <button class="btn btn-blue" type="button" onclick="calcularMillasGoogleMaps()" id="btn-calc-millas">
@@ -415,28 +420,15 @@ table.data-table tr:hover td{background:#1A2A42!important}
         <label>📣 ¿De dónde vino este cliente? <span style="color:#b0c4d8;font-weight:400">(para comparar campañas)</span></label>
         <select id="c-canal" onchange="toggleCanalNombre()">
           <option value="">— Sin especificar —</option>
-          <optgroup label="📘 Facebook Ads (campañas pagadas)">
-            <option value="fb_zonas_premium">FB Ads · Zonas Premium Bilingüe (ago 2025)</option>
-            <option value="fb_wa_v2_campaña">FB Ads · MUDANZAS LA MENSAJE WHATSAPP v2 CAMPAÑA</option>
-            <option value="fb_wa_v2_escal20">FB Ads · MUDANZAS LA -WHATSAPP v2 ESCALAMIENTO 20 USD</option>
-            <option value="fb_otra_campana">FB Ads · Otra campaña</option>
-          </optgroup>
-          <optgroup label="💬 WhatsApp">
-            <option value="wa_organico">WhatsApp orgánico (te escribió directo, sin anuncio)</option>
-            <option value="wa_ads">WhatsApp desde anuncio de Meta</option>
-          </optgroup>
-          <optgroup label="🌐 Otros canales">
-            <option value="referido">Referido (cliente o conocido recomendó)</option>
-            <option value="google">Google / búsqueda</option>
-            <option value="web">Formulario web</option>
-            <option value="llamada">Llamada telefónica directa</option>
-            <option value="otro">Otro</option>
-          </optgroup>
+          <option value="fb_ads">📘 Facebook / Meta Ads (escribe la campaña)</option>
+          <option value="referido">🤝 Recomendado (escribe quién)</option>
+          <option value="otro">❓ Otro</option>
         </select>
       </div>
       <div id="c-canal-nombre-wrap" style="display:none">
-        <label>Nombre de campaña / detalle adicional</label>
-        <input type="text" id="c-canal-nombre" placeholder="Ej: nombre exacto del anuncio, quién refirió...">
+        <label id="c-canal-nombre-label">Nombre de la campaña</label>
+        <input type="text" id="c-canal-nombre" list="dl-campanas" autocomplete="off" placeholder="Escribe o elige la campaña">
+        <datalist id="dl-campanas"></datalist>
       </div>
     </div>
     <div class="notice notice-blue" style="font-size:11.5px;margin-bottom:12px;padding:8px 12px">
@@ -676,6 +668,16 @@ table.data-table tr:hover td{background:#1A2A42!important}
 
 <!-- ======================== GASTOS ======================== -->
 <div id="tab-gastos" class="tab-content">
+  <div id="gastos-pend-wrap"></div>
+  <div class="card" style="padding:12px 16px">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+      <div style="font-weight:700;color:#7ab8d8;margin-right:6px;align-self:center">🧾 Comprobantes para taxes</div>
+      <div><label style="font-size:11px">Desde</label><input type="date" id="rg-desde" style="padding:6px"></div>
+      <div><label style="font-size:11px">Hasta</label><input type="date" id="rg-hasta" style="padding:6px"></div>
+      <button class="btn btn-primary btn-sm" id="btn-rg-pdf" onclick="reporteGastosPDF()">📄 PDF con fotos</button>
+      <button class="btn btn-sm" onclick="gastosExcelComprobantes()">📊 Excel con hora y tarjeta</button>
+    </div>
+  </div>
   <div class="tabs-inner">
     <button class="tab-inner-btn active" onclick="showGTab('gasolina',this)">⛽ Gasolina</button>
     <button class="tab-inner-btn" onclick="showGTab('general',this)">💸 Gastos generales</button>
@@ -706,6 +708,11 @@ table.data-table tr:hover td{background:#1A2A42!important}
         </div>
         <div><label>Trabajos aproximados con este tanque lleno</label><input type="number" id="g-trabajos" value="4" min="1" max="30" oninput="calcGas()"></div>
         <div><label>Notas</label><input type="text" id="g-notas" placeholder="Notas opcionales..."></div>
+      </div>
+      <div class="form-row three">
+        <div><label>💳 Pagado con</label><select id="g-tarjeta"></select></div>
+        <div><label>🕒 Hora (opcional)</label><input type="time" id="g-hora"></div>
+        <div><label>📷 Foto del recibo (opcional)</label><input type="file" id="g-foto" accept="image/*"></div>
       </div>
       <div class="notice notice-blue" id="g-calc">Ingresa el monto para calcular costo por trabajo</div>
       <button class="btn btn-primary" onclick="guardarGas()">💾 Guardar registro</button>
@@ -742,6 +749,11 @@ table.data-table tr:hover td{background:#1A2A42!important}
         <div><label>Monto ($)</label><input type="number" id="gg-monto" placeholder="0.00" step="0.01"></div>
       </div>
       <div class="form-row full"><div><label>Comprobante / recibo (opcional)</label><input type="text" id="gg-recibo" placeholder="Número de recibo o referencia"></div></div>
+      <div class="form-row three">
+        <div><label>💳 Pagado con</label><select id="gg-tarjeta"></select></div>
+        <div><label>🕒 Hora (opcional)</label><input type="time" id="gg-hora"></div>
+        <div><label>📷 Foto del recibo (opcional)</label><input type="file" id="gg-foto" accept="image/*"></div>
+      </div>
       <button class="btn btn-primary" onclick="guardarGG()">💾 Guardar gasto</button>
     </div>
     <div id="lista-gg"></div>
@@ -1075,6 +1087,11 @@ table.data-table tr:hover td{background:#1A2A42!important}
     </div>
   </div>
   <div class="card">
+    <div class="card-title">💳 Tarjetas y formas de pago (para los gastos)</div>
+    <div style="font-size:12px;color:#b0c4d8;margin-bottom:8px">Escríbelas separadas por coma. Aparecen al registrar o completar un gasto en "¿Con qué lo pagaste?".</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><input type="text" id="cfg-tarjetas" style="flex:1;min-width:240px" placeholder="Débito Chase negocio, Visa personal, Efectivo..."><button class="btn btn-primary btn-sm" onclick="guardarTarjetasCfg()">💾 Guardar</button></div>
+  </div>
+  <div class="card">
     <div class="card-title">👷 Permisos del ayudante (app de campo)</div>
     <div class="notice notice-blue">En su celular, el ayudante entra con "Soy Ayudante" y ve los trabajos con direcciones, horario, notas y fotos, pero <strong>no ve precios ni puede cobrar</strong>. En tu celular, entra también como "Soy Ayudante" y presiona <strong>🔓 Modo administrador</strong> (con tu PIN) para ver todo.</div>
     <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;color:var(--ink)">
@@ -1365,6 +1382,7 @@ function getData() {
     // en orden de fecha (el más viejo primero). El contador NO se reinicia:
     // sigue contando desde donde va, así los nuevos continúan la secuencia.
     if(migrarFoliosTerminadosViejos(d)) localStorage.setItem(KEY, JSON.stringify(d));
+    if(!d._mig1315 && (d.cots||[]).length) { migrarCanales1315(d); d._mig1315 = true; localStorage.setItem(KEY, JSON.stringify(d)); }
     return d;
   }
   catch(e) { return {cots:[], gas:[], gg:[], ay:[], counter:1, counterTerminado:1, campo:[], campoImportados:[], sl:[], gigs:[], odometros:[], mantenimientos:[], capital:[], cancelados:[]}; }
@@ -1454,7 +1472,7 @@ function showTab(t) {
   if(t==='gastos') renderGastos();
   if(t==='dashboard') renderDash();
   if(t==='config') { try { const _tl=document.getElementById('cfg-tarifa-labor'); if(_tl) _tl.value = getCfg().tarifaLaborHr || 90; const _lm=document.getElementById('cfg-labor-min'); if(_lm) _lm.value = getCfg().laborPrecioMin || 190; const _lh=document.getElementById('cfg-labor-horas'); if(_lh) _lh.value = getCfg().laborHorasIncl || 2; } catch(e) {} }
-  if(t==='config') { try { renderGastosFijosCfg(); const ac=document.getElementById('cfg-ay-cobra'); if(ac) ac.checked=!!getCfg().ayudantePuedeCobrar; } catch(e) {} } if(t==='config') { const cfEl = document.getElementById('cfg-casa'); if(cfEl) cfEl.value = getCfg().dirCasa || ''; const lrEl = document.getElementById('cfg-link-resena'); if(lrEl) lrEl.value = getCfg().linkResena || LINK_RESENA_DEF; }
+  if(t==='config') { try { poblarTarjetas(); renderGastosFijosCfg(); const ac=document.getElementById('cfg-ay-cobra'); if(ac) ac.checked=!!getCfg().ayudantePuedeCobrar; } catch(e) {} } if(t==='config') { const cfEl = document.getElementById('cfg-casa'); if(cfEl) cfEl.value = getCfg().dirCasa || ''; const lrEl = document.getElementById('cfg-link-resena'); if(lrEl) lrEl.value = getCfg().linkResena || LINK_RESENA_DEF; }
   if(t==='vehiculos') { renderVehiculos(); poblarSelectoresVehiculo(); }
   if(t==='gigs') { renderGigs(); poblarSelectoresVehiculo(); }
   if(t==='galeria') renderGaleria();
@@ -1554,7 +1572,7 @@ function enviarACampo() {
   }
 
   const trabajoCampo = {
-    cotId, nombre, tel, origen, destino, fecha, hora, notas,
+    cotId, nombre, tel, origen, paradas: paradasForm(), destino, fecha, hora, notas,
     fotos: fotosInventario,
     monto, ayudanteId: 'default',
     enviado: new Date().toISOString()
@@ -1712,6 +1730,7 @@ function calcTotal() {
 function limpiarForm(silencioso) {
   if(!silencioso && !confirm('¿Limpiar el formulario?')) return;
   ['c-nombre','c-tel','c-email','c-origen','c-destino','c-notas'].forEach(id => { const e=document.getElementById(id); if(e) e.value=''; });
+  ponerParadasForm([]);
   document.getElementById('c-millas').value = '';
   document.getElementById('c-millas-extra').value = '';
   const cfg = getCfg();
@@ -1850,6 +1869,7 @@ function guardarCotizacion() {
     cliente: { nombre, tel, email: document.getElementById('c-email').value, fechaPref: document.getElementById('c-fecha-pref').value },
     hora: document.getElementById('c-hora').value,
     origen: document.getElementById('c-origen').value,
+    paradas: paradasForm(),
     destino: document.getElementById('c-destino').value,
     millas, millasX, tarMilla,
     servicios: {
@@ -1881,7 +1901,7 @@ function guardarCotizacion() {
     calcCosto: (function(){ try { const r = calcCostoDatos(); delete r._F; delete r._k; return r; } catch(e) { return null; } })(),
     pago: document.getElementById('c-pago').value,
     canal: document.getElementById('c-canal').value || '',
-    canalNombre: document.getElementById('c-canal-nombre').value.trim() || '',
+    canalNombre: (document.getElementById('c-canal') .value === 'fb_ads' ? document.getElementById('c-canal-nombre').value.trim().replace(/\s+/g,' ').toUpperCase() : document.getElementById('c-canal-nombre').value.trim()) || '',
     notas: document.getElementById('c-notas').value,
     terminos: document.getElementById('c-terminos').value,
     total
@@ -1939,6 +1959,7 @@ function editarCot(id) {
   document.getElementById('c-hora').value = cot.hora || '';
   document.getElementById('c-origen').value = cot.origen || '';
   document.getElementById('c-destino').value = cot.destino || '';
+  ponerParadasForm(cot.paradas || []);
   document.getElementById('c-millas').value = cot.millas || '';
   document.getElementById('c-millas-extra').value = cot.millasX || '';
   document.getElementById('c-tarifa-milla').value = cot.tarMilla || 2.5;
@@ -1946,7 +1967,7 @@ function editarCot(id) {
   document.getElementById('c-horas').value = cot.horas || 3;
   document.getElementById('c-descuento').value = cot.descuento || 0;
   document.getElementById('c-pago').value = cot.pago || 'Efectivo';
-  const cEd = document.getElementById('c-canal'); if(cEd) cEd.value = cot.canal || '';
+  const cEd = document.getElementById('c-canal'); if(cEd) { if(cot.canal && ![...cEd.options].some(o => o.value === cot.canal)) { const op = document.createElement('option'); op.value = cot.canal; op.textContent = canalLabel(cot.canal); cEd.appendChild(op); } cEd.value = cot.canal || ''; }
   const cnEd = document.getElementById('c-canal-nombre'); if(cnEd) cnEd.value = cot.canalNombre || '';
   toggleCanalNombre();
   document.getElementById('c-notas').value = cot.notas || '';
@@ -1983,11 +2004,18 @@ function editarCot(id) {
 function toggleCanalNombre() {
   const v = document.getElementById('c-canal').value;
   const wrap = document.getElementById('c-canal-nombre-wrap');
-  if(wrap) wrap.style.display = (v === 'fb_otra_campana' || v === 'otro' || v === 'referido') ? '' : 'none';
+  if(wrap) wrap.style.display = (v === 'fb_ads' || v === 'otro' || v === 'referido') ? '' : 'none';
+  const lbl = document.getElementById('c-canal-nombre-label');
+  const inp = document.getElementById('c-canal-nombre');
+  const dl = document.getElementById('dl-campanas');
+  if(lbl) lbl.textContent = v === 'referido' ? '¿Quién lo recomendó?' : v === 'fb_ads' ? 'Nombre de la campaña' : 'Detalle';
+  if(inp) inp.placeholder = v === 'referido' ? 'Nombre de quien lo recomendó' : v === 'fb_ads' ? 'Escribe o elige la campaña' : 'Detalle (opcional)';
+  if(dl) dl.innerHTML = v === 'fb_ads' ? campanasUsadas().map(n => '<option value="' + String(n).replace(/"/g,'&quot;') + '">').join('') : '';
 }
 
 // Etiqueta legible para mostrar en listas
 const CANAL_LABELS = {
+  'fb_ads':            '📘 FB Ads',
   'fb_zonas_premium':  '📘 FB Ads Zonas Premium',
   'fb_wa_v2_campaña':  '📘 FB Ads · MUDANZAS LA MENSAJE WHATSAPP v2 CAMPAÑA',
   'fb_wa_v2_escal20':  '📘 FB Ads · MUDANZAS LA -WHATSAPP v2 ESCALAMIENTO 20 USD',
@@ -2000,6 +2028,811 @@ const CANAL_LABELS = {
   'llamada':           '📞 Llamada directa',
   'otro':              '❓ Otro',
 };
+
+
+// ===================== v13.15: UTILIDADES =====================
+function escH(t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fechaHoraTxt(iso) {
+  const d = new Date(iso); if(isNaN(d)) return iso || '—';
+  return d.toLocaleString('es-US', { weekday:'short', day:'numeric', month:'short', year:'numeric', hour:'numeric', minute:'2-digit' });
+}
+function horaLocal(iso) { const d = new Date(iso); if(isNaN(d)) return ''; return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
+function hora12(hhmm) { if(!hhmm) return ''; const p = String(hhmm).split(':'); let h = +p[0]; const m = p[1] || '00'; const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + m + ' ' + ap; }
+function toastV(msg, color) {
+  const n = document.createElement('div');
+  n.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:' + (color || '#143F74') + ';color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:700;z-index:10000;box-shadow:0 4px 16px #0006;max-width:90vw;text-align:center';
+  n.textContent = msg; document.body.appendChild(n); setTimeout(() => n.remove(), 4500);
+}
+function vehNombrePorId(id) {
+  if(!id) return '';
+  const v = (getData().vehiculos || []).find(x => x.id === id);
+  return v ? v.nombre : id;
+}
+function vehIdPorClave(k) {
+  const vs = getData().vehiculos || [];
+  const re = k === 'tacoma' ? /TACOMA/i : k === 'ford' ? /FORD|E-?450/i : null;
+  if(!re) return '';
+  const v = vs.find(x => re.test((x.nombre || '') + ' ' + (x.modelo || '')));
+  return v ? v.id : '';
+}
+function vehClavePorId(id) {
+  const n = vehNombrePorId(id);
+  if(/TACOMA/i.test(n)) return 'tacoma';
+  if(/FORD|E-?450/i.test(n)) return 'ford';
+  return '';
+}
+
+// ===================== v13.15: FOTOS DE COMPROBANTES (IndexedDB) =====================
+let _fotoDbP = null;
+function fotoDB() {
+  if(_fotoDbP) return _fotoDbP;
+  _fotoDbP = new Promise((res, rej) => {
+    try {
+      const r = indexedDB.open('mudanzas_fotos_v1', 1);
+      r.onupgradeneeded = () => { r.result.createObjectStore('fotos'); };
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    } catch(e) { rej(e); }
+  });
+  return _fotoDbP;
+}
+async function fotoPut(id, data) {
+  const db = await fotoDB();
+  return new Promise((res, rej) => { const tx = db.transaction('fotos', 'readwrite'); tx.objectStore('fotos').put(data, id); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); });
+}
+async function fotoGet(id) {
+  try {
+    const db = await fotoDB();
+    return await new Promise(res => { const tx = db.transaction('fotos', 'readonly'); const rq = tx.objectStore('fotos').get(id); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); });
+  } catch(e) { return null; }
+}
+async function urlADataUrl(u) {
+  try {
+    const r = await fetch(u); const b = await r.blob();
+    return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(b); });
+  } catch(e) { return null; }
+}
+// Devuelve las fotos (data URL) de un gasto. Si no están en esta computadora, las vuelve a bajar de Drive.
+async function fotosDeGasto(g) {
+  const out = [];
+  for(const id of (g.fotoIds || [])) { const f = await fotoGet(id); if(f) out.push(f); }
+  if(!out.length && g.regId) {
+    try {
+      const url = urlAppsScript();
+      if(url) {
+        const r = await fetch(url + '?action=descargarRegistro&id=' + encodeURIComponent(g.regId));
+        const j = await r.json();
+        const fs = (j && j.registro && j.registro.fotosTrabajo) || [];
+        for(let i = 0; i < fs.length; i++) {
+          let f = fs[i];
+          if(!String(f).startsWith('data:')) f = (await urlADataUrl(f)) || f;
+          if(String(f).startsWith('data:')) { try { await fotoPut('FOTO-' + g.regId + '-' + i, f); } catch(e) {} }
+          out.push(f);
+        }
+      }
+    } catch(e) {}
+  }
+  if(!out.length) (g.fotoUrls || []).forEach(u => out.push(u));
+  return out;
+}
+async function mostrarFotosEn(cont, g, alto) {
+  if(!cont) return;
+  cont.innerHTML = '<span style="font-size:12px;color:#b0c4d8">Cargando foto...</span>';
+  const fs = await fotosDeGasto(g);
+  cont.innerHTML = fs.length ? fs.map(f => '<img src="' + f + '" style="height:' + (alto || 110) + 'px;max-width:100%;border-radius:8px;cursor:zoom-in;object-fit:contain;background:#0d1520" onclick="verImagenGrande(this.src)">').join('') : '<span style="font-size:12px;color:#EF9F27">Sin foto</span>';
+}
+function verImagenGrande(src) {
+  const m = document.createElement('div');
+  m.style.cssText = 'position:fixed;inset:0;background:#000e;z-index:10001;display:flex;align-items:center;justify-content:center;padding:10px;cursor:zoom-out';
+  m.innerHTML = '<img src="' + src + '" style="max-width:100%;max-height:100%;object-fit:contain">';
+  m.onclick = () => m.remove();
+  document.body.appendChild(m);
+}
+// Respaldo en Drive de una foto agregada desde la computadora (para no perderla si se borra el navegador)
+async function respaldarFotoDrive(fotoId, dataUrl, info) {
+  const url = urlAppsScript(); if(!url) return '';
+  const regId = 'COMP-' + fotoId;
+  try {
+    const d = getData(); if(!d.campoImportados.includes(regId)) { d.campoImportados.push(regId); saveData(d); }
+    const j = await postJson(url, { action:'subirRegistro', id: regId, nombre:'COMPROBANTE', tel:'', cotId:'', direccion:'', notas: 'COMP::' + JSON.stringify(info || {}), fecha: new Date().toISOString(), totalFotosTrabajo: 1, totalFotosDanado: 0 });
+    if(!j || !j.ok) return '';
+    await postJson(url, { action:'subirFoto', nombre: regId + '_trabajo_0.jpg', base64: dataUrl });
+    return regId;
+  } catch(e) { return ''; }
+}
+async function guardarFotoArchivo(file, info) {
+  const dataUrl = await comprimirImagen(file, 1400, 0.65);
+  const fid = 'FOTO-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+  await fotoPut(fid, dataUrl);
+  const regId = await respaldarFotoDrive(fid, dataUrl, info);
+  return { fid, regId };
+}
+
+// ===================== v13.15: TARJETAS / FORMAS DE PAGO =====================
+const TARJETAS_DEF = ['Débito del negocio', 'Crédito del negocio', 'Tarjeta personal', 'Efectivo', 'Zelle'];
+function tarjetasLista() { const t = getCfg().tarjetas; return (Array.isArray(t) && t.length) ? t : TARJETAS_DEF; }
+function opcionesTarjeta(sel) {
+  const lista = tarjetasLista().slice();
+  if(sel && !lista.includes(sel)) lista.push(sel);
+  return '<option value="">— ¿Con qué se pagó? —</option>' + lista.map(t => '<option' + (t === sel ? ' selected' : '') + '>' + escH(t) + '</option>').join('');
+}
+function poblarTarjetas() {
+  ['g-tarjeta', 'gg-tarjeta'].forEach(id => { const e = document.getElementById(id); if(e) { const v = e.value; e.innerHTML = opcionesTarjeta(v); } });
+  const c = document.getElementById('cfg-tarjetas'); if(c && !c.value) c.value = tarjetasLista().join(', ');
+}
+function guardarTarjetasCfg() {
+  getCfg();
+  const v = (document.getElementById('cfg-tarjetas') || {}).value || '';
+  CFG.tarjetas = v.split(',').map(x => x.trim()).filter(Boolean);
+  saveCfg(); poblarTarjetas();
+  alert('✅ Tarjetas guardadas: ' + tarjetasLista().join(', '));
+}
+
+// ===================== v13.15: GASTOS DEL CELULAR POR COMPLETAR (FASE 2, escritorio) =====================
+function renderGastosPend() {
+  const el = document.getElementById('gastos-pend-wrap'); if(!el) return;
+  const p = (getData().gastosPend || []).slice().sort((a, b) => String(b.fechaHora).localeCompare(String(a.fechaHora)));
+  if(!p.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="card" style="border-left:4px solid #EF9F27">'
+    + '<div class="card-title">📸 Gastos del celular por completar (' + p.length + ')</div>'
+    + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:10px">Los capturaste con el celular. Agrega el monto exacto y con qué tarjeta lo pagaste para que queden registrados.</div>'
+    + p.map(g => '<div class="list-item" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">'
+      + '<div class="gp-thumb" data-id="' + g.id + '" style="width:64px;height:64px;border-radius:8px;background:#0d1520;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px">📷</div>'
+      + '<div style="flex:1;min-width:160px"><div class="list-item-title">' + (g.tipo === 'gas' ? '⛽ Gasolina · ' + gasVehTexto(g.vehiculo) : '🧾 ' + escH(g.cat || 'Gasto')) + '</div>'
+      + '<div class="list-item-detail">🕒 ' + fechaHoraTxt(g.fechaHora) + (g.monto ? ' · $' + (+g.monto).toFixed(2) : '') + (g.nota ? ' · ' + escH(g.nota) : '') + '</div></div>'
+      + '<div style="display:flex;gap:6px"><button class="btn btn-primary btn-sm" onclick="abrirCompletarGasto(\'' + g.id + '\')">✍️ Completar</button>'
+      + '<button class="btn btn-sm" title="Descartar" onclick="descartarGastoPend(\'' + g.id + '\')">🗑️</button></div></div>').join('')
+    + '</div>';
+  el.querySelectorAll('.gp-thumb').forEach(async t => {
+    const g = p.find(x => x.id === t.dataset.id); if(!g) return;
+    const fs = await fotosDeGasto(g);
+    if(fs[0]) t.innerHTML = '<img src="' + fs[0] + '" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in" onclick="verImagenGrande(this.src)">';
+  });
+}
+function cerrarModalGasto() { const m = document.getElementById('modal-gasto-pend'); if(m) m.remove(); }
+function abrirCompletarGasto(id) {
+  const g = (getData().gastosPend || []).find(x => x.id === id); if(!g) return;
+  cerrarModalGasto();
+  const esGas = g.tipo === 'gas';
+  const cats = [...document.querySelectorAll('#gg-cat option')].map(o => o.value);
+  const m = document.createElement('div'); m.id = 'modal-gasto-pend';
+  m.style.cssText = 'position:fixed;inset:0;background:#000b;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML = '<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:560px;width:100%;max-height:92vh;overflow:auto;padding:18px">'
+    + '<div style="font-size:16px;font-weight:800;margin-bottom:4px">' + (esGas ? '⛽ Completar carga de gasolina' : '🧾 Completar gasto') + '</div>'
+    + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:10px">🕒 ' + fechaHoraTxt(g.fechaHora) + (g.lat ? ' · 📍 <a href="https://maps.google.com/?q=' + g.lat + ',' + g.lng + '" target="_blank" style="color:#7ab8d8">ver lugar</a>' : '') + '</div>'
+    + '<div id="mgp-fotos" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>'
+    + (esGas
+      ? '<div class="form-row"><div><label>Vehículo</label><select id="mgp-veh">' + ['tacoma','ford','uhaul','otro'].map(k => '<option value="' + k + '"' + (k === g.vehiculo ? ' selected' : '') + '>' + GAS_VEH[k] + '</option>').join('') + '</select></div><div><label>Estación</label><input id="mgp-est" placeholder="Arco, Chevron..."></div></div>'
+      : '<div class="form-row"><div><label>Categoría</label><select id="mgp-cat">' + cats.map(c => '<option' + (c === g.cat ? ' selected' : '') + '>' + escH(c) + '</option>').join('') + '</select></div><div><label>Descripción</label><input id="mgp-desc" value="' + escH(g.nota || '') + '"></div></div>')
+    + '<div class="form-row"><div><label>Monto ($) *</label><input id="mgp-monto" type="number" step="0.01" value="' + (g.monto || '') + '"></div>'
+    + (esGas ? '<div><label>Galones</label><input id="mgp-gal" type="number" step="0.001" placeholder="Del recibo"></div>' : '<div><label>No. de recibo (opcional)</label><input id="mgp-recibo"></div>') + '</div>'
+    + '<div class="form-row"><div><label>💳 ¿Con qué lo pagaste? *</label><select id="mgp-tarjeta">' + opcionesTarjeta('') + '</select></div><div><label>Notas</label><input id="mgp-notas" value="' + (esGas ? escH(g.nota || '') : '') + '"></div></div>'
+    + '<div class="btn-row" style="margin-top:6px"><button class="btn btn-primary" onclick="guardarGastoPend(\'' + g.id + '\')">💾 Guardar gasto</button><button class="btn" onclick="cerrarModalGasto()">Cancelar</button></div></div>';
+  document.body.appendChild(m);
+  mostrarFotosEn(document.getElementById('mgp-fotos'), g, 150);
+}
+function guardarGastoPend(id) {
+  const d = getData();
+  const g = (d.gastosPend || []).find(x => x.id === id); if(!g) return;
+  const v = x => (document.getElementById(x) || {}).value || '';
+  const monto = parseFloat(v('mgp-monto'));
+  if(!(monto > 0)) { alert('⚠️ Escribe el monto'); return; }
+  const tarjeta = v('mgp-tarjeta');
+  if(!tarjeta && !confirm('No elegiste con qué lo pagaste. ¿Guardar así?')) return;
+  const base = { fecha: fechaLocal(g.fechaHora), hora: horaLocal(g.fechaHora), fechaHora: g.fechaHora, monto, tarjeta, fotoIds: g.fotoIds || [], fotoUrls: g.fotoUrls || [], regId: g.regId || '', origenCaptura: 'celular', lat: g.lat || null, lng: g.lng || null };
+  if(g.tipo === 'gas') {
+    if(!d.gas) d.gas = [];
+    d.gas.push(Object.assign(base, { vehiculo: v('mgp-veh') || g.vehiculo || '', galones: parseFloat(v('mgp-gal')) || 0, estacion: v('mgp-est'), trabajos: 4, notas: v('mgp-notas') }));
+  } else {
+    if(!d.gg) d.gg = [];
+    d.gg.push(Object.assign(base, { cat: v('mgp-cat') || g.cat || 'Otro', desc: v('mgp-desc'), recibo: v('mgp-recibo'), notas: v('mgp-notas') }));
+  }
+  d.gastosPend = d.gastosPend.filter(x => x.id !== id);
+  saveData(d);
+  cerrarModalGasto();
+  renderGastos(); renderGastosPend();
+  toastV('✅ Gasto guardado con su foto', '#1D9E75');
+}
+function descartarGastoPend(id) {
+  if(!confirm('¿Descartar este gasto del celular? (no se registrará)')) return;
+  const d = getData(); d.gastosPend = (d.gastosPend || []).filter(x => x.id !== id); saveData(d); renderGastosPend();
+}
+// Tabla: botón de foto por gasto (tipo = 'gas' | 'gg', i = índice en la lista invertida)
+function celdaFotoGasto(tipo, i, g) {
+  const tiene = (g.fotoIds && g.fotoIds.length) || (g.fotoUrls && g.fotoUrls.length) || g.regId;
+  return tiene ? '<button class="btn btn-sm" title="Ver comprobante" onclick="verFotoGastoIdx(\'' + tipo + '\',' + i + ')">📷</button>'
+               : '<button class="btn btn-sm" title="Agregar foto del comprobante" style="opacity:.75" onclick="agregarFotoGastoIdx(\'' + tipo + '\',' + i + ')">➕📷</button>';
+}
+async function verFotoGastoIdx(tipo, i) {
+  const arr = (getData()[tipo] || []).slice().reverse(); const g = arr[i]; if(!g) return;
+  const fs = await fotosDeGasto(g);
+  if(!fs.length) { if(confirm('No se encontró la foto en esta computadora ni en Drive. ¿Agregar una ahora?')) agregarFotoGastoIdx(tipo, i); return; }
+  verImagenGrande(fs[0]);
+}
+function agregarFotoGastoIdx(tipo, i) {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if(!f) return;
+    const d = getData(); const lista = d[tipo] || []; const real = lista.length - 1 - i; const g = lista[real]; if(!g) return;
+    try {
+      const r = await guardarFotoArchivo(f, { tipo, fecha: g.fecha, monto: g.monto });
+      const d2 = getData(); const g2 = (d2[tipo] || [])[real]; if(!g2) return;
+      g2.fotoIds = (g2.fotoIds || []).concat([r.fid]); if(r.regId && !g2.regId) g2.regId = r.regId;
+      saveData(d2); renderGastos(); toastV('✅ Foto agregada', '#1D9E75');
+    } catch(e) { alert('No se pudo guardar la foto: ' + e.message); }
+  };
+  inp.click();
+}
+
+// ===================== v13.15: REPORTE DE GASTOS CON FOTOS (PDF) Y EXCEL =====================
+function gastosEnRango() {
+  const desde = (document.getElementById('rg-desde') || {}).value || '0000-00-00';
+  const hasta = (document.getElementById('rg-hasta') || {}).value || '9999-12-31';
+  const d = getData();
+  const items = [].concat(
+    (d.gas || []).map(g => ({ g, fecha: g.fecha, hora: g.hora || '', tipo: 'Gasolina', det: gasVehTexto(g.vehiculo) + (g.estacion ? ' · ' + g.estacion : '') + (g.galones ? ' · ' + g.galones + ' gal' : ''), monto: +g.monto || 0, tarjeta: g.tarjeta || '', notas: g.notas || '' })),
+    (d.gg || []).map(g => ({ g, fecha: g.fecha, hora: g.hora || '', tipo: g.cat || g.categoria || 'Otro', det: g.desc || '', monto: +g.monto || 0, tarjeta: g.tarjeta || '', notas: (g.recibo ? 'Recibo: ' + g.recibo + ' ' : '') + (g.notas || '') }))
+  ).filter(x => x.fecha >= desde && x.fecha <= hasta);
+  items.sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+  return { items, desde, hasta };
+}
+function gastosExcelComprobantes() {
+  const { items, desde, hasta } = gastosEnRango();
+  if(!items.length) { alert('No hay gastos en ese rango de fechas'); return; }
+  const filas = items.map(x => [x.fecha, hora12(x.hora), x.tipo, x.det, x.monto, x.tarjeta, ((x.g.fotoIds || []).length || (x.g.fotoUrls || []).length || x.g.regId) ? 'Sí' : 'No', x.g.origenCaptura === 'celular' ? 'Celular' : 'Escritorio', x.notas]);
+  const tot = items.reduce((a, x) => a + x.monto, 0);
+  filas.push(['', '', '', 'TOTAL', +tot.toFixed(2), '', '', '', '']);
+  const porCat = {}; items.forEach(x => porCat[x.tipo] = (porCat[x.tipo] || 0) + x.monto);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([['Fecha', 'Hora', 'Tipo / Categoría', 'Detalle', 'Monto $', 'Pagado con', 'Foto de comprobante', 'Capturado en', 'Notas'], ...filas]);
+  ws['!cols'] = [{wch:12},{wch:10},{wch:26},{wch:34},{wch:10},{wch:20},{wch:12},{wch:12},{wch:30}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Gastos');
+  const ws2 = XLSX.utils.aoa_to_sheet([['Categoría', 'Total $'], ...Object.entries(porCat).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, +v.toFixed(2)]), ['TOTAL', +tot.toFixed(2)]]);
+  ws2['!cols'] = [{wch:32},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Por categoría');
+  XLSX.writeFile(wb, 'Gastos_' + (desde.startsWith('0000') ? 'todo' : desde) + '_a_' + (hasta.startsWith('9999') ? hoyLocal() : hasta) + '.xlsx');
+}
+function medidasImagen(src) { return new Promise(res => { const im = new Image(); im.onload = () => res({ w: im.width, h: im.height }); im.onerror = () => res(null); im.src = src; }); }
+async function reporteGastosPDF() {
+  const { items, desde, hasta } = gastosEnRango();
+  if(!items.length) { alert('No hay gastos en ese rango de fechas'); return; }
+  const btn = document.getElementById('btn-rg-pdf'); if(btn) { btn.disabled = true; btn.textContent = '⏳ Armando PDF...'; }
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'letter' });
+    const W = 215.9, M = 14;
+    const tot = items.reduce((a, x) => a + x.monto, 0);
+    const porCat = {}; items.forEach(x => porCat[x.tipo] = (porCat[x.tipo] || 0) + x.monto);
+    const per = (desde.startsWith('0000') ? 'Desde el inicio' : desde) + '  a  ' + (hasta.startsWith('9999') ? hoyLocal() : hasta);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(20, 63, 116);
+    doc.text('Comprobantes de gastos', M, 20);
+    doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 60, 60);
+    doc.text((getCfg().nombre || 'Mudanzas Express LA') + '  ·  Periodo: ' + per + '  ·  Generado: ' + new Date().toLocaleString('es-US'), M, 27);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(0, 0, 0);
+    doc.text('Total: $' + tot.toFixed(2) + '   (' + items.length + ' gastos, ' + items.filter(x => (x.g.fotoIds || []).length || (x.g.fotoUrls || []).length || x.g.regId).length + ' con foto)', M, 36);
+    let y = 46; doc.setFontSize(10);
+    doc.text('Resumen por categoría', M, y); y += 6; doc.setFont('helvetica', 'normal');
+    Object.entries(porCat).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => { doc.text(k, M + 2, y); doc.text('$' + v.toFixed(2), W - M, y, { align: 'right' }); y += 5.5; if(y > 260) { doc.addPage(); y = 20; } });
+    // Una hoja por cada 2 gastos
+    let slot = 0;
+    for(let i = 0; i < items.length; i++) {
+      const x = items[i];
+      if(slot === 0) { doc.addPage(); }
+      const top = slot === 0 ? 14 : 140;
+      doc.setDrawColor(200, 200, 200); doc.roundedRect(M - 2, top - 4, W - 2 * M + 4, 122, 2, 2);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(20, 63, 116);
+      doc.text((i + 1) + '. ' + x.tipo + '  —  $' + x.monto.toFixed(2), M, top + 3);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(40, 40, 40);
+      const lineas = [
+        'Fecha: ' + x.fecha + (x.hora ? '   Hora: ' + hora12(x.hora) : ''),
+        x.det ? 'Detalle: ' + x.det : '',
+        'Pagado con: ' + (x.tarjeta || '—'),
+        x.notas ? 'Notas: ' + x.notas : '',
+        x.g.lat ? 'Ubicación: ' + (+x.g.lat).toFixed(5) + ', ' + (+x.g.lng).toFixed(5) : ''
+      ].filter(Boolean);
+      let ty = top + 10;
+      lineas.forEach(l => { doc.splitTextToSize(l, 70).forEach(s => { doc.text(s, M, ty); ty += 4.6; }); });
+      const fs = await fotosDeGasto(x.g);
+      const foto = fs.find(f => String(f).startsWith('data:image'));
+      if(foto) {
+        const md = await medidasImagen(foto);
+        const maxW = 110, maxH = 110;
+        let w = maxW, h = maxH;
+        if(md) { const r = Math.min(maxW / md.w, maxH / md.h); w = md.w * r; h = md.h * r; }
+        try { doc.addImage(foto, foto.indexOf('image/png') > 0 ? 'PNG' : 'JPEG', W - M - w, top, w, h); } catch(e) {}
+      } else {
+        doc.setTextColor(200, 60, 60); doc.text(fs.length ? 'Foto en Drive (no se pudo insertar): ' + String(fs[0]).slice(0, 60) : 'Sin foto de comprobante', W - M - 110, top + 10); doc.setTextColor(40, 40, 40);
+      }
+      slot = slot === 0 ? 1 : 0;
+    }
+    doc.save('Comprobantes_gastos_' + (desde.startsWith('0000') ? 'todo' : desde) + '_a_' + (hasta.startsWith('9999') ? hoyLocal() : hasta) + '.pdf');
+  } catch(e) { alert('No se pudo crear el PDF: ' + e.message); }
+  if(btn) { btn.disabled = false; btn.textContent = '📄 PDF con fotos'; }
+}
+
+// ===================== v13.15: IMPORTAR GASTOS Y VIAJES QUE MANDA EL CELULAR =====================
+async function importarRegistroEspecial(reg, id) {
+  if(id.indexOf('COMP-') === 0) { const d = getData(); if(!d.campoImportados.includes(id)) { d.campoImportados.push(id); saveData(d); } return; }
+  const raw = String(reg.notas || ''); const k = raw.indexOf('::');
+  let meta = {}; try { meta = JSON.parse(raw.slice(k + 2)); } catch(e) {}
+  if(id.indexOf('GASTO-') === 0) {
+    const fotos = reg.fotosTrabajo || [];
+    const edadMin = (Date.now() - new Date(meta.fechaHora || reg.fecha || Date.now()).getTime()) / 60000;
+    if((meta.nfotos || 0) > fotos.length && edadMin < 15) return; // las fotos todavía se están subiendo
+    const fotoIds = [], fotoUrls = [];
+    for(let i = 0; i < fotos.length; i++) {
+      const f = fotos[i];
+      if(String(f).indexOf('data:') === 0) { const fid = 'FOTO-' + id + '-' + i; try { await fotoPut(fid, f); fotoIds.push(fid); } catch(e) { fotoUrls.push(f); } }
+      else fotoUrls.push(f);
+    }
+    const d = getData(); if(!d.gastosPend) d.gastosPend = [];
+    const ya = d.gastosPend.some(x => x.id === id) || [].concat(d.gas || [], d.gg || []).some(x => x.regId === id);
+    if(!ya) d.gastosPend.push({ id, regId: id, tipo: meta.tipo === 'gas' ? 'gas' : 'gg', vehiculo: meta.vehiculo || '', cat: meta.cat || '', monto: +meta.monto || 0, nota: meta.nota || '', fechaHora: meta.fechaHora || reg.fecha, lat: meta.lat || null, lng: meta.lng || null, fotoIds, fotoUrls, recibido: new Date().toISOString() });
+    if(!d.campoImportados.includes(id)) d.campoImportados.push(id);
+    saveData(d);
+    try { renderGastosPend(); } catch(e) {}
+    return;
+  }
+  if(id.indexOf('VIAJE-') === 0) { importarViajeDia(meta, id); return; }
+}
+function importarViajeDia(meta, id) {
+  const d = getData();
+  if(!d.viajes) d.viajes = [];
+  if(!d.viajes.some(v => v.id === id)) {
+    const res = meta.resumen || {};
+    d.viajes.push({ id, fecha: meta.fecha || hoyLocal(), tramos: meta.tramos || [], resumen: res, odometros: meta.odometros || {} });
+    // Sumar las millas al odómetro de cada vehículo (para el control de mantenimiento)
+    Object.keys(res).forEach(k => {
+      const mi = +(res[k] && res[k].millas) || 0;
+      const vid = vehIdPorClave(k);
+      if(!vid) return;
+      const v = (d.vehiculos || []).find(x => x.id === vid); if(!v) return;
+      const ini = +v.millasActuales || 0;
+      let odo = +((meta.odometros || {})[k]) || 0;
+      if(odo > 0 && ini > 0 && (odo < ini || odo > ini + 2000)) odo = 0; // odómetro mal escrito: se ignora
+      const fin = odo > 0 ? odo : +(ini + mi).toFixed(1);
+      if(!(mi > 0) && !(odo > 0)) return;
+      if(!d.odometros) d.odometros = [];
+      d.odometros.push({ id: 'ODO-' + Date.now() + '-' + k, vehiculoId: vid, fecha: meta.fecha || hoyLocal(), inicio: ini, fin: fin, millas: +mi.toFixed(1), notas: 'Automático desde la app de campo (' + ((res[k] && res[k].viajes) || 0) + ' viajes' + (odo > 0 ? ', odómetro ' + odo : '') + ')' });
+      v.millasActuales = fin;
+    });
+  }
+  if(!d.campoImportados.includes(id)) d.campoImportados.push(id);
+  saveData(d);
+  try { renderVehiculos(); } catch(e) {}
+}
+
+// ===================== v13.15: VIAJES EN EL ESCRITORIO (pestaña Vehículos) =====================
+function htmlViajesEscritorio() {
+  const d = getData();
+  const viajes = (d.viajes || []).slice().sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  const mes = hoyLocal().slice(0, 7);
+  const tot = { tacoma: { mi: 0, v: 0, t: 0 }, ford: { mi: 0, v: 0, t: 0 } };
+  viajes.filter(v => String(v.fecha).slice(0, 7) === mes).forEach(v => Object.keys(v.resumen || {}).forEach(k => { if(!tot[k]) tot[k] = { mi: 0, v: 0, t: 0 }; tot[k].mi += +v.resumen[k].millas || 0; tot[k].v += +v.resumen[k].viajes || 0; tot[k].t += +v.resumen[k].trabajos || 0; }));
+  // trabajos terminados por vehículo (todos y este mes)
+  const term = (d.cots || []).filter(c => c.estatus === 'terminado');
+  const trabVeh = {};
+  term.forEach(c => { const k = vehClavePorId(c.vehiculoId) || 'sin'; const f = fechaLocal(c.fechaTerminadoISO || ayParseFecha(c.fechaTerminado) || c.fecha); if(!trabVeh[k]) trabVeh[k] = { total: 0, mes: 0, cobrado: 0 }; trabVeh[k].total++; if(f.slice(0, 7) === mes) { trabVeh[k].mes++; trabVeh[k].cobrado += (c.montoFinal || c.total || 0) + (c.propina || 0); } });
+  let h = '<div class="card" style="border-left:4px solid #1D9E75"><div class="card-title">🚗 Millas y trabajos por vehículo (este mes)</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">'
+    + ['tacoma', 'ford'].map(k => '<div class="stat-card"><div style="font-weight:800;margin-bottom:4px">' + GAS_VEH[k] + '</div>'
+      + '<div style="font-size:12px;color:#b0c4d8;line-height:1.7">🛣️ ' + (tot[k] ? tot[k].mi.toFixed(1) : '0') + ' millas (app de campo)<br>✅ ' + ((trabVeh[k] || {}).mes || 0) + ' trabajos este mes · ' + ((trabVeh[k] || {}).total || 0) + ' en total<br>💵 $' + (((trabVeh[k] || {}).cobrado) || 0).toFixed(0) + ' cobrados este mes</div></div>').join('')
+    + '</div></div>';
+  // Rendimiento por tanque
+  h += '<div class="card"><div class="card-title">⛽ Trabajos y millas por cada carga de gasolina</div>'
+    + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:8px">Se calcula con los trabajos terminados y las millas de la app de campo entre una carga y la siguiente del mismo vehículo.</div>'
+    + '<table class="data-table"><thead><tr><th>Carga</th><th>Vehículo</th><th>Monto</th><th>Galones</th><th>Trabajos</th><th>Millas</th><th>Millas/galón</th><th>$ por trabajo</th></tr></thead><tbody>';
+  const filas = [];
+  ['tacoma', 'ford'].forEach(k => {
+    const cargas = (d.gas || []).filter(g => g.vehiculo === k).sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')));
+    cargas.forEach((g, i) => {
+      const ini = g.fecha, fin = cargas[i + 1] ? cargas[i + 1].fecha : '9999-12-31';
+      const trabajos = term.filter(c => vehClavePorId(c.vehiculoId) === k).filter(c => { const f = fechaLocal(c.fechaTerminadoISO || ayParseFecha(c.fechaTerminado) || c.fecha); return f >= ini && f < fin; }).length;
+      let millas = 0;
+      viajes.forEach(v => (v.tramos || []).forEach(t => { if(t.vehiculo === k && v.fecha >= ini && v.fecha < fin) millas += +t.millas || 0; }));
+      filas.push({ fecha: g.fecha, k, monto: +g.monto || 0, gal: +g.galones || 0, trabajos, millas, actual: !cargas[i + 1] });
+    });
+  });
+  filas.sort((a, b) => b.fecha.localeCompare(a.fecha));
+  h += filas.slice(0, 12).map(f => '<tr><td>' + f.fecha + (f.actual ? ' <span class="badge badge-green">tanque actual</span>' : '') + '</td><td>' + gasVehTexto(f.k) + '</td><td>$' + f.monto.toFixed(2) + '</td><td>' + (f.gal || '—') + '</td><td>' + f.trabajos + '</td><td>' + (f.millas ? f.millas.toFixed(1) : '—') + '</td><td>' + (f.gal && f.millas && !f.actual ? (f.millas / f.gal).toFixed(1) : '—') + '</td><td>' + (f.trabajos ? '$' + (f.monto / f.trabajos).toFixed(2) : '—') + '</td></tr>').join('')
+    + '</tbody></table>' + (filas.length ? '' : '<div class="empty-state" style="padding:20px"><p>Aún no hay cargas con vehículo asignado</p></div>') + '</div>';
+  // Últimos días con viajes
+  h += '<div class="card"><div class="card-title">📅 Días registrados con la app de campo</div>'
+    + (viajes.length ? '<table class="data-table"><thead><tr><th>Fecha</th><th>Vehículo</th><th>Millas</th><th>Viajes</th><th>Trabajos</th><th></th></tr></thead><tbody>'
+      + viajes.slice(0, 20).map(v => Object.keys(v.resumen || {}).map(k => '<tr><td>' + v.fecha + '</td><td>' + (GAS_VEH[k] || k) + '</td><td>' + (+v.resumen[k].millas || 0).toFixed(1) + '</td><td>' + (v.resumen[k].viajes || 0) + '</td><td>' + (v.resumen[k].trabajos || 0) + '</td><td><button class="btn btn-sm" onclick="verViajeDia(\'' + v.id + '\')">Ver</button></td></tr>').join('')).join('')
+      + '</tbody></table>' : '<div class="empty-state" style="padding:20px"><p>Todavía no llegan viajes. En el celular: App de campo → Modo administrador → 🚗 Viajes.</p></div>')
+    + '</div>';
+  return h;
+}
+function verViajeDia(id) {
+  const v = (getData().viajes || []).find(x => x.id === id); if(!v) return;
+  const m = document.createElement('div');
+  m.style.cssText = 'position:fixed;inset:0;background:#000b;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML = '<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:640px;width:100%;max-height:90vh;overflow:auto;padding:18px">'
+    + '<div style="font-size:16px;font-weight:800;margin-bottom:10px">🚗 Viajes del ' + v.fecha + '</div>'
+    + '<table class="data-table"><thead><tr><th>Salida</th><th>Llegada</th><th>Vehículo</th><th>A dónde</th><th>Millas</th></tr></thead><tbody>'
+    + (v.tramos || []).map(t => '<tr><td>' + hora12(horaLocal(t.inicio)) + '</td><td>' + hora12(horaLocal(t.fin)) + '</td><td>' + (GAS_VEH[t.vehiculo] || t.vehiculo) + '</td><td>' + escH(t.hacia && t.hacia.etiqueta || '') + '</td><td>' + (+t.millas || 0).toFixed(1) + (t.fuente === 'aprox' ? ' ~' : '') + '</td></tr>').join('')
+    + '</tbody></table><div class="btn-row" style="margin-top:12px"><button class="btn" onclick="this.closest(\'div[style*=fixed]\').remove()">Cerrar</button></div></div>';
+  document.body.appendChild(m);
+}
+
+// ===================== v13.15: CELULAR — GASTO RÁPIDO (FASE 1) =====================
+let cgTipo = 'gas', cgVeh = '', cgFotos = [], cgGeo = null;
+const CG_QKEY = 'gastos_cel_queue_v1';
+function cgQueue() { try { return JSON.parse(localStorage.getItem(CG_QKEY) || '[]'); } catch(e) { return []; } }
+function cgSaveQueue(q) { try { localStorage.setItem(CG_QKEY, JSON.stringify(q)); return true; } catch(e) { alert('⚠️ El celular se quedó sin espacio para guardar fotos. Conéctate a internet para que se suban.'); return false; } }
+function cgInit() {
+  const sel = document.getElementById('cg-cat');
+  if(sel && !sel.options.length) sel.innerHTML = [...document.querySelectorAll('#gg-cat option')].map(o => '<option>' + escH(o.value) + '</option>').join('');
+  if(!cgVeh) cgVeh = localStorage.getItem('vj_ultimo_veh') || '';
+  cgSetTipo(cgTipo); cgActualizarHora(); cgPedirGeo(); cgRenderFotos(); cgRenderLista();
+  cgQueue().filter(x => x.estado !== 'subido').forEach(x => cgSubir(x.id).then(() => cgRenderLista()));
+}
+function cgSetTipo(t) {
+  cgTipo = t;
+  ['gas', 'gg'].forEach(x => { const b = document.getElementById('cg-tipo-' + x); if(b) { b.style.background = x === t ? '#1F5EA8' : '#1a2535'; b.style.color = x === t ? '#fff' : '#b0c4d8'; } });
+  const vw = document.getElementById('cg-veh-wrap'), cw = document.getElementById('cg-cat-wrap');
+  if(vw) vw.style.display = t === 'gas' ? '' : 'none';
+  if(cw) cw.style.display = t === 'gg' ? '' : 'none';
+  cgSetVeh(cgVeh);
+}
+function cgSetVeh(v) {
+  cgVeh = v || '';
+  ['tacoma', 'ford', 'uhaul'].forEach(x => { const b = document.getElementById('cg-veh-' + x); if(b) { b.style.background = x === cgVeh ? '#1D9E75' : '#1a2535'; b.style.color = x === cgVeh ? '#fff' : '#b0c4d8'; } });
+}
+function cgActualizarHora() { const el = document.getElementById('cg-hora'); if(el) el.textContent = '🕒 Se guarda con la hora exacta: ' + fechaHoraTxt(new Date().toISOString()); }
+function cgPedirGeo() {
+  if(!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(p => { cgGeo = { lat: +p.coords.latitude.toFixed(6), lng: +p.coords.longitude.toFixed(6) }; const el = document.getElementById('cg-geo'); if(el) el.textContent = '📍 Ubicación guardada'; }, () => {}, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+}
+async function cgFotoElegida(inp) {
+  const f = inp.files && inp.files[0]; if(!f) return;
+  if(cgFotos.length >= 3) { alert('Máximo 3 fotos por gasto'); inp.value = ''; return; }
+  try { cgFotos.push(await comprimirImagen(f, 1400, 0.62)); } catch(e) { alert('No se pudo leer la foto'); }
+  inp.value = ''; cgActualizarHora(); cgRenderFotos();
+}
+function cgRenderFotos() {
+  const g = document.getElementById('cg-fotos'); if(!g) return;
+  g.innerHTML = cgFotos.map((f, i) => '<div style="position:relative;width:86px;height:86px"><img src="' + f + '" style="width:100%;height:100%;object-fit:cover;border-radius:10px"><button onclick="cgFotos.splice(' + i + ',1);cgRenderFotos()" style="position:absolute;top:-6px;right:-6px;background:#E24B4A;color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-weight:800">×</button></div>').join('');
+}
+async function cgGuardar() {
+  if(cgTipo === 'gas' && !cgVeh) { alert('⚠️ Elige el vehículo'); return; }
+  if(!cgFotos.length && !confirm('No tomaste foto del recibo. ¿Guardar sin foto?')) return;
+  const now = new Date();
+  const item = { id: 'GASTO-' + now.getTime(), tipo: cgTipo, vehiculo: cgTipo === 'gas' ? cgVeh : '', cat: cgTipo === 'gg' ? ((document.getElementById('cg-cat') || {}).value || 'Otro') : '', monto: parseFloat((document.getElementById('cg-monto') || {}).value) || 0, nota: ((document.getElementById('cg-nota') || {}).value || '').trim(), fechaHora: now.toISOString(), lat: cgGeo ? cgGeo.lat : null, lng: cgGeo ? cgGeo.lng : null, fotos: cgFotos.slice(), estado: 'pendiente' };
+  if(cgVeh) localStorage.setItem('vj_ultimo_veh', cgVeh);
+  const q = cgQueue(); q.unshift(item);
+  if(!cgSaveQueue(q)) return;
+  cgFotos = []; cgRenderFotos();
+  ['cg-monto', 'cg-nota'].forEach(id => { const e = document.getElementById(id); if(e) e.value = ''; });
+  const st = document.getElementById('cg-status'); if(st) st.textContent = '⏳ Guardado. Subiendo...';
+  const ok = await cgSubir(item.id);
+  if(st) st.textContent = ok ? '✅ Enviado. Complétalo en la computadora (Gastos).' : '⚠️ Guardado en el celular. Se enviará cuando haya internet.';
+  cgRenderLista(); cgActualizarHora();
+}
+async function cgSubir(id) {
+  const q = cgQueue(); const it = q.find(x => x.id === id);
+  if(!it || it.estado === 'subido') return true;
+  if(typeof CAMPO_APPS_URL === 'undefined' || !CAMPO_APPS_URL || CAMPO_APPS_URL.includes('PEGA_AQUI')) return false;
+  try {
+    const meta = { tipo: it.tipo, vehiculo: it.vehiculo, cat: it.cat, monto: it.monto, nota: it.nota, fechaHora: it.fechaHora, lat: it.lat, lng: it.lng, nfotos: it.fotos.length };
+    const r = await fetch(CAMPO_APPS_URL, { method: 'POST', body: JSON.stringify({ action: 'subirRegistro', id: it.id, nombre: 'GASTO', tel: '', cotId: '', direccion: it.lat ? (it.lat + ',' + it.lng) : '', notas: 'GASTO::' + JSON.stringify(meta), fecha: it.fechaHora, totalFotosTrabajo: it.fotos.length, totalFotosDanado: 0 }) });
+    const j = await r.json(); if(!j.ok) throw new Error(j.error || 'error');
+    for(let i = 0; i < it.fotos.length; i++) {
+      await fetch(CAMPO_APPS_URL, { method: 'POST', body: JSON.stringify({ action: 'subirFoto', nombre: it.id + '_trabajo_' + i + '.jpg', base64: it.fotos[i] }) });
+    }
+    const q2 = cgQueue(); const it2 = q2.find(x => x.id === id);
+    if(it2) { it2.thumb = it2.fotos[0] ? await miniatura(it2.fotos[0], 140) : ''; it2.fotos = []; it2.estado = 'subido'; cgSaveQueue(q2.slice(0, 40)); }
+    return true;
+  } catch(e) { return false; }
+}
+function cgRenderLista() {
+  const el = document.getElementById('cg-lista'); if(!el) return;
+  const q = cgQueue();
+  if(!q.length) { el.innerHTML = '<div style="font-size:12px;color:#b0c4d8">Todavía no has capturado gastos en este celular.</div>'; return; }
+  el.innerHTML = q.slice(0, 15).map(x => '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #2a3a4a">'
+    + ((x.thumb || x.fotos[0]) ? '<img src="' + (x.thumb || x.fotos[0]) + '" style="width:46px;height:46px;object-fit:cover;border-radius:8px">' : '<div style="width:46px;height:46px;border-radius:8px;background:#0d1520;display:flex;align-items:center;justify-content:center">🧾</div>')
+    + '<div style="flex:1;font-size:12px"><div style="font-weight:700;color:#e8edf2">' + (x.tipo === 'gas' ? '⛽ ' + gasVehTexto(x.vehiculo) : '🧾 ' + escH(x.cat)) + (x.monto ? ' · $' + (+x.monto).toFixed(2) : '') + '</div><div style="color:#b0c4d8">' + fechaHoraTxt(x.fechaHora) + '</div></div>'
+    + (x.estado === 'subido' ? '<span style="color:#1D9E75;font-size:12px;font-weight:700">✅ Enviado</span>' : '<button class="btn btn-sm" onclick="cgSubir(\'' + x.id + '\').then(ok=>{cgRenderLista();toastV(ok?\'✅ Enviado\':\'⚠️ Sin conexión\')})">⏳ Reintentar</button>')
+    + '</div>').join('');
+}
+
+// ===================== v13.15: CELULAR — VIAJES Y MILLAS =====================
+const VJ_KEY = 'viaje_dia_v1', VJ_CFG = 'viajes_cfg_v1', VJ_QKEY = 'viajes_cola_v1';
+let vjWatch = null, vjDestGeo = null, vjOtraTxt = '', vjSel = null;
+function vjCfg() { try { return Object.assign({ casa: (getCfg().dirCasa || ''), gelacio: '', base: '', abrirMaps: true }, JSON.parse(localStorage.getItem(VJ_CFG) || '{}')); } catch(e) { return { casa: '', gelacio: '', base: '', abrirMaps: true }; } }
+function vjGuardarCfg() {
+  const c = vjCfg();
+  ['casa', 'gelacio', 'base'].forEach(k => { const e = document.getElementById('vj-cfg-' + k); if(e) c[k] = e.value.trim(); });
+  const am = document.getElementById('vj-cfg-maps'); if(am) c.abrirMaps = am.checked;
+  localStorage.setItem(VJ_CFG, JSON.stringify(c)); toastV('✅ Direcciones guardadas', '#1D9E75'); vjRender();
+}
+function vjEstado() {
+  let s = null; try { s = JSON.parse(localStorage.getItem(VJ_KEY) || 'null'); } catch(e) {}
+  if(!s) s = { fecha: hoyLocal(), tramos: [], activo: null };
+  return s;
+}
+function vjGuardar(s) { localStorage.setItem(VJ_KEY, JSON.stringify(s)); }
+function vjGeo(timeout) {
+  return new Promise(res => {
+    if(!navigator.geolocation) return res(null);
+    let listo = false;
+    const t = setTimeout(() => { if(!listo) { listo = true; res(null); } }, timeout || 9000);
+    navigator.geolocation.getCurrentPosition(p => { if(listo) return; listo = true; clearTimeout(t); res({ lat: +p.coords.latitude.toFixed(6), lng: +p.coords.longitude.toFixed(6) }); }, () => { if(listo) return; listo = true; clearTimeout(t); res(null); }, { enableHighAccuracy: true, timeout: timeout || 9000, maximumAge: 20000 });
+  });
+}
+function vjDistKm(a, b) {
+  const R = 6371, dLa = (b.lat - a.lat) * Math.PI / 180, dLo = (b.lng - a.lng) * Math.PI / 180;
+  const x = Math.sin(dLa / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLo / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+function vjTrabajos() {
+  const lista = (typeof trabajosCola !== 'undefined' && trabajosCola && trabajosCola.length) ? trabajosCola : [];
+  return lista.slice().sort((a, b) => ((a.fecha || '') + (a.hora || '')).localeCompare((b.fecha || '') + (b.hora || '')));
+}
+// Lista de destinos posibles, en el orden natural del día
+function vjOpciones() {
+  const c = vjCfg(), ops = [];
+  if(c.gelacio) ops.push({ tipo: 'gelacio', etiqueta: '🧑 Casa de Gelacio', txt: c.gelacio });
+  vjTrabajos().forEach(t => {
+    const n = (t.nombre || 'Cliente') + (t.cotId ? ' (' + t.cotId + ')' : '');
+    if(t.origen) ops.push({ tipo: 'origen', cotId: t.cotId, etiqueta: '📦 Origen — ' + n, txt: t.origen });
+    (t.paradas || []).forEach((p, i) => ops.push({ tipo: 'parada', cotId: t.cotId, etiqueta: '📍 Parada ' + (i + 2) + ' — ' + n, txt: p }));
+    if(t.destino) ops.push({ tipo: 'destino', cotId: t.cotId, etiqueta: '🏁 Destino — ' + n, txt: t.destino });
+  });
+  if(c.base) ops.push({ tipo: 'base', etiqueta: '🅿️ Base (dejar o cambiar vehículo)', txt: c.base });
+  if(c.casa) ops.push({ tipo: 'casa', etiqueta: '🏡 Mi casa', txt: c.casa });
+  ops.push({ tipo: 'otra', etiqueta: '✏️ Otra dirección', txt: '' });
+  return ops;
+}
+function vjClaveOp(o) { return o.tipo + '|' + (o.cotId || '') + '|' + o.txt; }
+function vjSugerencia(s) {
+  const ops = vjOpciones().filter(o => o.tipo !== 'otra');
+  if(!ops.length) return null;
+  const hechos = new Set(s.tramos.map(t => vjClaveOp(t.hacia)));
+  const ult = s.tramos.length ? s.tramos[s.tramos.length - 1].hacia : null;
+  if(!ult) return ops.find(o => o.tipo === 'gelacio') || ops.find(o => o.tipo === 'origen') || ops[0];
+  if(['origen', 'parada'].includes(ult.tipo)) {
+    const i = ops.findIndex(o => vjClaveOp(o) === vjClaveOp(ult));
+    const sig = ops.slice(i + 1).find(o => o.cotId === ult.cotId && !hechos.has(vjClaveOp(o)));
+    if(sig) return sig;
+  }
+  const pendiente = ops.find(o => o.tipo === 'origen' && !hechos.has(vjClaveOp(o)));
+  if(pendiente) return pendiente;
+  if(ult.tipo === 'destino') return ops.find(o => o.tipo === 'gelacio' && ult.tipo !== 'gelacio') || ops.find(o => o.tipo === 'casa') || null;
+  if(ult.tipo === 'gelacio') return ops.find(o => o.tipo === 'casa') || ops.find(o => o.tipo === 'base') || null;
+  return ops.find(o => o.tipo === 'casa') || null;
+}
+function vjResumen(s) {
+  const r = {};
+  s.tramos.forEach(t => {
+    if(!r[t.vehiculo]) r[t.vehiculo] = { millas: 0, viajes: 0, trabajos: 0, _cots: {} };
+    r[t.vehiculo].millas += +t.millas || 0; r[t.vehiculo].viajes++;
+    if(t.hacia && t.hacia.cotId && ['origen', 'destino', 'parada'].includes(t.hacia.tipo)) r[t.vehiculo]._cots[t.hacia.cotId] = 1;
+  });
+  Object.values(r).forEach(v => { v.trabajos = Object.keys(v._cots).length; delete v._cots; v.millas = +v.millas.toFixed(1); });
+  return r;
+}
+function vjInit() {
+  const c = vjCfg();
+  ['casa', 'gelacio', 'base'].forEach(k => { const e = document.getElementById('vj-cfg-' + k); if(e && !e.value) e.value = c[k] || ''; });
+  const am = document.getElementById('vj-cfg-maps'); if(am) am.checked = c.abrirMaps !== false;
+  if(typeof cargarTrabajoCampo === 'function' && (typeof trabajosCola === 'undefined' || !trabajosCola.length)) { try { verificarTrabajoSilencioso().then(vjRender); } catch(e) {} }
+  vjReintentarCola();
+  vjRender();
+}
+function vjRender() {
+  const el = document.getElementById('vj-contenido'); if(!el) return;
+  const s = vjEstado();
+  const veh = localStorage.getItem('vj_ultimo_veh') || '';
+  const res = vjResumen(s);
+  let h = '';
+  if(s.fecha !== hoyLocal() && (s.tramos.length || s.activo)) {
+    h += '<div class="card" style="border:2px solid #EF9F27"><div style="font-weight:800;margin-bottom:6px">⚠️ Tienes viajes del ' + s.fecha + ' sin enviar</div><button class="btn btn-primary" style="width:100%" onclick="vjTerminarDia()">🏁 Terminar ese día y enviarlo</button></div>';
+  }
+  h += '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:800">🛣️ Hoy</div><div style="font-size:12px;color:#b0c4d8">' + s.tramos.length + ' viaje(s)</div></div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' + (Object.keys(res).length ? Object.keys(res).map(k => '<div style="background:#0d1520;border-radius:10px;padding:8px 12px;font-size:13px"><b>' + (GAS_VEH[k] || k) + '</b><br><span style="color:#1D9E75;font-weight:800;font-size:18px">' + res[k].millas.toFixed(1) + '</span> mi · ' + res[k].viajes + ' viajes</div>').join('') : '<div style="font-size:12px;color:#b0c4d8">Aún no hay viajes hoy.</div>') + '</div></div>';
+  if(s.activo) {
+    const a = s.activo;
+    h += '<div class="card" style="border:2px solid #1D9E75"><div style="font-size:12px;color:#7ab8d8;font-weight:700">🟢 EN CAMINO · ' + (GAS_VEH[a.vehiculo] || a.vehiculo) + ' · salió ' + hora12(horaLocal(a.inicio)) + '</div>'
+      + '<div style="font-size:17px;font-weight:800;margin:6px 0">' + escH(a.hacia.etiqueta) + '</div><div style="font-size:12px;color:#b0c4d8;margin-bottom:10px">' + escH(a.hacia.txt) + '</div>'
+      + '<div id="vj-cerca" style="display:none;background:#1D9E7533;color:#7ee0b8;border-radius:10px;padding:8px;text-align:center;font-weight:700;margin-bottom:8px">📍 Parece que ya llegaste</div>'
+      + '<button class="btn btn-primary" id="vj-btn-llegue" style="width:100%;padding:16px;font-size:17px;background:#1D9E75;border-color:#1D9E75" onclick="vjLlegue()">✅ Llegué</button>'
+      + '<div style="display:flex;gap:8px;margin-top:8px"><a class="btn" style="flex:1;text-align:center;text-decoration:none" target="_blank" href="' + vjMapsUrl(a.hacia.txt) + '">🧭 Abrir en Maps</a><button class="btn" style="flex:1" onclick="vjCancelarActivo()">✖️ Cancelar viaje</button></div></div>';
+  } else {
+    const sug = vjSugerencia(s);
+    if(!vjSel && sug) vjSel = vjClaveOp(sug);
+    const ops = vjOpciones();
+    h += '<div class="card"><div style="font-weight:800;margin-bottom:8px">▶️ Nuevo viaje</div>'
+      + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:6px">¿Qué vehículo llevas?</div><div style="display:flex;gap:8px;margin-bottom:12px">'
+      + ['tacoma', 'ford', 'uhaul'].map(k => '<button onclick="localStorage.setItem(\'vj_ultimo_veh\',\'' + k + '\');vjRender()" style="flex:1;padding:12px 6px;border-radius:10px;border:1px solid #2a3a4a;font-weight:700;background:' + (veh === k ? '#1D9E75' : '#1a2535') + ';color:' + (veh === k ? '#fff' : '#b0c4d8') + '">' + GAS_VEH[k] + '</button>').join('') + '</div>'
+      + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:6px">¿A dónde vas?' + (sug ? ' <span style="color:#7ee0b8">(sugerido: ' + escH(sug.etiqueta) + ')</span>' : '') + '</div>'
+      + ops.map(o => { const k = vjClaveOp(o), act = k === vjSel; return '<button onclick="vjSel=decodeURIComponent(\'' + encodeURIComponent(k).replace(/'/g, '%27') + '\');vjRender()" style="display:block;width:100%;text-align:left;padding:11px 12px;margin-bottom:6px;border-radius:10px;border:1px solid ' + (act ? '#1D9E75' : '#2a3a4a') + ';background:' + (act ? '#1D9E7522' : '#1a2535') + ';color:#e8edf2;font-size:14px"><div style="font-weight:700">' + (act ? '🔘 ' : '⚪ ') + escH(o.etiqueta) + '</div>' + (o.txt ? '<div style="font-size:11px;color:#b0c4d8;margin-top:2px">' + escH(o.txt) + '</div>' : '') + '</button>'; }).join('')
+      + (vjSel && vjSel.indexOf('otra|') === 0 ? '<input id="vj-otra" placeholder="Escribe la dirección" value="' + escH(vjOtraTxt) + '" oninput="vjOtraTxt=this.value" style="margin-bottom:8px">' : '')
+      + '<button class="btn btn-primary" style="width:100%;padding:16px;font-size:17px;margin-top:6px" onclick="vjIniciar()">▶️ Iniciar viaje</button></div>';
+  }
+  if(s.tramos.length) {
+    h += '<div class="card"><div style="font-weight:800;margin-bottom:6px">📋 Viajes de hoy</div>'
+      + s.tramos.map((t, i) => '<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #2a3a4a;font-size:12px"><div style="flex:1"><b>' + hora12(horaLocal(t.inicio)) + ' → ' + hora12(horaLocal(t.fin)) + '</b> · ' + (GAS_VEH[t.vehiculo] || t.vehiculo) + '<br><span style="color:#b0c4d8">' + escH(t.hacia.etiqueta) + '</span></div><div style="font-weight:800;color:#1D9E75;white-space:nowrap">' + (+t.millas).toFixed(1) + ' mi' + (t.fuente === 'aprox' ? '~' : '') + '</div><button class="btn btn-sm" onclick="vjEditarMillas(' + i + ')">✏️</button></div>').join('')
+      + '<button class="btn btn-primary" style="width:100%;margin-top:10px;background:#143F74" onclick="vjTerminarDia()">🏁 Terminar el día y enviar a la computadora</button></div>';
+  }
+  const cola = vjCola();
+  if(cola.length) h += '<div class="card" style="border:1px solid #EF9F27"><div style="font-size:12px">⏳ ' + cola.length + ' día(s) esperando internet para enviarse.</div><button class="btn btn-sm" style="margin-top:6px" onclick="vjReintentarCola(true)">Reintentar ahora</button></div>';
+  el.innerHTML = h;
+  vjVigilarLlegada();
+}
+function vjMapsUrl(txt) { return 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' + encodeURIComponent(txt || ''); }
+async function vjIniciar() {
+  const veh = localStorage.getItem('vj_ultimo_veh') || '';
+  if(!veh) { alert('⚠️ Elige el vehículo'); return; }
+  const op = vjOpciones().find(o => vjClaveOp(o) === vjSel);
+  if(!op) { alert('⚠️ Elige a dónde vas'); return; }
+  const hacia = Object.assign({}, op);
+  if(hacia.tipo === 'otra') { hacia.txt = (vjOtraTxt || '').trim(); if(!hacia.txt) { alert('⚠️ Escribe la dirección'); return; } hacia.etiqueta = '✏️ ' + hacia.txt; }
+  if(vjCfg().abrirMaps !== false) { try { window.open(vjMapsUrl(hacia.txt), '_blank'); } catch(e) {} }
+  const s = vjEstado();
+  if(s.fecha !== hoyLocal() && !s.tramos.length) s.fecha = hoyLocal();
+  const ult = s.tramos.length ? s.tramos[s.tramos.length - 1] : null;
+  const geo = await vjGeo(8000);
+  const desde = { txt: ult ? ult.hacia.txt : (vjCfg().casa || ''), lat: geo ? geo.lat : (ult && ult.llegada ? ult.llegada.lat : null), lng: geo ? geo.lng : (ult && ult.llegada ? ult.llegada.lng : null) };
+  s.activo = { id: 'T' + Date.now(), vehiculo: veh, desde, hacia, inicio: new Date().toISOString() };
+  vjGuardar(s); vjSel = null; vjOtraTxt = ''; vjDestGeo = null;
+  vjRender();
+}
+function vjCancelarActivo() { if(!confirm('¿Cancelar este viaje? No se contarán sus millas.')) return; const s = vjEstado(); s.activo = null; vjGuardar(s); vjRender(); }
+async function vjMillasMaps(o, dst) {
+  if(typeof google === 'undefined' || !google.maps || !google.maps.DistanceMatrixService) return null;
+  return new Promise(res => {
+    try {
+      new google.maps.DistanceMatrixService().getDistanceMatrix({ origins: [o], destinations: [dst], travelMode: google.maps.TravelMode.DRIVING, unitSystem: google.maps.UnitSystem.IMPERIAL }, (r, st) => {
+        try { const e = r.rows[0].elements[0]; res(st === 'OK' && e.status === 'OK' ? e.distance.value / 1609.344 : null); } catch(x) { res(null); }
+      });
+    } catch(e) { res(null); }
+  });
+}
+async function vjLlegue() {
+  const b = document.getElementById('vj-btn-llegue'); if(b) { b.disabled = true; b.textContent = '⏳ Calculando millas...'; }
+  const s = vjEstado(); const a = s.activo; if(!a) { vjRender(); return; }
+  const geo = await vjGeo(9000);
+  const o = (a.desde.lat != null) ? { lat: a.desde.lat, lng: a.desde.lng } : a.desde.txt;
+  const dst = geo ? { lat: geo.lat, lng: geo.lng } : a.hacia.txt;
+  let mi = (o && dst) ? await vjMillasMaps(o, dst) : null, fuente = 'maps';
+  if(mi == null && a.desde.lat != null && geo) { mi = vjDistKm(a.desde, geo) * 0.621371 * 1.25; fuente = 'aprox'; }
+  if(mi == null) { const m = prompt('No se pudieron calcular las millas (sin internet o sin GPS). Escríbelas si las sabes:', ''); mi = parseFloat(m) || 0; fuente = 'manual'; }
+  a.fin = new Date().toISOString(); a.llegada = geo; a.millas = +(+mi).toFixed(1); a.fuente = fuente;
+  s.tramos.push(a); s.activo = null; vjGuardar(s);
+  vjDetenerVigilancia();
+  toastV('✅ +' + a.millas.toFixed(1) + ' mi en ' + gasVehTexto(a.vehiculo), '#1D9E75');
+  vjRender();
+}
+function vjEditarMillas(i) {
+  const s = vjEstado(); const t = s.tramos[i]; if(!t) return;
+  const m = prompt('Millas de este viaje (escribe 0 para borrarlo):', t.millas);
+  if(m === null) return;
+  const v = parseFloat(m);
+  if(!(v > 0)) { if(confirm('¿Borrar este viaje?')) s.tramos.splice(i, 1); } else { t.millas = +v.toFixed(1); t.fuente = 'manual'; }
+  vjGuardar(s); vjRender();
+}
+function vjDetenerVigilancia() { if(vjWatch != null && navigator.geolocation) { navigator.geolocation.clearWatch(vjWatch); } vjWatch = null; }
+function vjVigilarLlegada() {
+  const s = vjEstado();
+  if(!s.activo || !navigator.geolocation) { vjDetenerVigilancia(); return; }
+  if(!vjDestGeo && typeof google !== 'undefined' && google.maps && google.maps.Geocoder) {
+    try { new google.maps.Geocoder().geocode({ address: s.activo.hacia.txt }, (r, st) => { if(st === 'OK' && r[0]) vjDestGeo = { lat: r[0].geometry.location.lat(), lng: r[0].geometry.location.lng() }; }); } catch(e) {}
+  }
+  if(vjWatch != null) return;
+  vjWatch = navigator.geolocation.watchPosition(p => {
+    if(!vjDestGeo) return;
+    const km = vjDistKm({ lat: p.coords.latitude, lng: p.coords.longitude }, vjDestGeo);
+    const el = document.getElementById('vj-cerca');
+    if(el) el.style.display = km < 0.2 ? '' : 'none';
+    if(km < 0.2 && !vjVigilarLlegada._avisado) { vjVigilarLlegada._avisado = true; try { navigator.vibrate && navigator.vibrate(300); } catch(e) {} }
+  }, () => {}, { enableHighAccuracy: true, maximumAge: 15000 });
+}
+function vjCola() { try { return JSON.parse(localStorage.getItem(VJ_QKEY) || '[]'); } catch(e) { return []; } }
+async function vjEnviarDia(dia) {
+  if(typeof CAMPO_APPS_URL === 'undefined' || !CAMPO_APPS_URL || CAMPO_APPS_URL.includes('PEGA_AQUI')) return false;
+  try {
+    const r = await fetch(CAMPO_APPS_URL, { method: 'POST', body: JSON.stringify({ action: 'subirRegistro', id: dia.id, nombre: 'VIAJES', tel: '', cotId: '', direccion: '', notas: 'VIAJE::' + JSON.stringify(dia), fecha: new Date().toISOString(), totalFotosTrabajo: 0, totalFotosDanado: 0 }) });
+    const j = await r.json(); return !!j.ok;
+  } catch(e) { return false; }
+}
+async function vjReintentarCola(avisar) {
+  const q = vjCola(); if(!q.length) return;
+  const quedan = [];
+  for(const dia of q) { if(!(await vjEnviarDia(dia))) quedan.push(dia); }
+  localStorage.setItem(VJ_QKEY, JSON.stringify(quedan));
+  if(avisar) toastV(quedan.length ? '⚠️ Sin conexión, se reintentará' : '✅ Enviado a la computadora');
+  vjRender();
+}
+async function vjTerminarDia() {
+  const s = vjEstado();
+  if(s.activo && !confirm('Tienes un viaje en camino. ¿Terminar el día sin contarlo?')) return;
+  if(!s.tramos.length) { alert('No hay viajes para enviar.'); return; }
+  const res = vjResumen(s);
+  const odometros = {};
+  for(const k of Object.keys(res)) {
+    if(k === 'uhaul') continue;
+    const m = prompt('🚗 ' + gasVehTexto(k) + ': ' + res[k].millas.toFixed(1) + ' millas hoy.\n\nSi quieres, escribe el número del ODÓMETRO ahorita (opcional, ayuda a que el control de mantenimiento sea exacto):', '');
+    if(m === null) return;
+    const v = parseFloat(String(m).replace(/[^0-9.]/g, '')); if(v > 0) odometros[k] = v;
+  }
+  const dia = { id: 'VIAJE-' + s.fecha + '-' + Date.now(), fecha: s.fecha, tramos: s.tramos.map(t => ({ vehiculo: t.vehiculo, inicio: t.inicio, fin: t.fin, millas: t.millas, fuente: t.fuente, hacia: { tipo: t.hacia.tipo, cotId: t.hacia.cotId || '', etiqueta: t.hacia.etiqueta, txt: t.hacia.txt } })), resumen: res, odometros };
+  const q = vjCola(); q.push(dia); localStorage.setItem(VJ_QKEY, JSON.stringify(q));
+  vjGuardar({ fecha: hoyLocal(), tramos: [], activo: null });
+  vjDetenerVigilancia();
+  await vjReintentarCola(false);
+  const txt = Object.keys(res).map(k => gasVehTexto(k) + ': ' + res[k].millas.toFixed(1) + ' mi, ' + res[k].viajes + ' viajes, ' + res[k].trabajos + ' trabajos').join('\n');
+  alert('🏁 Día terminado\n\n' + txt + '\n\n' + (vjCola().length ? '⏳ Se enviará a la computadora cuando haya internet.' : '✅ Enviado a la computadora.'));
+  vjRender();
+}
+
+// ===================== v13.15: PARADAS (hasta 4 direcciones) =====================
+function paradasForm() {
+  return ['c-parada-1','c-parada-2'].map(id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; }).filter(Boolean);
+}
+function ponerParadasForm(arr) {
+  arr = arr || [];
+  [1,2].forEach(i => {
+    const row = document.getElementById('c-parada-' + i + '-row'), inp = document.getElementById('c-parada-' + i);
+    if(inp) inp.value = arr[i-1] || '';
+    if(row) row.style.display = arr[i-1] ? '' : 'none';
+  });
+  const b = document.getElementById('btn-agregar-parada'); if(b) b.style.display = arr.length >= 2 ? 'none' : '';
+}
+function agregarParada() {
+  for(const i of [1,2]) {
+    const row = document.getElementById('c-parada-' + i + '-row');
+    if(row && row.style.display === 'none') {
+      row.style.display = '';
+      const inp = document.getElementById('c-parada-' + i); if(inp) inp.focus();
+      if(typeof google !== 'undefined') initMapsAutocomplete();
+      break;
+    }
+  }
+  const visibles = [1,2].filter(i => (document.getElementById('c-parada-' + i + '-row')||{style:{}}).style.display !== 'none').length;
+  const b = document.getElementById('btn-agregar-parada'); if(b) b.style.display = visibles >= 2 ? 'none' : '';
+}
+function quitarParada(i) {
+  const ps = paradasForm();
+  const v = (document.getElementById('c-parada-' + i)||{}).value || '';
+  ponerParadasForm(ps.filter(p => p !== v.trim()));
+}
+function rutaTxt(c) {
+  return [c.origen || '—'].concat(c.paradas || [], [c.destino || '—']).join(' → ');
+}
+function destinoConParadas(c, en) {
+  const ps = c.paradas || [];
+  if(!ps.length) return c.destino || '—';
+  return ps.map((p, i) => (en ? 'Stop ' : 'Parada ') + (i+2) + ': ' + p).join('\n') + '\n' + (en ? 'Final: ' : 'Final: ') + (c.destino || '—');
+}
+
+// ===================== v13.15: CANALES / CAMPAÑAS =====================
+function normCampana(n) {
+  const u = String(n || '').replace(/\s+/g, ' ').trim().toUpperCase();
+  if(!u) return '';
+  if(/TACOMA|E450|E-450/.test(u)) return 'FORD E450 MAS TACOMA';
+  if(/ESCAL/.test(u)) return 'WHATSAPP v2 ESCALAMIENTO';
+  if(/MENSAJE/.test(u) && /WHATS/.test(u)) return 'MENSAJE WHATSAPP v2';
+  if(/ZONAS PREMIUM/.test(u)) return 'ZONAS PREMIUM BILINGÜE';
+  return u;
+}
+function migrarCanales1315(d) {
+  const fijo = { 'fb_wa_v2_campaña':'MENSAJE WHATSAPP v2', 'fb_wa_v2_escal20':'WHATSAPP v2 ESCALAMIENTO', 'fb_zonas_premium':'ZONAS PREMIUM BILINGÜE', 'wa_ads':'WHATSAPP ADS' };
+  const arr = [].concat(d.cots || [], d.cancelados || []);
+  arr.forEach(c => {
+    if(!c || !c.canal) return;
+    if(fijo[c.canal]) { c.canalNombre = normCampana(c.canalNombre || fijo[c.canal]); c.canal = 'fb_ads'; return; }
+    if(c.canal === 'fb_otra_campana') { c.canal = 'fb_ads'; c.canalNombre = normCampana(c.canalNombre); return; }
+    if(c.canal === 'otro' && /TACOMA|E450|FORD|FB|FACEBOOK|META/i.test(c.canalNombre || '')) { c.canal = 'fb_ads'; c.canalNombre = normCampana(c.canalNombre); return; }
+    if(c.canal === 'fb_ads') c.canalNombre = normCampana(c.canalNombre);
+  });
+}
+function campanasUsadas() {
+  const cont = {};
+  (getData().cots || []).forEach(c => { if(c.canal === 'fb_ads' && c.canalNombre) cont[c.canalNombre] = (cont[c.canalNombre] || 0) + 1; });
+  return Object.keys(cont).sort((a, b) => cont[b] - cont[a]);
+}
 function canalLabel(c) {
   return c ? (CANAL_LABELS[c] || c) : '';
 }
@@ -2114,7 +2947,7 @@ function renderCots() {
       <div class="list-item-header">
         <div>
           <div class="list-item-title">${c.id} — ${c.cliente.nombre}</div>
-          <div class="list-item-detail">📍 ${c.origen||'—'} → ${c.destino||'—'}</div>
+          <div class="list-item-detail">📍 ${rutaTxt(c)}</div>
           <div class="list-item-detail">📅 ${new Date(c.fecha).toLocaleDateString('es-US')} &nbsp;|&nbsp; 📱 ${c.cliente.tel}${diasCot(c) > 30 ? ' &nbsp;<span style="color:#EF9F27;font-weight:700">⏳ ' + diasCot(c) + ' días</span>' : ''}</div>
           ${c.cliente.fechaPref?'<div class="list-item-detail">📆 Fecha preferida: '+c.cliente.fechaPref+'</div>':''}
           ${c.canal?'<div class="list-item-detail"><span style="background:#0d1e2d;color:#7ab8d8;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700">'+canalLabel(c.canal)+(c.canalNombre?' · '+c.canalNombre:'')+'</span></div>':''}
@@ -2300,7 +3133,7 @@ function renderAgenda() {
         <div>
           <div class="list-item-title">${c.id} — ${c.cliente.nombre}</div>
           <div class="list-item-detail" style="color:#1F5EA8;font-weight:700">📅 ${c.fechaAgendada} &nbsp;⏰ ${c.horaAgendada}</div>
-          <div class="list-item-detail">📍 ${c.origen} → ${c.destino}</div>
+          <div class="list-item-detail">📍 ${rutaTxt(c)}</div>
           <div class="list-item-detail">📱 ${c.cliente.tel} ${c.cliente.email?'· '+c.cliente.email:''}</div>
           ${c.notasAgenda?'<div class="list-item-detail">📝 '+c.notasAgenda+'</div>':''}
         </div>
@@ -2339,7 +3172,7 @@ function renderTrabajos() {
       <div class="list-item-header">
         <div>
           <div class="list-item-title">${c.id} — ${c.cliente.nombre} ${enviado}${campoListo}${salidaOk}</div>
-          <div class="list-item-detail">📍 ${c.origen||'—'} → ${c.destino||'—'}</div>
+          <div class="list-item-detail">📍 ${rutaTxt(c)}</div>
           <div class="list-item-detail">📅 ${c.fechaAgendada} &nbsp;⏰ ${c.horaAgendada} &nbsp;|&nbsp; 📱 ${c.cliente.tel}</div>
           ${veh ? '<div class="list-item-detail">🚛 Vehículo: <strong>'+veh.nombre+'</strong></div>' : ''}
           ${c.usaAyudante==='si' && c.nombreAyudante ? '<div class="list-item-detail">👷 Ayudante: <strong>'+c.nombreAyudante+'</strong></div>' : ''}
@@ -2375,6 +3208,7 @@ function enviarTrabajoCampoDesdeTrabajos(cotId) {
     nombre: cot.cliente ? cot.cliente.nombre : '',
     tel: cot.cliente ? cot.cliente.tel : '',
     origen: cot.origen || '',
+    paradas: cot.paradas || [],
     destino: cot.destino || '',
     fecha: cot.fechaAgendada || '',
     hora: cot.horaAgendada || '',
@@ -2427,8 +3261,8 @@ function renderTerminados() {
   // ── Resumen por canal (arriba de la lista) ──
   const resumenCanal = {};
   listaCompleta.forEach(c => {
-    const k = c.canal || 'sin_canal';
-    if(!resumenCanal[k]) resumenCanal[k] = { count:0, total:0, label: k==='sin_canal'?'💬 MUDANZAS LA MENSAJE WHATSAPP v2 CAMPAÑA':canalLabel(k) };
+    const k = c.canal ? (canalLabel(c.canal) + (c.canalNombre && c.canal !== 'referido' ? ' · ' + c.canalNombre : '')) : 'Sin canal';
+    if(!resumenCanal[k]) resumenCanal[k] = { count:0, total:0, label: k };
     resumenCanal[k].count++;
     resumenCanal[k].total += (c.montoFinal||c.total||0) + (c.propina||0);
   });
@@ -2465,7 +3299,7 @@ function renderTerminados() {
           <div class="list-item-title">${c.folioTerminado||c.id} — ${c.cliente.nombre} ${canalBadge}</div>
           ${c.folioTerminado?'<div class="list-item-detail" style="color:#9ab">📋 Cotización: '+c.id+'</div>':''}
           <div class="list-item-detail">📅 Terminado: ${c.fechaTerminado||c.fechaAgendada} &nbsp;|&nbsp; 💳 ${c.pagoFinal||'Efectivo'}</div>
-          <div class="list-item-detail">📍 ${c.origen||'—'} → ${c.destino||'—'}</div>
+          <div class="list-item-detail">📍 ${rutaTxt(c)}</div>
           ${propina>0?'<div class="list-item-detail" style="color:#EF9F27">🎁 Propina: $'+propina.toFixed(2)+'</div>':''}
           ${pagoAy>0?'<div class="list-item-detail" style="color:#E24B4A">👷 Ayudante: -$'+pagoAy.toFixed(2)+'</div>':''}
           ${rentaCosto>0?'<div class="list-item-detail" style="color:#E24B4A">🚛 Renta: -$'+rentaCosto.toFixed(2)+'</div>':''}
@@ -2514,7 +3348,7 @@ function renderCancelados() {
         <div>
           <div class="list-item-title">${c.id} — ${c.cliente?c.cliente.nombre:'—'}</div>
           <div class="list-item-detail">🗓️ Cancelado: ${new Date(c.fechaCancelado).toLocaleString('es-US')}</div>
-          <div class="list-item-detail">📍 ${c.origen||'—'} → ${c.destino||'—'}</div>
+          <div class="list-item-detail">📍 ${rutaTxt(c)}</div>
           <div class="list-item-detail">📱 ${c.cliente?c.cliente.tel:'—'}</div>
           <div class="list-item-detail">💰 Total que hubiera sido: $${(c.total||0).toFixed(2)}</div>
           ${c.motivoCancelacion?'<div class="list-item-detail" style="color:#E24B4A">📝 Motivo: '+c.motivoCancelacion+'</div>':''}
@@ -2596,6 +3430,7 @@ function eliminarGastoGG(idx) {
 
 function renderGastos() {
   const d = getData();
+  try { renderGastosPend(); poblarTarjetas(); } catch(e) {}
   // Gasolina
   const gasEl = document.getElementById('lista-gas');
   if(gasEl) {
@@ -2605,11 +3440,12 @@ function renderGastos() {
       <div class="card">
         <div style="font-weight:700;color:#1D9E75;margin-bottom:10px">Total gasolina registrada: $${tot.toFixed(2)}</div>${gasResumenVehHTML(gas)}
         <table class="data-table">
-          <thead><tr><th>Fecha</th><th>Vehículo</th><th>Estación</th><th>Monto</th><th>Galones</th><th>$/Gal</th><th>Trabajos</th><th>$/Trabajo</th><th></th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Vehículo</th><th>Estación</th><th>Monto</th><th>Galones</th><th>$/Gal</th><th>Trabajos</th><th>$/Trabajo</th><th>Pagado con</th><th>📷</th><th></th></tr></thead>
           <tbody>${gas.slice().reverse().map((g,i)=>`<tr>
-            <td>${g.fecha}</td><td>${gasSelectVeh(i, g.vehiculo)}</td><td>${g.estacion||'—'}</td><td><strong>$${g.monto.toFixed(2)}</strong></td>
+            <td>${g.fecha}${g.hora ? '<div style="font-size:11px;color:#b0c4d8">' + hora12(g.hora) + '</div>' : ''}</td><td>${gasSelectVeh(i, g.vehiculo)}</td><td>${g.estacion||'—'}</td><td><strong>$${g.monto.toFixed(2)}</strong></td>
             <td>${g.galones||'—'}</td><td>${g.galones?'$'+(g.monto/g.galones).toFixed(2):'—'}</td>
             <td>${g.trabajos}</td><td>$${(g.monto/g.trabajos).toFixed(2)}</td>
+            <td>${escH(g.tarjeta||'—')}</td><td>${celdaFotoGasto('gas', i, g)}</td>
             <td style="white-space:nowrap"><button class="btn btn-sm" title="Corregir" onclick="editarGas(${i})">✏️</button> <button class="btn btn-sm" title="Borrar" onclick="eliminarGas(${i})">🗑️</button></td>
           </tr>`).join('')}</tbody>
         </table>
@@ -2624,10 +3460,10 @@ function renderGastos() {
       <div class="card">
         <div style="font-weight:700;color:#1D9E75;margin-bottom:10px">Total gastos generales: $${tot.toFixed(2)}</div>
         <table class="data-table">
-          <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th>Recibo</th><th></th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th>Recibo</th><th>Pagado con</th><th>📷</th><th></th></tr></thead>
           <tbody>${gg.slice().reverse().map((g,i)=>`<tr>
-            <td>${g.fecha}</td><td>${ggSelectCat(i, g.cat&&g.cat!=='undefined'?g.cat:(g.categoria||'Otro'))}</td><td>${g.desc||'—'}</td>
-            <td><strong style="color:#E24B4A">$${g.monto.toFixed(2)}</strong></td><td>${g.recibo||'—'}</td>
+            <td>${g.fecha}${g.hora ? '<div style="font-size:11px;color:#b0c4d8">' + hora12(g.hora) + '</div>' : ''}</td><td>${ggSelectCat(i, g.cat&&g.cat!=='undefined'?g.cat:(g.categoria||'Otro'))}</td><td>${g.desc||'—'}</td>
+            <td><strong style="color:#E24B4A">$${g.monto.toFixed(2)}</strong></td><td>${g.recibo||'—'}</td><td>${escH(g.tarjeta||'—')}</td><td>${celdaFotoGasto('gg', i, g)}</td>
             <td><button onclick="eliminarGastoGG(${i})" style="background:#E24B4A;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🗑️</button></td>
           </tr>`).join('')}</tbody>
         </table>
@@ -4362,6 +5198,7 @@ function waCliente(id) {
   if(c.folioTerminado) msg += `_Cotización: ${c.id}_\n`;
   msg += `👤 ${c.cliente.nombre}\n`;
   msg += `📍 *Origen:* ${c.origen}\n`;
+  (c.paradas||[]).forEach((p, i) => { msg += `📍 *Parada ${i+2}:* ${p}\n`; });
   msg += `🏠 *Destino:* ${c.destino}\n`;
   if(c.fechaAgendada) msg += `📅 *Fecha:* ${c.fechaAgendada} a las ${c.horaAgendada}\n`;
   msg += `💵 *Total:* $${(c.montoFinal||c.total).toFixed(2)}\n`;
@@ -4382,7 +5219,7 @@ function calcGas() {
   document.getElementById('g-calc').textContent = txt;
 }
 
-function guardarGas() {
+async function guardarGas() {
   const fecha = document.getElementById('g-fecha').value;
   const monto = parseFloat(document.getElementById('g-monto').value);
   if(!fecha || !monto) { alert('Ingresa fecha y monto'); return; }
@@ -4390,19 +5227,25 @@ function guardarGas() {
   const vehiculo = (document.getElementById('g-vehiculo')||{}).value || '';
   if(!vehiculo) { alert('⚠️ Elige el vehículo (Tacoma, Ford...)'); return; }
   if(!d.gas) d.gas=[];
-  d.gas.push({ fecha, monto, vehiculo, galones: parseFloat(document.getElementById('g-galones').value)||0, estacion: document.getElementById('g-estacion').value, trabajos: parseInt(document.getElementById('g-trabajos').value)||4, notas: document.getElementById('g-notas').value });
+  const extraG = { tarjeta: (document.getElementById('g-tarjeta')||{}).value || '', hora: (document.getElementById('g-hora')||{}).value || '', origenCaptura: 'escritorio' };
+  const fotoG = (document.getElementById('g-foto')||{}).files;
+  if(fotoG && fotoG[0]) { try { const r = await guardarFotoArchivo(fotoG[0], { tipo:'gas', fecha, monto }); extraG.fotoIds = [r.fid]; if(r.regId) extraG.regId = r.regId; } catch(e) { alert('⚠️ No se pudo guardar la foto: ' + e.message); } document.getElementById('g-foto').value = ''; }
+  d.gas.push({ ...extraG, fecha, monto, vehiculo, galones: parseFloat(document.getElementById('g-galones').value)||0, estacion: document.getElementById('g-estacion').value, trabajos: parseInt(document.getElementById('g-trabajos').value)||4, notas: document.getElementById('g-notas').value });
   saveData(d);
   alert('✅ Gasto de gasolina guardado');
   renderGastos();
 }
 
-function guardarGG() {
+async function guardarGG() {
   const fecha = document.getElementById('gg-fecha').value;
   const monto = parseFloat(document.getElementById('gg-monto').value);
   if(!fecha || !monto) { alert('Ingresa fecha y monto'); return; }
+  const extra = { tarjeta: (document.getElementById('gg-tarjeta')||{}).value || '', hora: (document.getElementById('gg-hora')||{}).value || '', origenCaptura: 'escritorio' };
+  const fotoF = (document.getElementById('gg-foto')||{}).files;
+  if(fotoF && fotoF[0]) { try { const r = await guardarFotoArchivo(fotoF[0], { tipo:'gg', fecha, monto }); extra.fotoIds = [r.fid]; if(r.regId) extra.regId = r.regId; } catch(e) { alert('⚠️ No se pudo guardar la foto: ' + e.message); } document.getElementById('gg-foto').value = ''; }
   const d = getData();
   if(!d.gg) d.gg=[];
-  d.gg.push({ fecha, monto, cat: document.getElementById('gg-cat').value, desc: document.getElementById('gg-desc').value, recibo: document.getElementById('gg-recibo').value });
+  d.gg.push({ ...extra, fecha, monto, cat: document.getElementById('gg-cat').value, desc: document.getElementById('gg-desc').value, recibo: document.getElementById('gg-recibo').value });
   saveData(d);
   alert('✅ Gasto guardado');
   renderGastos();
@@ -4942,7 +5785,7 @@ function generarPDF(id, idioma) {
   // ── BANDA DE DATOS: CLIENTE | TELÉFONO | ORIGEN | DESTINO ──
   const colX = [16, 62, 100, 150];
   const origenLB = doc.splitTextToSize(c.origen||'—', 46);
-  const destinoLB = doc.splitTextToSize(c.destino||'—', 44);
+  const destinoLB = doc.splitTextToSize(destinoConParadas(c, idioma==='en'), 44);
   const bandaLineas = Math.max(1, origenLB.length, destinoLB.length);
   const filaExtraBanda = (c.cliente.email || c.cliente.fechaPref) ? 5 : 0;
   const bandaH = 9 + bandaLineas*3.6 + filaExtraBanda + 3;
@@ -5024,6 +5867,7 @@ function generarPDF(id, idioma) {
   const trabajoDesc = [];
   trabajoDesc.push(L.tipoServ + ': ' + L.mudanzaLocal + ' ' + (c.horas||3) + ' ' + L.horasEst + '.');
   trabajoDesc.push(L.origen.charAt(0) + L.origen.slice(1).toLowerCase() + ': ' + c.origen);
+  (c.paradas||[]).forEach((p, i) => trabajoDesc.push((idioma==='en' ? 'Stop ' : 'Parada ') + (i+2) + ': ' + p));
   trabajoDesc.push(L.destino.charAt(0) + L.destino.slice(1).toLowerCase() + ': ' + c.destino);
   if(c.cliente.fechaPref) trabajoDesc.push(L.fechaHora + ': ' + c.cliente.fechaPref + (c.hora ? ' ' + L.aLas + ' ' + convertirHora12(c.hora) : ''));
   trabajoDesc.push(L.distEst + ': ' + (c.millas||0).toFixed(1) + ' ' + L.millas);
@@ -5247,7 +6091,7 @@ function generarRecibo(id, idioma) {
   // ── BANDA DE DATOS: CLIENTE | TELÉFONO | ORIGEN | DESTINO ──
   const colX = [16, 62, 100, 150];
   const origenL = doc.splitTextToSize(c.origen||'—', 46);
-  const destinoL = doc.splitTextToSize(c.destino||'—', 44);
+  const destinoL = doc.splitTextToSize(destinoConParadas(c, idioma==='en'), 44);
   const bandaLineas = Math.max(1, origenL.length, destinoL.length);
   const bandaH = 9 + bandaLineas*3.6 + (c.cliente.email?5:0) + 3;
   doc.setFillColor(TINT[0],TINT[1],TINT[2]); RR(12,y-4,186,bandaH,'F');
@@ -5720,9 +6564,9 @@ function exportarExcel(tipo) {
       const gananciaReal = +(totalCobrado - pagoAy - renta).toFixed(2);
       const canalStr = c.canal ? (canalLabel(c.canal) + (c.canalNombre?' · '+c.canalNombre:'')) : '';
       totCobrado+=cobrado; totPropina+=propina; totTotalCobrado+=totalCobrado; totAyudante+=pagoAy; totRenta+=renta; totGanancia+=gananciaReal;
-      return [c.folioTerminado||'', c.id, c.fechaTerminado, c.cliente.nombre, c.cliente.tel, c.origen, c.destino,
+      return [c.folioTerminado||'', c.id, c.fechaTerminado, c.cliente.nombre, c.cliente.tel, c.origen, ((c.paradas||[]).length ? 'Paradas: ' + c.paradas.join(' | ') + ' → ' : '') + c.destino,
         canalStr, cobrado, propina, totalCobrado, pagoAy, renta, gananciaReal,
-        c.pagoFinal||'', c.refPago||'', c.vehiculoId||'', c.nombreAyudante||'', c.rentaTipo||'',
+        c.pagoFinal||'', c.refPago||'', vehNombrePorId(c.vehiculoId)||'', c.nombreAyudante||'', c.rentaTipo||'',
         c.notas||'', c.obsFinales||''];
     });
     const fechas = term.map(parseFechaTerminadoOrdenable).filter(f=>f.getTime()>0);
@@ -5781,8 +6625,8 @@ function exportarExcel(tipo) {
   }
 
   if(tipo === 'completo' || tipo === 'gastos') {
-    const hg = ['Fecha','Vehículo','Estación','Monto $','Galones','$/Galón','Trabajos por tanque','Costo por trabajo'];
-    const rg = (d.gas||[]).map(g=>[g.fecha,gasVehTexto(g.vehiculo),g.estacion||'',g.monto,g.galones||0,g.galones?+(g.monto/g.galones).toFixed(3):0,g.trabajos,+(g.monto/g.trabajos).toFixed(2)]);
+    const hg = ['Fecha','Vehículo','Estación','Monto $','Galones','$/Galón','Trabajos por tanque','Costo por trabajo','Hora','Pagado con','Foto'];
+    const rg = (d.gas||[]).map(g=>[g.fecha,gasVehTexto(g.vehiculo),g.estacion||'',g.monto,g.galones||0,g.galones?+(g.monto/g.galones).toFixed(3):0,g.trabajos,+(g.monto/g.trabajos).toFixed(2),hora12(g.hora||''),g.tarjeta||'',((g.fotoIds||[]).length||g.regId)?'Sí':'No']);
     const totG = (d.gas||[]).reduce((a,g)=>a+(g.monto||0),0);
     rg.push(['','','','TOTAL: $'+totG.toFixed(2),'','','','']);
     Object.entries(gasPorVehiculo(d.gas||[])).forEach(([k,v]) => rg.push(['', gasVehTexto(k), 'Subtotal', +v.monto.toFixed(2), +v.galones.toFixed(1), v.galones ? +(v.monto/v.galones).toFixed(3) : '', v.cargas + ' carga(s)', '']));
@@ -5790,8 +6634,8 @@ function exportarExcel(tipo) {
     wsg['!cols']=[{wch:12},{wch:14},{wch:16},{wch:10},{wch:9},{wch:9},{wch:20},{wch:16}];
     XLSX.utils.book_append_sheet(wb, wsg, 'Gasolina');
 
-    const hgg = ['Fecha','Categoría','Descripción','Monto $','Recibo'];
-    const rgg = (d.gg||[]).map(g=>[g.fecha,g.cat||g.categoria||'',g.desc||'',g.monto,g.recibo||'']);
+    const hgg = ['Fecha','Categoría','Descripción','Monto $','Recibo','Hora','Pagado con','Foto'];
+    const rgg = (d.gg||[]).map(g=>[g.fecha,g.cat||g.categoria||'',g.desc||'',g.monto,g.recibo||'',hora12(g.hora||''),g.tarjeta||'',((g.fotoIds||[]).length||g.regId)?'Sí':'No']);
     const totGG = (d.gg||[]).reduce((a,g)=>a+(g.monto||0),0);
     rgg.push(['','','TOTAL:',totGG,'']);
     const wsgg = XLSX.utils.aoa_to_sheet([hgg,...rgg]);
@@ -6508,6 +7352,10 @@ function initMapsAutocomplete() {
       if(place && place.formatted_address) origenEl.value = place.formatted_address;
     });
   }
+  ['c-parada-1','c-parada-2'].forEach(pid => {
+    const pe = document.getElementById(pid);
+    if(pe && !pe._ac) { pe._ac = new google.maps.places.Autocomplete(pe, opts); pe._ac.addListener('place_changed', () => { const pl = pe._ac.getPlace(); if(pl && pl.formatted_address) pe.value = pl.formatted_address; }); }
+  });
   if(destinoEl && !mapsAutocompleteDest) {
     mapsAutocompleteDest = new google.maps.places.Autocomplete(destinoEl, opts);
     mapsAutocompleteDest.addListener('place_changed', () => {
@@ -6552,9 +7400,18 @@ async function calcularMillasGoogleMaps() {
 
   try {
     // Calcular origen → destino
+    // v13.15: con paradas, se suman los tramos origen → parada(s) → destino
+    const puntosRuta = [origen].concat(paradasForm(), [destino]);
+    let metrosParadas = 0;
+    for(let i = 0; i < puntosRuta.length - 2; i++) {
+      const rp = await new Promise((resolve, reject) => service.getDistanceMatrix({ origins: [puntosRuta[i]], destinations: [puntosRuta[i+1]], travelMode: google.maps.TravelMode.DRIVING, unitSystem: google.maps.UnitSystem.IMPERIAL }, (r, st) => st === 'OK' ? resolve(r) : reject(st)));
+      const el = rp.rows[0].elements[0];
+      if(el.status !== 'OK') throw new Error('No se pudo calcular la ruta hasta la parada ' + (i+2));
+      metrosParadas += el.distance.value;
+    }
     const promisaRuta = new Promise((resolve, reject) => {
       service.getDistanceMatrix({
-        origins: [origen],
+        origins: [puntosRuta[puntosRuta.length - 2]],
         destinations: [destino],
         travelMode: google.maps.TravelMode.DRIVING,
         unitSystem: google.maps.UnitSystem.IMPERIAL,
@@ -6571,7 +7428,7 @@ async function calcularMillasGoogleMaps() {
     if(elem1.status !== 'OK') throw new Error('No se pudo calcular la ruta origen-destino');
 
     // Millas origen → destino (convertir metros a millas)
-    const metros1 = elem1.distance.value;
+    const metros1 = elem1.distance.value + metrosParadas;
     const millas1 = metros1 / 1609.344;
 
     document.getElementById('c-millas').value = millas1.toFixed(1);
@@ -6776,6 +7633,11 @@ function renderVehiculos() {
   }
 
   if(!el) return;
+  try {
+    let box = document.getElementById('vj-escritorio');
+    if(!box) { box = document.createElement('div'); box.id = 'vj-escritorio'; el.parentNode.insertBefore(box, el.nextSibling); }
+    box.innerHTML = htmlViajesEscritorio();
+  } catch(e) { console.warn(e); }
   if(!vehs.length) {
     el.innerHTML = '<div class="empty-state"><div class="icon">🚛</div><p>Sin vehículos registrados. Agrega uno con el botón de arriba.</p></div>';
     return;
@@ -7127,11 +7989,16 @@ async function sincronizarRegistrosCampoSilencioso() {
     const nuevos = (data.registros||[]).filter(r => !yaImportados.has(r.id));
     if(!nuevos.length) return;
     for(const reg of nuevos) {
-      await importarRegistroDesdeScript(reg.id);
+      try { await importarRegistroDesdeScript(reg.id); } catch(e) {}
     }
+    const dImp = getData();
+    const nImp = nuevos.filter(r => (dImp.campoImportados||[]).includes(r.id));
+    if(!nImp.length) return;
+    try { renderGastosPend(); } catch(e) {}
     const notif = document.createElement('div');
     notif.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#143F74;color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px #0005';
-    notif.textContent = '📸 ' + nuevos.length + ' registro(s) nuevo(s) de campo sincronizado(s)';
+    const nG = nImp.filter(r => String(r.id).indexOf('GASTO-') === 0).length, nV = nImp.filter(r => String(r.id).indexOf('VIAJE-') === 0).length;
+    notif.textContent = nG ? '🧾 ' + nG + ' gasto(s) nuevo(s) del celular — complétalos en Gastos' : nV ? '🚗 Llegaron los viajes del día desde el celular' : '📸 ' + nImp.length + ' registro(s) nuevo(s) de campo sincronizado(s)';
     document.body.appendChild(notif);
     setTimeout(() => notif.remove(), 5000);
   } catch(e) { /* sin conexión, se reintenta en el siguiente ciclo */ }
@@ -7278,6 +8145,7 @@ async function importarRegistroDesdeScript(id) {
   var data = await res.json();
   if(!data.ok||!data.registro) throw new Error(data.error||'No encontrado');
   var reg = data.registro;
+  if(/^(GASTO|VIAJE|COMP)-/.test(String(reg.id || id))) { await importarRegistroEspecial(reg, String(reg.id || id)); return; }
   var d = getData();
   var registro = { id:reg.id, fecha:reg.fecha||new Date().toISOString(), nombre:reg.nombre||'', tel:reg.tel||'', cotId:reg.cotId||'', direccion:reg.direccion||'', notas:reg.notas||'', fotosTrabajo:reg.fotosTrabajo||[], fotosDanado:reg.fotosDanado||[] };
   var idx = d.campo.findIndex(function(r){ return r.id===registro.id; });
@@ -7299,7 +8167,7 @@ function enviarTrabajoCampo(cotId) {
   var notas = cot.notas || '';
   var fotosInventario = cot.fotosInventario || [];
   // BUG 4 FIX: Use fechaAgendada/horaAgendada (the confirmed scheduled date), not cot.fecha (creation date)
-  var trabajoCampo = { cotId:cotId, nombre:nombre, tel:tel, origen:origen, destino:destino, fecha: cot.fechaAgendada||fecha, hora: cot.horaAgendada||hora, notas:notas, fotos:fotosInventario, monto: cot.total||0, puedeCobrar: !!getCfg().ayudantePuedeCobrar, enviado:new Date().toISOString(), ayudanteId:'default' };
+  var trabajoCampo = { cotId:cotId, nombre:nombre, tel:tel, origen:origen, paradas: cot.paradas||[], destino:destino, fecha: cot.fechaAgendada||fecha, hora: cot.horaAgendada||hora, notas:notas, fotos:fotosInventario, monto: cot.total||0, puedeCobrar: !!getCfg().ayudantePuedeCobrar, enviado:new Date().toISOString(), ayudanteId:'default' };
   try { localStorage.setItem('trabajoActivoCampo', JSON.stringify(trabajoCampo)); } catch(e) {}
   if(APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('PEGA_AQUI')) {
     fetch(APPS_SCRIPT_URL, { method:'POST', body:JSON.stringify(Object.assign({action:'enviarTrabajoCampo'}, trabajoCampo)) })
@@ -7423,6 +8291,55 @@ initDarkMode();
     <button id="tab-asignado-btn" class="active" onclick="switchTab('asignado')">📋 Trabajo<span class="dot-badge" id="badge-asignado"></span></button>
     <button id="tab-terminar-btn" onclick="switchTab('terminar')">✅ Terminar<span class="dot-badge" id="badge-terminar"></span></button>
     <button id="tab-cola-btn" onclick="switchTab('cola')">📤 Cola</button>
+    <button id="tab-gasto-btn" style="display:none" onclick="switchTab('gasto')">🧾 Gasto</button>
+    <button id="tab-viajes-btn" style="display:none" onclick="switchTab('viajes')">🚗 Viajes</button>
+  </div>
+
+  <!-- ===================== v13.15 TAB GASTO RÁPIDO (solo dueño) ===================== -->
+  <div id="tab-gasto" class="hidden">
+    <div class="card">
+      <div style="font-weight:800;font-size:15px;margin-bottom:10px">🧾 Gasto rápido</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button id="cg-tipo-gas" onclick="cgSetTipo('gas')" style="flex:1;padding:12px;border-radius:10px;border:1px solid #2a3a4a;font-weight:700">⛽ Gasolina</button>
+        <button id="cg-tipo-gg" onclick="cgSetTipo('gg')" style="flex:1;padding:12px;border-radius:10px;border:1px solid #2a3a4a;font-weight:700">🧾 Otro gasto</button>
+      </div>
+      <div id="cg-veh-wrap" style="margin-bottom:12px">
+        <div style="font-size:12px;color:#b0c4d8;margin-bottom:6px">¿A qué vehículo le cargaste?</div>
+        <div style="display:flex;gap:8px">
+          <button id="cg-veh-tacoma" onclick="cgSetVeh('tacoma')" style="flex:1;padding:12px 4px;border-radius:10px;border:1px solid #2a3a4a;font-weight:700">🛻 Tacoma</button>
+          <button id="cg-veh-ford" onclick="cgSetVeh('ford')" style="flex:1;padding:12px 4px;border-radius:10px;border:1px solid #2a3a4a;font-weight:700">🚚 Ford</button>
+          <button id="cg-veh-uhaul" onclick="cgSetVeh('uhaul')" style="flex:1;padding:12px 4px;border-radius:10px;border:1px solid #2a3a4a;font-weight:700">🚛 U-Haul</button>
+        </div>
+      </div>
+      <div id="cg-cat-wrap" style="display:none;margin-bottom:12px"><label>Categoría</label><select id="cg-cat"></select></div>
+      <input type="file" id="cg-foto" accept="image/*" capture="environment" style="display:none" onchange="cgFotoElegida(this)">
+      <button class="btn btn-primary" style="width:100%;padding:16px;font-size:16px;margin-bottom:10px" onclick="document.getElementById('cg-foto').click()">📷 Tomar foto del recibo / bomba</button>
+      <div id="cg-fotos" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px"></div>
+      <label>Monto (opcional, lo puedes poner después en la computadora)</label>
+      <input type="number" id="cg-monto" step="0.01" inputmode="decimal" placeholder="$0.00" style="margin-bottom:8px">
+      <label>Nota (opcional)</label>
+      <input type="text" id="cg-nota" placeholder="Ej: lleno, correas, agua para el trabajo..." style="margin-bottom:8px">
+      <div id="cg-hora" style="font-size:12px;color:#7ab8d8"></div>
+      <div id="cg-geo" style="font-size:12px;color:#7ab8d8;margin-bottom:10px"></div>
+      <button class="btn btn-primary" style="width:100%;padding:16px;font-size:16px;background:#1D9E75;border-color:#1D9E75" onclick="cgGuardar()">💾 Guardar y enviar</button>
+      <div id="cg-status" style="font-size:12px;text-align:center;margin-top:8px;color:#b0c4d8"></div>
+    </div>
+    <div class="card"><div style="font-weight:700;margin-bottom:6px">📤 Gastos capturados</div><div id="cg-lista"></div></div>
+  </div>
+
+  <!-- ===================== v13.15 TAB VIAJES (solo dueño) ===================== -->
+  <div id="tab-viajes" class="hidden">
+    <div id="vj-contenido"></div>
+    <details class="card" style="padding:12px 16px">
+      <summary style="font-weight:700;cursor:pointer">⚙️ Mis direcciones</summary>
+      <div style="margin-top:10px">
+        <label>🏡 Mi casa</label><input id="vj-cfg-casa" placeholder="Tu dirección" style="margin-bottom:8px">
+        <label>🧑 Casa de Gelacio</label><input id="vj-cfg-gelacio" placeholder="Dirección de Gelacio" style="margin-bottom:8px">
+        <label>🅿️ Base (donde guardas la Ford)</label><input id="vj-cfg-base" placeholder="Dirección de la base" style="margin-bottom:8px">
+        <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:6px 0 10px"><input type="checkbox" id="vj-cfg-maps" style="width:18px;height:18px"> Abrir Google Maps al iniciar cada viaje</label>
+        <button class="btn btn-primary" style="width:100%" onclick="vjGuardarCfg()">💾 Guardar direcciones</button>
+      </div>
+    </details>
   </div>
 
   <!-- ===================== TAB ASIGNADO ===================== -->
@@ -7446,6 +8363,7 @@ initDarkMode();
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">👤 Cliente:</span> <span id="campo-nombre"></span></div>
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">📞 Teléfono:</span> <span id="campo-tel"></span></div>
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">📦 Origen:</span> <span id="campo-origen"></span></div>
+        <div id="campo-paradas" style="display:none;margin-bottom:8px"></div>
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">🏠 Destino:</span> <span id="campo-destino"></span></div>
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">📅 Fecha:</span> <span id="campo-fecha"></span> &nbsp;<span style="font-weight:700;color:#7ab8d8">⏰</span> <span id="campo-hora"></span></div>
         <div id="campo-monto-wrap" style="display:none;margin-bottom:8px;background:#143F7415;border-radius:10px;padding:10px">
@@ -7763,12 +8681,15 @@ let firmaIsDrawing = false;
 // ===================== TABS =====================
 function switchTab(t) {
   if(t === 'terminar' && typeof campoPuedeCobrar === 'function' && !campoPuedeCobrar()) return;
-  ['asignado','nuevo','terminar','cola'].forEach(x => {
+  if((t === 'gasto' || t === 'viajes') && !esModoDueno()) return;
+  ['asignado','nuevo','terminar','cola','gasto','viajes'].forEach(x => {
     const el = document.getElementById('tab-'+x);
     if(el) el.classList.toggle('hidden', x !== t);
     const btn = document.getElementById('tab-'+x+'-btn');
     if(btn) btn.classList.toggle('active', x === t);
   });
+  if(t === 'gasto') cgInit();
+  if(t === 'viajes') vjInit(); else vjDetenerVigilancia();
   if(t === 'cola') renderCola();
   if(t === 'asignado') cargarTrabajoCampo();
   if(t === 'terminar') {
@@ -8264,6 +9185,8 @@ function mostrarTrabajo(t, pendientes) {
   document.getElementById('campo-tel').textContent = t.tel || '—';
   document.getElementById('campo-origen').textContent = t.origen || '—';
   document.getElementById('campo-destino').textContent = t.destino || '—';
+  const cpEl = document.getElementById('campo-paradas');
+  if(cpEl) { const ps = t.paradas || []; cpEl.style.display = ps.length ? '' : 'none'; cpEl.innerHTML = ps.map((p, i) => '<div style="margin-bottom:4px"><span style="font-weight:700;color:#7ab8d8">📍 Parada ' + (i+2) + ':</span> ' + String(p).replace(/</g,'&lt;') + '</div>').join(''); }
   // Mostrar monto
   const montoWrap = document.getElementById('campo-monto-wrap');
   if((t.monto||0) > 0) {
@@ -9117,6 +10040,8 @@ function aplicarRolCampo() {
   const bi = document.getElementById('btn-ir-terminar'); if(bi) bi.style.display = cobra ? '' : 'none';
   const mw = document.getElementById('campo-monto-wrap'); if(mw && !cobra) mw.style.display = 'none';
   const bd = document.getElementById('btn-modo-dueno'); if(bd) bd.textContent = dueno ? '🔒 Salir de modo administrador' : '🔓 Modo administrador';
+  ['tab-gasto-btn','tab-viajes-btn'].forEach(id => { const b = document.getElementById(id); if(b) b.style.display = dueno ? '' : 'none'; });
+  if(!dueno) { ['gasto','viajes'].forEach(x => { const e = document.getElementById('tab-'+x); if(e && !e.classList.contains('hidden')) switchTab('asignado'); }); }
   const badge = document.getElementById('campo-rol-badge');
   if(badge) badge.textContent = dueno ? '👔 Modo administrador — ves todo' : ('👷 Modo ayudante' + (cobra ? ' — puedes cobrar este trabajo' : ''));
   // si está en Terminar sin permiso, regresar
