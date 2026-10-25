@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.15</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.19</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -226,6 +226,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <button class="nav-btn" data-tab="gastos" onclick="showTab('gastos')">💰 Gastos</button>
   <button class="nav-btn" data-tab="vehiculos" onclick="showTab('vehiculos')">🚛 Vehículos</button>
   <button class="nav-btn" data-tab="gigs" onclick="showTab('gigs')">📦 Gigs/Brokers <span id="badge-gigs" style="background:#2F74C0;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
+  <button class="nav-btn" data-tab="equipo" onclick="showTab('equipo')">👥 Equipo <span id="badge-equipo" style="background:#E24B4A;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
   <button class="nav-btn" data-tab="galeria" onclick="showTab('galeria')">📸 Galería</button>
   <button class="nav-btn" data-tab="config" onclick="showTab('config')">⚙️ Configuración</button>
 </nav>
@@ -1079,6 +1080,12 @@ table.data-table tr:hover td{background:#1A2A42!important}
     </div>
     <div id="drive-sync-log" style="font-size:12px;color:#b0c4d8;margin-top:10px;line-height:1.6"></div>
   </div>
+  <div class="card" style="border-left:4px solid #EF9F27">
+    <div class="card-title">🔐 Clave de administrador (Apps Script)</div>
+    <div class="notice notice-amber">Escribe aquí <strong>la misma clave</strong> que pusiste en <code>ADMIN_KEY</code> del Apps Script. Sin ella, nadie puede leer tus clientes ni mandar trabajos al celular. Ponla solo en tu compu (y en tu celular si lo usas en modo administrador). <strong>Nunca</strong> en el celular de un ayudante.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><input type="password" id="cfg-admin-key" style="flex:1;min-width:220px" placeholder="Tu clave de administrador" autocomplete="off"><button class="btn btn-primary btn-sm" onclick="guardarClaveAdmin()">💾 Guardar</button><button class="btn btn-sm" onclick="probarClaveAdmin()">🧪 Probar conexión</button></div>
+    <div id="cfg-admin-key-estado" style="font-size:12px;margin-top:8px;color:#b0c4d8"></div>
+  </div>
   <div class="card">
     <div class="card-title">🛟 Respaldo automático en la nube</div>
     <div class="notice notice-green">Mientras estés conectado a Google Drive, cada vez que guardes algo (cotización, trabajo, gasto), la app sube automáticamente una copia de seguridad a tu Drive. Así nunca dependes solo de este navegador.</div>
@@ -1454,6 +1461,21 @@ function getCfg() {
   return CFG;
 }
 function saveCfg() { localStorage.setItem(KEY+'_cfg', JSON.stringify(CFG)); programarRespaldoAutomatico(); }
+// v13.19: si esta compu/celular tiene la clave de administrador, se agrega sola a cada llamada al Apps Script
+(function(){
+  const _f = window.fetch ? window.fetch.bind(window) : null; if(!_f) return;
+  window.fetch = function(u, o){
+    try {
+      let k = ''; try { k = (JSON.parse(localStorage.getItem(KEY + '_cfg') || '{}').adminKey) || ''; } catch(e) {}
+      const s = String(u);
+      if(k && s.indexOf('script.google.com/macros') >= 0) {
+        if(o && typeof o.body === 'string') { const b = JSON.parse(o.body); if(b && b.action && !b.k) { b.k = k; o = Object.assign({}, o, { body: JSON.stringify(b) }); } }
+        else if(s.indexOf('action=') >= 0 && s.indexOf('&k=') < 0) u = s + '&k=' + encodeURIComponent(k);
+      }
+    } catch(e) {}
+    return _f(u, o);
+  };
+})();
 
 // ===================== NAV =====================
 function showTab(t) {
@@ -1477,6 +1499,8 @@ function showTab(t) {
   if(t==='vehiculos') { renderVehiculos(); poblarSelectoresVehiculo(); }
   if(t==='gigs') { renderGigs(); poblarSelectoresVehiculo(); }
   if(t==='galeria') renderGaleria();
+  if(t==='equipo') { renderEquipo(); eqCargarAdmin(); }
+  if(t==='config') { try { const ak=document.getElementById('cfg-admin-key-estado'); if(ak) ak.textContent = getCfg().adminKey ? '🔑 Esta compu ya tiene clave guardada.' : '⚠️ Esta compu todavía no tiene clave.'; } catch(e) {} }
   if(t==='nueva-cot') { setTimeout(() => { if(typeof google !== 'undefined') initMapsAutocomplete(); }, 300); }
 }
 
@@ -1488,6 +1512,7 @@ function updateBadges() {
   var bc=document.getElementById('badge-cot'); if(bc) bc.textContent=nc||'';
   var ba=document.getElementById('badge-ag');  if(ba) ba.textContent=na||'';
   var bt=document.getElementById('badge-trab');if(bt) bt.textContent=nt||'';
+  var be=document.getElementById('badge-equipo');if(be) be.textContent=(d.solicitudesEquipo||[]).filter(function(x){return !x.resuelto;}).length||'';
 }
 
 
@@ -2379,9 +2404,18 @@ async function revisarCelularAhora() {
   alert(msg);
 }
 async function importarRegistroEspecial(reg, id) {
-  if(id.indexOf('COMP-') === 0 || /^VJ(LOCK|DONE)-/.test(id)) { const d = getData(); if(!d.campoImportados.includes(id)) { d.campoImportados.push(id); saveData(d); } return; }
+  if(id.indexOf('COMP-') === 0 || /^VJ(LOCK|DONE)-/.test(id) || /^EQ(REV|RST|PIN|CFG)-/.test(id) || id.indexOf('TERM-') === 0) { const d = getData(); if(!d.campoImportados.includes(id)) { d.campoImportados.push(id); saveData(d); } return; }
   const raw = String(reg.notas || ''); const k = raw.indexOf('::');
   let meta = {}; try { meta = JSON.parse(raw.slice(k + 2)); } catch(e) {}
+  if(id.indexOf('USR-') === 0) {
+    const d = getData(); if(!d.solicitudesEquipo) d.solicitudesEquipo = [];
+    const nom = String(meta.nombre || reg.nombre || '').toUpperCase(), tel = meta.tel || reg.tel || '';
+    const yaEsta = (d.equipo || []).some(m => ayNormNombre(m.nombre) === ayNormNombre(nom) && telWa(m.tel) === telWa(tel));
+    if(!yaEsta && !d.solicitudesEquipo.some(x => x.id === id)) d.solicitudesEquipo.push({ id, nombre: nom, tel, fecha: meta.fecha || reg.fecha || new Date().toISOString(), resuelto: false });
+    if(!d.campoImportados.includes(id)) d.campoImportados.push(id);
+    saveData(d); try { updateBadges(); renderEquipo(); } catch(e) {}
+    return;
+  }
   if(id.indexOf('GASTO-') === 0) {
     const fotos = reg.fotosTrabajo || [];
     const edadMin = (Date.now() - new Date(meta.fechaHora || reg.fecha || Date.now()).getTime()) / 60000;
@@ -2980,6 +3014,395 @@ function canalLabel(c) {
   return c ? (CANAL_LABELS[c] || c) : '';
 }
 
+
+// ===================== v13.16: EQUIPO (choferes y ayudantes) =====================
+// El CHOFER tiene usuario, ve solo sus trabajos y es el único que cobra.
+// El AYUDANTE acompaña: queda registrado en el trabajo (para su pago). Si se le manda
+// enlace, ve los trabajos donde va de acompañante, sin precios y sin cobrar.
+function equipoLista(d){ d = d || getData(); return d.equipo || []; }
+function equipoMiembro(id, d){ return equipoLista(d).find(m => m.id === id); }
+function equipoNuevoId(nombre){
+  const base = String(nombre || 'USR').toUpperCase().normalize('NFD').replace(/[^A-Z]/g, '').slice(0, 8) || 'USR';
+  return base + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+}
+function equipoBaseUrl(){ const c = getCfg().enlaceCampo; return (c && c.trim()) ? c.trim() : (location.origin + location.pathname); }
+function equipoEnlace(m){ return equipoBaseUrl().split('?')[0] + '?u=' + encodeURIComponent(m.id) + '&n=' + encodeURIComponent(m.nombre) + '&r=' + encodeURIComponent(m.rol || ''); }
+function equipoTrabajosDe(id, d){
+  d = d || getData();
+  return (d.cots || []).filter(c => (c.estatus === 'agendado' || c.estatus === 'en_trabajo') && (c.choferId === id || (c.acompanantes || []).some(a => a.id === id)))
+    .sort((a, b) => String((a.fechaAgendada||'') + (a.horaAgendada||'')).localeCompare(String((b.fechaAgendada||'') + (b.horaAgendada||''))));
+}
+function equipoTxtCot(c){
+  const p = [];
+  if(c.choferNombre) p.push('🚚 ' + c.choferNombre);
+  (c.acompanantes || []).forEach(a => p.push('👷 ' + a.nombre));
+  return p.join(' · ');
+}
+function equipoLineaCot(c){
+  const t = equipoTxtCot(c);
+  return t ? '<div class="list-item-detail">👥 Equipo: <strong>' + escH(t) + '</strong></div>' : '<div class="list-item-detail" style="color:#EF9F27">👥 Sin equipo asignado (lo ven todos los celulares)</div>';
+}
+function agregarMiembroEquipo(datos){
+  const d = getData();
+  if(!d.equipo) d.equipo = [];
+  const nombre = String(datos.nombre || '').trim().toUpperCase();
+  const m = { id: equipoNuevoId(nombre), nombre, tel: String(datos.tel || '').trim(), rol: datos.rol === 'chofer' ? 'chofer' : 'ayudante', activo: true, creado: new Date().toISOString() };
+  d.equipo.push(m);
+  saveData(d);
+  eqSyncServidor();
+  return m;
+}
+function guardarMiembroForm(){
+  const nombre = (document.getElementById('eq-nombre').value || '').trim();
+  if(!nombre) { alert('⚠️ Escribe el nombre'); return; }
+  const tel = document.getElementById('eq-tel').value;
+  const rol = document.getElementById('eq-rol').value;
+  const ya = equipoLista().find(x => ayNormNombre(x.nombre) === ayNormNombre(nombre));
+  if(ya && !confirm('Ya existe ' + ya.nombre + ' en el equipo. ¿Agregarlo otra vez?')) return;
+  const m = agregarMiembroEquipo({ nombre, tel, rol });
+  document.getElementById('eq-nombre').value = ''; document.getElementById('eq-tel').value = '';
+  renderEquipo();
+  if(m.tel && confirm('✅ ' + m.nombre + ' agregado.\n\n¿Mandarle ahora su enlace por WhatsApp?')) enviarEnlaceEquipo(m.id);
+}
+function enviarEnlaceEquipo(id){
+  const m = equipoMiembro(id); if(!m) return;
+  const link = equipoEnlace(m);
+  const msg = 'Hola ' + m.nombre.split(' ')[0] + ' 👋 Este es tu acceso a la app de Mudanzas Express LA:\n\n' + link + '\n\nÁbrelo en tu celular y luego toca ⋮ → "Agregar a pantalla principal". Ahí vas a ver solo los trabajos que te toquen.';
+  window.open('https://wa.me/' + telWa(m.tel) + '?text=' + encodeURIComponent(msg), '_blank');
+}
+function copiarEnlaceEquipo(id){
+  const m = equipoMiembro(id); if(!m) return;
+  const link = equipoEnlace(m);
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(() => toastV('🔗 Enlace copiado', '#1D9E75'), () => prompt('Copia el enlace:', link));
+  else prompt('Copia el enlace:', link);
+}
+function cambiarRolEquipo(id){
+  const d = getData(); const m = (d.equipo || []).find(x => x.id === id); if(!m) return;
+  m.rol = m.rol === 'chofer' ? 'ayudante' : 'chofer';
+  saveData(d); renderEquipo(); eqSyncServidor();
+  toastV(m.nombre + ' ahora es ' + (m.rol === 'chofer' ? '🚚 chofer (puede cobrar)' : '👷 ayudante (no cobra)'));
+}
+function equipoQuitarDeTrabajos(d, id){
+  (d.cots || []).forEach(c => {
+    if(c.estatus === 'terminado') return;
+    if(c.choferId === id) { c.choferId = ''; c.choferNombre = ''; }
+    if(c.acompanantes) c.acompanantes = c.acompanantes.filter(a => a.id !== id);
+  });
+}
+// v13.17: desactivar = su enlace deja de funcionar. Al volver a activar recibe un enlace NUEVO.
+async function activarEquipo(id){
+  const d = getData(); const m = (d.equipo || []).find(x => x.id === id); if(!m) return;
+  if(m.activo) {
+    if(!confirm('¿Desactivar a ' + m.nombre + '?\n\nSu enlace deja de funcionar (le saldrá "Enlace no válido") y se quita de sus trabajos pendientes.')) return;
+    try { await eqMarca('EQREV-' + Date.now() + '-' + id); } catch(e) { alert('❌ No se pudo desactivar su enlace (revisa internet): ' + e.message); return; }
+    const d2 = getData(); const m2 = d2.equipo.find(x => x.id === id); m2.activo = false; equipoQuitarDeTrabajos(d2, id); saveData(d2); await eqSyncServidor();
+    renderEquipo(); toastV('⏸ ' + m.nombre + ' desactivado. Su enlace ya no funciona.');
+  } else {
+    m.id = equipoNuevoId(m.nombre); m.activo = true; saveData(d); renderEquipo(); eqSyncServidor();
+    if(m.tel && confirm('▶️ ' + m.nombre + ' activado con un enlace NUEVO (el anterior sigue sin funcionar).\n\n¿Mandárselo por WhatsApp?')) enviarEnlaceEquipo(m.id);
+  }
+}
+async function eqNuevoEnlace(id){
+  const d = getData(); const m = (d.equipo || []).find(x => x.id === id); if(!m) return;
+  if(!confirm('¿Darle un enlace NUEVO a ' + m.nombre + '?\n\nEl enlace viejo deja de funcionar: en el celular que lo tenga saldrá "Enlace no válido".')) return;
+  try { await eqMarca('EQREV-' + Date.now() + '-' + id); } catch(e) { alert('❌ No se pudo desactivar el enlace viejo (revisa internet): ' + e.message); return; }
+  const d2 = getData(); const m2 = d2.equipo.find(x => x.id === id); const nuevo = equipoNuevoId(m2.nombre);
+  m2.id = nuevo; m2.activo = true;
+  const reenviar = [];
+  (d2.cots || []).forEach(c => {
+    if(c.estatus === 'terminado') return;
+    let toca = false;
+    if(c.choferId === id) { c.choferId = nuevo; toca = true; }
+    (c.acompanantes || []).forEach(a => { if(a.id === id) { a.id = nuevo; toca = true; } });
+    if(toca && c.enviadoCampo) reenviar.push(c.id + ' ' + (c.cliente ? c.cliente.nombre : ''));
+  });
+  saveData(d2); await eqSyncServidor(); renderEquipo(); eqCargarAdmin();
+  if(reenviar.length) alert('ℹ️ Vuelve a enviar al celular estos trabajos para que le aparezcan con su enlace nuevo:\n\n' + reenviar.join('\n'));
+  if(m2.tel && confirm('✅ Enlace viejo desactivado.\n\n¿Mandarle su enlace nuevo por WhatsApp?')) enviarEnlaceEquipo(nuevo);
+}
+function borrarMiembroEquipo(id){
+  const d = getData(); const m = (d.equipo || []).find(x => x.id === id); if(!m) return;
+  const n = equipoTrabajosDe(id, d).length;
+  if(!confirm('¿Quitar a ' + m.nombre + ' del equipo?' + (n ? '\n\nEstá asignado a ' + n + ' trabajo(s) pendientes; se quitará de ellos.' : '') + '\n\nSu historial de pagos NO se borra.')) return;
+  equipoQuitarDeTrabajos(d, id);
+  d.equipo = (d.equipo || []).filter(x => x.id !== id);
+  saveData(d); renderEquipo(); eqSyncServidor();
+  eqMarca('EQREV-' + Date.now() + '-' + id).catch(() => alert('⚠️ Se quitó del equipo, pero no se pudo desactivar su enlace (sin internet). Sus trabajos ya no le llegan.'));
+}
+
+
+// ===================== v13.19: CONEXIÓN SEGURA CON EL APPS SCRIPT =====================
+function guardarClaveAdmin(){
+  const v = (document.getElementById('cfg-admin-key').value || '').trim();
+  getCfg(); if(v) CFG.adminKey = v; else delete CFG.adminKey; saveCfg();
+  document.getElementById('cfg-admin-key').value = '';
+  probarClaveAdmin();
+}
+async function probarClaveAdmin(){
+  const el = document.getElementById('cfg-admin-key-estado'); if(el) el.textContent = '⏳ Probando...';
+  const url = urlAppsScript(); let txt = '';
+  try {
+    const r = await fetch(url + '?action=estadoEquipo'); const j = await r.json();
+    if(j && j.ok) txt = '✅ Conectado al Apps Script nuevo.' + (j.clave ? ' La clave es correcta.' : ' ⚠️ El script todavía NO tiene ADMIN_KEY: tus datos siguen abiertos.') + (j.dueno ? '' : ' ⚠️ Falta DUENO_PIN en el script.');
+    else if(j && j.error === 'No autorizado') txt = '❌ La clave de esta compu NO coincide con ADMIN_KEY del script.';
+    else if(j && /desconocida/i.test(j.error || '')) txt = 'ℹ️ El Apps Script todavía es la versión vieja. Pega el nuevo y haz "Nueva versión".';
+    else txt = '⚠️ Respuesta rara: ' + JSON.stringify(j).slice(0, 120);
+  } catch(e) { txt = '❌ Sin conexión con el Apps Script.'; }
+  if(el) el.textContent = txt + (getCfg().adminKey ? ' (Esta compu tiene clave guardada.)' : ' (Esta compu NO tiene clave guardada.)');
+}
+let eqServidorViejo = false;
+async function eqSyncServidor(){
+  const url = urlAppsScript(); if(!url || eqServidorViejo) return false;
+  const lista = (getData().equipo || []).map(m => ({ id: m.id, nombre: m.nombre, rol: m.rol, activo: m.activo !== false }));
+  let ok = false;
+  try {
+    const j = await postJson(url, { action: 'guardarEquipo', equipo: lista });
+    ok = !!(j && j.ok);
+    if(j && /desconocida/i.test(j.error || '')) { eqServidorViejo = true; ok = true; }
+  } catch(e) {}
+  const d = getData(); d.equipoSyncPend = !ok; saveData(d);
+  return ok;
+}
+let servidorQuitarViejo = false;
+async function quitarTerminadosServidor(){
+  if(servidorQuitarViejo) return;
+  const url = urlAppsScript(); if(!url) return;
+  const d = getData();
+  const ids = [].concat((d.cots || []).filter(c => c.estatus === 'terminado'), d.cancelados || []).filter(c => c.enviadoCampo && !c.quitadoServ).map(c => c.id);
+  if(!ids.length) return;
+  try {
+    const j = await postJson(url, { action: 'quitarTrabajoCampo', cotIds: ids });
+    if(j && /desconocida/i.test(j.error || '')) { servidorQuitarViejo = true; return; }
+    if(j && j.ok) { const d2 = getData(); [].concat(d2.cots || [], d2.cancelados || []).forEach(c => { if(ids.indexOf(c.id) >= 0) c.quitadoServ = true; }); saveData(d2); }
+  } catch(e) {}
+}
+async function eqToggleSolo(){
+  const act = !!(eqMarcasAdmin && eqMarcasAdmin.soloConEnlace);
+  if(!confirm(act ? '¿Dejar que celulares SIN enlace vean los trabajos sin equipo asignado?' : '¿Que SOLO los celulares con enlace vean trabajos?\n\nQuien abra la página sin enlace no verá nada.')) return;
+  try { const j = await postJson(urlAppsScript(), { action: 'configEquipo', soloConEnlace: !act }); if(!j || !j.ok) throw new Error((j && j.error) || 'error'); eqMarcasAdmin.soloConEnlace = !act; renderEquipo(); }
+  catch(e) { alert('❌ No se pudo cambiar: ' + e.message); }
+}
+
+// ===================== v13.17: PINs PERSONALES Y ENLACES (marcas en Drive, sin cambiar el Apps Script) =====================
+// EQREV-ts-ID = enlace desactivado · EQRST-ts-ID = PIN renovado · EQPIN-ts-hash-ID = PIN puesto · EQCFG-ts-0|1 = PINs apagados/encendidos
+function eqParseMarcas(ids){
+  const r = { rev:{}, rst:{}, pins:{}, cfg:false, cfgTs:0, term:{} };
+  (ids || []).forEach(i => {
+    i = String(i); const p = i.split('-'); const ts = +p[1] || 0;
+    if(i.indexOf('TERM-') === 0) { const c = p.slice(2).join('-'); r.term[c] = Math.max(r.term[c] || 0, ts); }
+    else if(i.indexOf('EQREV-') === 0) { const u = p.slice(2).join('-'); r.rev[u] = Math.max(r.rev[u] || 0, ts); }
+    else if(i.indexOf('EQRST-') === 0) { const u = p.slice(2).join('-'); r.rst[u] = Math.max(r.rst[u] || 0, ts); }
+    else if(i.indexOf('EQPIN-') === 0) { const u = p.slice(3).join('-'); (r.pins[u] = r.pins[u] || []).push({ ts, h: p[2] }); }
+    else if(i.indexOf('EQCFG-') === 0) { if(ts > r.cfgTs) { r.cfgTs = ts; r.cfg = p[2] === '1'; } }
+  });
+  return r;
+}
+function eqPinActual(r, u){
+  if(r && r.servidor) return (r.pinTs && r.pinTs[u]) ? { ts: r.pinTs[u] } : null;
+  const lim = r.rst[u] || 0;
+  return (r.pins[u] || []).filter(x => x.ts > lim).sort((a, b) => b.ts - a.ts)[0] || null;
+}
+async function eqHash(u, pin){
+  const txt = 'MEXLA|' + u + '|' + pin;
+  try {
+    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
+    return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('').slice(0, 16);
+  } catch(e) {
+    let h1 = 5381, h2 = 52711;
+    for(let k = 0; k < 500; k++) for(const ch of txt) { const c = ch.charCodeAt(0); h1 = ((h1 << 5) + h1 + c) >>> 0; h2 = ((h2 << 7) ^ h2 ^ c) >>> 0; }
+    return (h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0')).slice(0, 16);
+  }
+}
+async function eqMarcaEn(url, id){
+  if(!url || url.indexOf('PEGA_AQUI') >= 0) throw new Error('Falta la URL del Apps Script');
+  const r = await fetch(url, { method:'POST', body: JSON.stringify({ action:'subirRegistro', id, nombre:'EQUIPO', tel:'', cotId:'', direccion:'', notas:'', fecha:new Date().toISOString(), totalFotosTrabajo:0, totalFotosDanado:0 }) });
+  const j = await r.json(); if(!j || !j.ok) throw new Error((j && j.error) || 'sin respuesta');
+}
+async function eqMarca(id){
+  const d = getData(); if(!d.campoImportados.includes(id)) { d.campoImportados.push(id); saveData(d); }
+  await eqMarcaEn(urlAppsScript(), id);
+  if(eqMarcasAdmin && !eqMarcasAdmin.servidor) { const ids = (eqMarcasAdmin._ids || []).concat([id]); eqMarcasAdmin = eqParseMarcas(ids); eqMarcasAdmin._ids = ids; }
+}
+let eqMarcasAdmin = null;
+async function eqCargarAdmin(){
+  const url = urlAppsScript(); if(!url) return;
+  try {
+    const r = await fetch(url + '?action=estadoEquipo'); const j = await r.json();
+    if(j && j.ok && j.config) {
+      const pinTs = {}; Object.keys(j.pins || {}).forEach(u => { if(j.pins[u].tiene) pinTs[u] = j.pins[u].ts || 1; });
+      eqMarcasAdmin = { servidor: true, cfg: !!j.config.pinsActivos, soloConEnlace: !!j.config.soloConEnlace, pinTs, dueno: !!j.dueno, clave: !!j.clave, _ids: [] };
+      renderEquipo(); eqSyncServidor(); return;
+    }
+    if(j && j.error === 'No autorizado') { eqMarcasAdmin = { servidor: true, noAut: true, cfg: false, pinTs: {}, _ids: [] }; renderEquipo(); return; }
+  } catch(e) {}
+  try {
+    const r = await fetch(url + '?action=listarRegistros'); const j = await r.json();
+    if(j && j.ok) { const ids = (j.registros || []).map(x => String(x.id || '')).filter(i => /^EQ(REV|RST|PIN|CFG)-/.test(i)); eqMarcasAdmin = eqParseMarcas(ids); eqMarcasAdmin._ids = ids; renderEquipo(); }
+  } catch(e) {}
+}
+function eqPinsActivos(){ return eqMarcasAdmin ? eqMarcasAdmin.cfg : !!getCfg().pinsActivos; }
+async function eqTogglePins(){
+  const act = eqPinsActivos();
+  const msg = act
+    ? '¿APAGAR los PINs personales?\n\nLos celulares vuelven a entrar solo con su enlace.'
+    : '¿ENCENDER los PINs personales?\n\nCada persona con enlace tendrá que crear su PIN la próxima vez que abra la app (luego se lo pide cada 12 horas). Tú NO puedes ver los PINs, solo renovarlos.';
+  if(!confirm(msg)) return;
+  try {
+    if(eqMarcasAdmin && eqMarcasAdmin.servidor) { const j = await postJson(urlAppsScript(), { action: 'configEquipo', pinsActivos: !act }); if(!j || !j.ok) throw new Error((j && j.error) || 'error'); }
+    else await eqMarca('EQCFG-' + Date.now() + '-' + (act ? '0' : '1'));
+  } catch(e) { alert('❌ No se pudo cambiar (revisa internet): ' + e.message); return; }
+  getCfg(); CFG.pinsActivos = !act; saveCfg();
+  if(eqMarcasAdmin) { eqMarcasAdmin.cfg = !act; eqMarcasAdmin.cfgTs = Date.now(); }
+  renderEquipo(); toastV(act ? '🔓 PINs apagados' : '🔐 PINs encendidos', '#1D9E75');
+}
+async function eqRenovarPin(id){
+  const m = equipoMiembro(id); if(!m) return;
+  if(!confirm('¿Renovar el PIN de ' + m.nombre + '?\n\nSu PIN actual deja de servir. La próxima vez que abra la app tendrá que crear uno nuevo, y no podrá repetir ninguno que ya haya usado.')) return;
+  try {
+    if(eqMarcasAdmin && eqMarcasAdmin.servidor) { const j = await postJson(urlAppsScript(), { action: 'renovarPin', u: id }); if(!j || !j.ok) throw new Error((j && j.error) || 'error'); if(eqMarcasAdmin.pinTs) delete eqMarcasAdmin.pinTs[id]; }
+    else await eqMarca('EQRST-' + Date.now() + '-' + id);
+  } catch(e) { alert('❌ No se pudo renovar (revisa internet): ' + e.message); return; }
+  renderEquipo(); toastV('🔑 PIN de ' + m.nombre + ' renovado', '#1D9E75');
+}
+function eqEstadoPinHtml(m){
+  if(!eqPinsActivos()) return '';
+  if(!eqMarcasAdmin) return '<div style="font-size:12px;color:#b0c4d8;margin-top:4px">🔑 Revisando PIN...</div>';
+  const a = eqPinActual(eqMarcasAdmin, m.id);
+  return '<div style="font-size:12px;margin-top:4px;color:' + (a ? '#1D9E75' : '#EF9F27') + '">🔑 ' + (a ? 'Tiene PIN (puesto ' + fechaHoraTxt(new Date(a.ts).toISOString()) + ')' : 'Todavía no crea su PIN') + '</div>';
+}
+function eqTarjetaSeguridad(){
+  const act = eqPinsActivos();
+  return '<div class="card" style="border-left:4px solid ' + (act ? '#1D9E75' : '#555') + '">'
+    + '<div class="card-title">🔐 PINs personales — ' + (act ? '<span style="color:#1D9E75">ENCENDIDOS</span>' : '<span style="color:#b0c4d8">APAGADOS</span>') + '</div>'
+    + '<div style="font-size:12.5px;color:#b0c4d8;line-height:1.6;margin-bottom:10px">'
+    + (act ? 'Cada persona entra con su enlace <strong>y</strong> su PIN. Tú no ves los PINs: si alguien lo olvida, toca <strong>🔑 Renovar PIN</strong> y crea uno nuevo (no puede repetir uno viejo).'
+           : 'Ahora cada persona entra solo con su enlace. Enciéndelos cuando tengas más choferes: cada quien crea su PIN y tú puedes renovarlo cuando lo olvide.')
+    + '</div><button class="btn ' + (act ? '' : 'btn-primary') + ' btn-sm" onclick="eqTogglePins()">' + (act ? '🔓 Apagar PINs' : '🔐 Encender PINs') + '</button>'
+    + (eqMarcasAdmin && eqMarcasAdmin.servidor && !eqMarcasAdmin.noAut ? ' <button class="btn btn-sm" onclick="eqToggleSolo()">' + (eqMarcasAdmin.soloConEnlace ? '🌐 Dejar ver a celulares sin enlace' : '🔒 Solo celulares con enlace') + '</button>' : '')
+    + '<div style="font-size:11.5px;margin-top:10px;color:#b0c4d8">'
+    + (!eqMarcasAdmin ? '⏳ Revisando conexión...'
+       : eqMarcasAdmin.noAut ? '<span style="color:#E24B4A">❌ La clave de administrador de esta compu no coincide con la del Apps Script → ⚙️ Configuración.</span>'
+       : eqMarcasAdmin.servidor ? '✅ Protegido por el Apps Script.' + (eqMarcasAdmin.soloConEnlace ? ' Solo celulares con enlace ven trabajos.' : ' Celulares sin enlace ven los trabajos sin equipo asignado.') + (eqMarcasAdmin.clave ? '' : ' <span style="color:#EF9F27">⚠️ Falta ADMIN_KEY en el script.</span>') + (eqMarcasAdmin.dueno ? '' : ' <span style="color:#EF9F27">⚠️ Falta DUENO_PIN en el script.</span>')
+       : 'ℹ️ Modo básico: el Apps Script todavía es el viejo.')
+    + '</div></div>';
+}
+function aprobarSolicitudEquipo(sid, rol){
+  const d = getData(); const s = (d.solicitudesEquipo || []).find(x => x.id === sid); if(!s) return;
+  s.resuelto = true; s.aprobado = true; saveData(d);
+  const m = agregarMiembroEquipo({ nombre: s.nombre, tel: s.tel, rol });
+  updateBadges(); renderEquipo();
+  if(m.tel) enviarEnlaceEquipo(m.id);
+  else alert('✅ Aprobado. No dejó teléfono: usa "🔗 Copiar enlace" y mándaselo tú.');
+}
+function rechazarSolicitudEquipo(sid){
+  if(!confirm('¿Rechazar esta solicitud?')) return;
+  const d = getData(); const s = (d.solicitudesEquipo || []).find(x => x.id === sid); if(!s) return;
+  s.resuelto = true; s.aprobado = false; saveData(d); updateBadges(); renderEquipo();
+}
+async function revisarSolicitudesEquipo(){
+  toastV('🔄 Revisando solicitudes...');
+  try { await sincronizarRegistrosCampoSilencioso(); } catch(e) {}
+  updateBadges(); renderEquipo();
+}
+function guardarEnlaceCampo(){
+  getCfg(); CFG.enlaceCampo = (document.getElementById('eq-enlace-base').value || '').trim().split('?')[0]; saveCfg();
+  alert('✅ Dirección guardada. Los enlaces nuevos usarán:\n' + equipoBaseUrl());
+}
+function renderEquipo(){
+  const el = document.getElementById('equipo-contenido'); if(!el) return;
+  const d = getData(); const eq = equipoLista(d);
+  const sol = (d.solicitudesEquipo || []).filter(x => !x.resuelto);
+  const enl = document.getElementById('eq-enlace-base'); if(enl && document.activeElement !== enl) enl.value = getCfg().enlaceCampo || '';
+  const enlHint = document.getElementById('eq-enlace-actual'); if(enlHint) enlHint.textContent = 'Ahora se usa: ' + equipoBaseUrl();
+  let h = '';
+  if(sol.length) {
+    h += '<div class="card" style="border-left:4px solid #E24B4A"><div class="card-title">🆕 Solicitudes desde la app de campo (' + sol.length + ')</div>'
+      + sol.map(x => '<div class="list-item" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
+        + '<div><div class="list-item-title">' + escH(x.nombre) + '</div><div class="list-item-detail">📱 ' + escH(x.tel || 'sin teléfono') + ' · ' + fechaHoraTxt(x.fecha) + '</div></div>'
+        + '<div class="btn-row" style="margin:0"><button class="btn btn-primary btn-sm" onclick="aprobarSolicitudEquipo(\'' + x.id + '\',\'chofer\')">🚚 Aprobar como chofer</button>'
+        + '<button class="btn btn-blue btn-sm" onclick="aprobarSolicitudEquipo(\'' + x.id + '\',\'ayudante\')">👷 Aprobar como ayudante</button>'
+        + '<button class="btn btn-sm" onclick="rechazarSolicitudEquipo(\'' + x.id + '\')">✕</button></div></div>').join('')
+      + '</div>';
+  }
+  h += eqTarjetaSeguridad();
+  if(!eq.length) {
+    h += '<div class="empty-state"><div class="icon">👥</div><p>Todavía no hay nadie en el equipo. Agrega al primero arriba.</p></div>';
+    el.innerHTML = h; return;
+  }
+  const pend = ayPendientes(d);
+  h += eq.slice().sort((a, b) => (b.activo - a.activo) || (a.rol === b.rol ? a.nombre.localeCompare(b.nombre) : (a.rol === 'chofer' ? -1 : 1))).map(m => {
+    const tr = equipoTrabajosDe(m.id, d);
+    const pagoPend = pend.filter(c => ayNormNombre(c.nombreAyudante) === ayNormNombre(m.nombre)).length;
+    return '<div class="card" style="border-left:4px solid ' + (m.activo ? (m.rol === 'chofer' ? '#1D9E75' : '#2F74C0') : '#555') + ';opacity:' + (m.activo ? 1 : .6) + '">'
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">'
+      + '<div><div style="font-size:16px;font-weight:800">' + (m.rol === 'chofer' ? '🚚 ' : '👷 ') + escH(m.nombre) + '</div>'
+      + '<div style="font-size:12px;color:#b0c4d8;margin-top:3px">' + (m.rol === 'chofer' ? '<span class="badge badge-green">Chofer · ve sus trabajos y cobra</span>' : '<span class="badge badge-blue">Ayudante · acompaña, no cobra</span>')
+      + (m.activo ? '' : ' <span class="badge badge-gray">Desactivado</span>') + '</div>'
+      + '<div style="font-size:12px;color:#b0c4d8;margin-top:4px">📱 ' + escH(m.tel || 'sin teléfono') + ' · ID ' + escH(m.id) + '</div>'
+      + (pagoPend ? '<div style="font-size:12px;color:#EF9F27;margin-top:4px">⏳ ' + pagoPend + ' trabajo(s) pendientes de pago</div>' : '') + (m.activo ? eqEstadoPinHtml(m) : '<div style="font-size:12px;color:#E24B4A;margin-top:4px">🚫 Su enlace no funciona mientras esté desactivado</div>') + '</div>'
+      + '<div class="btn-row" style="margin:0">'
+      + (m.tel && m.activo ? '<button class="btn btn-primary btn-sm" onclick="enviarEnlaceEquipo(\'' + m.id + '\')">📲 Mandar enlace</button>' : '')
+      + (m.activo ? '<button class="btn btn-sm" onclick="copiarEnlaceEquipo(\'' + m.id + '\')">🔗 Copiar enlace</button>' : '')
+      + (m.activo && eqPinsActivos() ? '<button class="btn btn-sm" onclick="eqRenovarPin(\'' + m.id + '\')">🔑 Renovar PIN</button>' : '')
+      + (m.activo ? '<button class="btn btn-sm" onclick="eqNuevoEnlace(\'' + m.id + '\')">🔄 Nuevo enlace</button>' : '')
+      + '<button class="btn btn-sm" onclick="cambiarRolEquipo(\'' + m.id + '\')">🔁 Hacer ' + (m.rol === 'chofer' ? 'ayudante' : 'chofer') + '</button>'
+      + '<button class="btn btn-sm" onclick="activarEquipo(\'' + m.id + '\')">' + (m.activo ? '⏸ Desactivar' : '▶️ Activar') + '</button>'
+      + '<button class="btn btn-danger btn-sm" onclick="borrarMiembroEquipo(\'' + m.id + '\')">🗑️</button></div></div>'
+      + '<div style="margin-top:10px;font-size:12px;font-weight:700;color:#7ab8d8">📋 Sus trabajos pendientes (' + tr.length + ')</div>'
+      + (tr.length ? tr.map(c => '<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--line-soft);font-size:12.5px">'
+          + '<span>📅 ' + escH(c.fechaAgendada || 'sin fecha') + (c.horaAgendada ? ' ' + hora12(c.horaAgendada) : '') + ' · <strong>' + escH(c.cliente ? c.cliente.nombre : '') + '</strong> <span style="color:#b0c4d8">' + c.id + '</span></span>'
+          + '<span>' + (c.choferId === m.id ? '🚚 Maneja y cobra' : '👷 Acompaña') + (c.enviadoCampo ? ' · 📲' : ' · <span style="color:#EF9F27">sin enviar</span>') + '</span></div>').join('')
+        : '<div style="font-size:12px;color:#b0c4d8;padding:4px 0">Sin trabajos asignados.</div>')
+      + '</div>';
+  }).join('');
+  el.innerHTML = h;
+}
+
+// ---- Asignar equipo a un trabajo ----
+function cerrarModalEquipo(){ const m = document.getElementById('modal-asignar-equipo'); if(m) m.remove(); }
+function abrirAsignarEquipo(cotId){
+  const d = getData(); const c = (d.cots || []).find(x => x.id === cotId); if(!c) return;
+  const eq = equipoLista(d).filter(m => m.activo);
+  cerrarModalEquipo();
+  const choferes = eq.filter(m => m.rol === 'chofer');
+  const acomp = new Set((c.acompanantes || []).map(a => a.id));
+  const m = document.createElement('div'); m.id = 'modal-asignar-equipo';
+  m.style.cssText = 'position:fixed;inset:0;background:#000b;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML = '<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:480px;width:100%;max-height:92vh;overflow:auto;padding:18px">'
+    + '<div style="font-size:16px;font-weight:800;margin-bottom:4px">👥 Equipo del trabajo</div>'
+    + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:12px">' + c.id + ' · ' + escH(c.cliente ? c.cliente.nombre : '') + ' · ' + escH(c.fechaAgendada || '') + '</div>'
+    + (eq.length ? '' : '<div class="notice notice-amber">Todavía no tienes a nadie en 👥 Equipo. Agrégalos primero.</div>')
+    + '<label>🚚 Chofer (maneja y cobra)</label><select id="ae-chofer" style="margin-bottom:12px">'
+    + '<option value="">— Sin asignar (lo ven todos los celulares) —</option>'
+    + '<option value="DUENO"' + (c.choferId === 'DUENO' ? ' selected' : '') + '>👔 Yo (dueño)</option>'
+    + choferes.map(x => '<option value="' + x.id + '"' + (x.id === c.choferId ? ' selected' : '') + '>🚚 ' + escH(x.nombre) + '</option>').join('')
+    + '</select>'
+    + '<label>👷 Quién acompaña</label>'
+    + (eq.length ? eq.map(x => '<label style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--line-soft);font-size:14px;cursor:pointer;margin:0;color:var(--ink)">'
+        + '<input type="checkbox" class="ae-acomp" value="' + x.id + '"' + (acomp.has(x.id) ? ' checked' : '') + '> ' + (x.rol === 'chofer' ? '🚚 ' : '👷 ') + escH(x.nombre) + '</label>').join('')
+      : '<div style="font-size:12px;color:#b0c4d8">—</div>')
+    + '<div style="font-size:11.5px;color:#b0c4d8;margin:10px 0">Solo el chofer puede cobrar. Los acompañantes con enlace ven el trabajo sin precios. El primero de la lista queda como ayudante para su pago.</div>'
+    + '<div class="btn-row"><button class="btn btn-primary" onclick="guardarAsignacionEquipo(\'' + c.id + '\', true)">💾📲 Guardar y enviar al celular</button>'
+    + '<button class="btn" onclick="guardarAsignacionEquipo(\'' + c.id + '\', false)">💾 Solo guardar</button>'
+    + '<button class="btn" onclick="cerrarModalEquipo()">Cancelar</button></div></div>';
+  document.body.appendChild(m);
+}
+function guardarAsignacionEquipo(cotId, enviar){
+  const d = getData(); const c = (d.cots || []).find(x => x.id === cotId); if(!c) return;
+  const chId = (document.getElementById('ae-chofer') || {}).value || '';
+  const ch = chId === 'DUENO' ? { id: 'DUENO', nombre: 'DUEÑO' } : equipoMiembro(chId, d);
+  c.choferId = ch ? ch.id : '';
+  c.choferNombre = ch ? ch.nombre : '';
+  c.acompanantes = Array.from(document.querySelectorAll('.ae-acomp')).filter(x => x.checked && x.value !== chId)
+    .map(x => equipoMiembro(x.value, d)).filter(Boolean).map(x => ({ id: x.id, nombre: x.nombre }));
+  if(c.acompanantes.length) { c.usaAyudante = 'si'; c.nombreAyudante = c.acompanantes[0].nombre; }
+  saveData(d);
+  cerrarModalEquipo();
+  renderAgenda(); renderTrabajos(); try { renderEquipo(); } catch(e) {}
+  if(enviar) enviarTrabajoCampoDesdeTrabajos(cotId);
+  else toastV('✅ Equipo guardado. Recuerda enviarlo al celular.', '#1D9E75');
+}
+
 function previewCotizacion() {
   const nombre = document.getElementById('c-nombre').value.trim() || 'Cliente';
   alert('Vista previa: Primero guarda la cotización, luego usa el botón "PDF" en la lista de cotizaciones.');
@@ -3279,6 +3702,7 @@ function renderAgenda() {
           <div class="list-item-detail">📍 ${rutaTxt(c)}</div>
           <div class="list-item-detail">📱 ${c.cliente.tel} ${c.cliente.email?'· '+c.cliente.email:''}</div>
           ${c.notasAgenda?'<div class="list-item-detail">📝 '+c.notasAgenda+'</div>':''}
+          ${equipoLineaCot(c)}
         </div>
         <div style="text-align:right">
           <span class="badge badge-blue">📅 Agendado</span>
@@ -3287,6 +3711,7 @@ function renderAgenda() {
       </div>
       <div class="btn-row">
         <button class="btn btn-primary btn-sm" onclick="iniciarTrabajo('${c.id}')">🚛 Iniciar trabajo</button>
+        <button class="btn btn-blue btn-sm" onclick="abrirAsignarEquipo('${c.id}')">👥 Equipo</button>
         <button class="btn btn-orange btn-sm" onclick="abrirCambiarFecha('${c.id}')">📅 Cambiar fecha/hora</button>
         <button class="btn btn-sm" onclick="editarCot('${c.id}')">✏️ Editar datos</button>
         <button class="btn btn-sm" onclick="waCliente('${c.id}')">💬 Notificar cliente (WhatsApp)</button>
@@ -3318,7 +3743,7 @@ function renderTrabajos() {
           <div class="list-item-detail">📍 ${rutaTxt(c)}</div>
           <div class="list-item-detail">📅 ${c.fechaAgendada} &nbsp;⏰ ${c.horaAgendada} &nbsp;|&nbsp; 📱 ${c.cliente.tel}</div>
           ${veh ? '<div class="list-item-detail">🚛 Vehículo: <strong>'+veh.nombre+'</strong></div>' : ''}
-          ${c.usaAyudante==='si' && c.nombreAyudante ? '<div class="list-item-detail">👷 Ayudante: <strong>'+c.nombreAyudante+'</strong></div>' : ''}
+          ${(c.choferId || (c.acompanantes||[]).length) ? equipoLineaCot(c) : (c.usaAyudante==='si' && c.nombreAyudante ? '<div class="list-item-detail">👷 Ayudante: <strong>'+c.nombreAyudante+'</strong></div>' : equipoLineaCot(c))}
           ${c.pagoFinal ? '<div class="list-item-detail">💳 Forma de pago: <strong>'+c.pagoFinal+'</strong></div>' : ''}
           ${c.propina>0 ? '<div class="list-item-detail" style="color:#EF9F27">🎁 Propina: <strong>$'+Number(c.propina).toFixed(2)+'</strong></div>' : ''}
           ${c.notas?'<div class="list-item-detail">📝 '+c.notas+'</div>':''}
@@ -3330,6 +3755,7 @@ function renderTrabajos() {
       </div>
       <div class="btn-row">
         <button class="btn btn-primary btn-sm" onclick="abrirTerminar('${c.id}')">✅ Marcar como TERMINADO</button>
+        <button class="btn btn-blue btn-sm" onclick="abrirAsignarEquipo('${c.id}')">👥 Equipo</button>
         <button class="btn btn-blue btn-sm" onclick="enviarTrabajoCampoDesdeTrabajos('${c.id}')">📲 Enviar a app de campo</button>
         <button class="btn btn-orange btn-sm" onclick="abrirCambiarFecha('${c.id}')">📅 Cambiar fecha/hora</button>
         <button class="btn btn-sm" onclick="editarCot('${c.id}')">✏️ Editar datos</button>
@@ -3361,6 +3787,10 @@ function enviarTrabajoCampoDesdeTrabajos(cotId) {
     millas: cot.millas || 0,
     monto: cot.total || 0,
     puedeCobrar: !!getCfg().ayudantePuedeCobrar,
+    // v13.16: equipo asignado (en el celular solo lo ven ellos; solo el chofer cobra)
+    choferId: cot.choferId || '',
+    choferNombre: cot.choferNombre || '',
+    acompanantes: cot.acompanantes || [],
     // v13.8: Labor Only por hora (el cobro final se calcula con el cronómetro)
     laborOnly: !!cot.laborOnly,
     tarifaHora: cot.tarifaHora || 0,
@@ -5204,6 +5634,7 @@ function confirmarTerminar() {
   document.getElementById('tm-resumen').style.display='none';
   let _msgMeta = '';
   try { _msgMeta = mensajeCoberturaNueva(_cobAntes, estadoMetaMes(getData())); } catch(e) {}
+  barrerTerminadosCampo();
   alert('✅ Trabajo marcado como TERMINADO.\n\nAhora puedes generar el recibo PDF oficial en la pestaña Terminados.' + (usaAyudante==='si' ? '\n\n👷 El pago de '+(nombreAyudante||'tu ayudante')+' quedó PENDIENTE en Gastos → Ayudantes.' : '') + _msgMeta);
   showTab('terminados');
 }
@@ -5295,6 +5726,8 @@ function regresarAAgenda(id) {
   c.reabiertoEn = new Date().toISOString(); // para ignorar el cierre viejo que quedó en Drive
   delete c.datosCampo;
   delete c.enviadoCampo;
+  delete c.termMarcado;
+  delete c.quitadoServ;
   delete c.montoPago1; delete c.montoPago2;
   d.ay = (d.ay||[]).filter(a => (a.trabajo||'').trim() !== id);
   try { localStorage.removeItem('terminado_' + id); } catch(e) {}
@@ -8120,7 +8553,29 @@ function iniciarAutoSyncTerminados() {
 
 // Igual que ejecutarSincronizacion() pero sin botones/log visibles —
 // pensado para correr solo, en segundo plano, cada 20 segundos.
+// v13.18: avisar al celular de los trabajos que se terminaron o cancelaron en la computadora
+let barridoCorriendo = false;
+async function barrerTerminadosCampo(){
+  if(barridoCorriendo || !urlAppsScript()) return;
+  barridoCorriendo = true;
+  try {
+    const d = getData();
+    const lista = [].concat((d.cots || []).filter(c => c.estatus === 'terminado'), d.cancelados || [])
+      .filter(c => c.enviadoCampo && !c.termMarcado).map(c => c.id);
+    for(const id of lista) {
+      try {
+        await eqMarca('TERM-' + Date.now() + '-' + id);
+        const d2 = getData();
+        [].concat(d2.cots || [], d2.cancelados || []).filter(c => c.id === id && c.enviadoCampo).forEach(c => { c.termMarcado = true; });
+        saveData(d2);
+      } catch(e) { break; } // sin internet: se reintenta en el siguiente ciclo
+    }
+  } finally { barridoCorriendo = false; }
+  quitarTerminadosServidor();
+  if(getData().equipoSyncPend) eqSyncServidor();
+}
 async function sincronizarRegistrosCampoSilencioso() {
+  barrerTerminadosCampo();
   const url = (getCfg().appsScriptUrl && !getCfg().appsScriptUrl.includes('PEGA_AQUI')) ? getCfg().appsScriptUrl : (typeof APPS_SCRIPT_URL !== 'undefined' ? APPS_SCRIPT_URL : '');
   if(!url || url.includes('PEGA_AQUI')) return;
   try {
@@ -8129,7 +8584,7 @@ async function sincronizarRegistrosCampoSilencioso() {
     if(!data.ok) return;
     const d = getData();
     const yaImportados = new Set(d.campoImportados||[]);
-    const marcas = (data.registros||[]).filter(r => /^VJ(LOCK|DONE)-/.test(String(r.id||'')) && !yaImportados.has(r.id));
+    const marcas = (data.registros||[]).filter(r => /^(VJLOCK|VJDONE|EQREV|EQRST|EQPIN|EQCFG|TERM)-/.test(String(r.id||'')) && !yaImportados.has(r.id));
     if(marcas.length) { marcas.forEach(r => d.campoImportados.push(r.id)); saveData(d); marcas.forEach(r => yaImportados.add(r.id)); }
     const nuevos = (data.registros||[]).filter(r => !yaImportados.has(r.id));
     if(!nuevos.length) return;
@@ -8142,8 +8597,8 @@ async function sincronizarRegistrosCampoSilencioso() {
     try { renderGastosPend(); } catch(e) {}
     const notif = document.createElement('div');
     notif.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#143F74;color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px #0005';
-    const nG = nImp.filter(r => String(r.id).indexOf('GASTO-') === 0).length, nV = nImp.filter(r => String(r.id).indexOf('VIAJE-') === 0).length;
-    notif.textContent = nG ? '🧾 ' + nG + ' gasto(s) nuevo(s) del celular — complétalos en Gastos' : nV ? '🚗 Llegaron los viajes del día desde el celular' : '📸 ' + nImp.length + ' registro(s) nuevo(s) de campo sincronizado(s)';
+    const nU = nImp.filter(r => String(r.id).indexOf('USR-') === 0).length, nG = nImp.filter(r => String(r.id).indexOf('GASTO-') === 0).length, nV = nImp.filter(r => String(r.id).indexOf('VIAJE-') === 0).length;
+    notif.textContent = nU ? '👥 ' + nU + ' persona(s) pidieron acceso — revisa 👥 Equipo' : nG ? '🧾 ' + nG + ' gasto(s) nuevo(s) del celular — complétalos en Gastos' : nV ? '🚗 Llegaron los viajes del día desde el celular' : '📸 ' + nImp.length + ' registro(s) nuevo(s) de campo sincronizado(s)';
     document.body.appendChild(notif);
     setTimeout(() => notif.remove(), 5000);
   } catch(e) { /* sin conexión, se reintenta en el siguiente ciclo */ }
@@ -8290,7 +8745,7 @@ async function importarRegistroDesdeScript(id) {
   var data = await res.json();
   if(!data.ok||!data.registro) throw new Error(data.error||'No encontrado');
   var reg = data.registro;
-  if(/^(GASTO|VIAJE|COMP|VJLOCK|VJDONE)-/.test(String(reg.id || id))) { await importarRegistroEspecial(reg, String(reg.id || id)); return; }
+  if(/^(GASTO|VIAJE|COMP|VJLOCK|VJDONE|USR|EQREV|EQRST|EQPIN|EQCFG|TERM)-/.test(String(reg.id || id))) { await importarRegistroEspecial(reg, String(reg.id || id)); return; }
   var d = getData();
   var registro = { id:reg.id, fecha:reg.fecha||new Date().toISOString(), nombre:reg.nombre||'', tel:reg.tel||'', cotId:reg.cotId||'', direccion:reg.direccion||'', notas:reg.notas||'', fotosTrabajo:reg.fotosTrabajo||[], fotosDanado:reg.fotosDanado||[] };
   var idx = d.campo.findIndex(function(r){ return r.id===registro.id; });
@@ -8312,7 +8767,7 @@ function enviarTrabajoCampo(cotId) {
   var notas = cot.notas || '';
   var fotosInventario = cot.fotosInventario || [];
   // BUG 4 FIX: Use fechaAgendada/horaAgendada (the confirmed scheduled date), not cot.fecha (creation date)
-  var trabajoCampo = { cotId:cotId, nombre:nombre, tel:tel, origen:origen, paradas: cot.paradas||[], destino:destino, fecha: cot.fechaAgendada||fecha, hora: cot.horaAgendada||hora, notas:notas, fotos:fotosInventario, monto: cot.total||0, puedeCobrar: !!getCfg().ayudantePuedeCobrar, enviado:new Date().toISOString(), ayudanteId:'default' };
+  var trabajoCampo = { cotId:cotId, nombre:nombre, tel:tel, origen:origen, paradas: cot.paradas||[], destino:destino, fecha: cot.fechaAgendada||fecha, hora: cot.horaAgendada||hora, notas:notas, fotos:fotosInventario, monto: cot.total||0, puedeCobrar: !!getCfg().ayudantePuedeCobrar, choferId: cot.choferId||'', choferNombre: cot.choferNombre||'', acompanantes: cot.acompanantes||[], enviado:new Date().toISOString(), ayudanteId:'default' };
   try { localStorage.setItem('trabajoActivoCampo', JSON.stringify(trabajoCampo)); } catch(e) {}
   if(APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('PEGA_AQUI')) {
     fetch(APPS_SCRIPT_URL, { method:'POST', body:JSON.stringify(Object.assign({action:'enviarTrabajoCampo'}, trabajoCampo)) })
@@ -8408,6 +8863,7 @@ initDarkMode();
   <div id="panel-nombre-ay" style="display:none;width:100%;max-width:320px;margin-top:10px;background:rgba(255,255,255,.15);border-radius:16px;padding:20px">
     <div style="color:#fff;font-size:14px;font-weight:700;margin-bottom:12px">¿Cómo te llamas?</div>
     <input id="input-nombre-ay" type="text" placeholder="Tu nombre completo" style="width:100%;padding:14px;border-radius:10px;border:none;font-size:15px;margin-bottom:10px;text-transform:uppercase">
+    <input id="input-tel-ay" type="tel" placeholder="Tu teléfono (para mandarte tu acceso)" style="width:100%;padding:14px;border-radius:10px;border:none;font-size:15px;margin-bottom:10px">
     <button onclick="confirmarEntradaAyudante()" style="width:100%;padding:14px;background:#1D9E75;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">✓ Entrar</button>
   </div>
   <div id="pin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:99999">
@@ -8505,6 +8961,7 @@ initDarkMode();
       <div class="card">
         <div class="card-title">📋 Detalles del trabajo</div>
         <div id="campo-cotid" style="font-size:11px;color:#b0c4d8;margin-bottom:8px"></div>
+        <div id="campo-equipo" style="display:none;margin-bottom:8px;background:#143F7425;border-radius:8px;padding:8px;font-size:13px"></div>
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">👤 Cliente:</span> <span id="campo-nombre"></span></div>
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">📞 Teléfono:</span> <span id="campo-tel"></span></div>
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">📦 Origen:</span> <span id="campo-origen"></span></div>
@@ -8755,6 +9212,7 @@ initDarkMode();
 <input type="file" id="file-trabajo" accept="image/*" capture="environment" style="display:none" onchange="handleFoto(event,'trabajo')">
 <input type="file" id="file-danado" accept="image/*" capture="environment" style="display:none" onchange="handleFoto(event,'danado')">
 
+<button id="btn-pedir-acceso" onclick="pedirAccesoCampo()" style="display:none;margin:10px auto 6px;padding:10px 24px;background:#1D9E75;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📝 Pedir mi acceso personal</button>
 <button id="btn-modo-dueno" onclick="toggleModoDueno()" style="display:block;margin:10px auto 6px;padding:10px 24px;background:#1a2535;color:#b0c4d8;border:1px solid #33445E;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">🔓 Modo administrador</button>
 <button onclick="volverAlSelector()" style="display:block;margin:6px auto 30px;padding:10px 24px;background:#1a2535;color:#b0c4d8;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Cambiar modo</button>
 </div>
@@ -8780,7 +9238,25 @@ function confirmarEntradaAyudante(){
   var nombre=(inp?inp.value.trim():'').toUpperCase();
   if(!nombre){ alert('Escribe tu nombre'); return; }
   localStorage.setItem('campo_ayudante_nombre', nombre);
+  var tel=(document.getElementById('input-tel-ay')||{}).value||'';
+  if(!localStorage.getItem('campo_usuario')) enviarSolicitudAcceso(nombre, tel, true);
   entrarComoAyudante(nombre);
+}
+// v13.16: el ayudante pide su acceso; le llega al administrador en 👥 Equipo
+function campoUsuario(){ try { return JSON.parse(localStorage.getItem('campo_usuario')||'null'); } catch(e) { return null; } }
+function enviarSolicitudAcceso(nombre, tel, silencioso){
+  var url = (typeof CAMPO_APPS_URL!=='undefined') ? CAMPO_APPS_URL : '';
+  if(!url || url.indexOf('PEGA_AQUI')>=0) { if(!silencioso) alert('Sin conexión con el sistema.'); return; }
+  var id='USR-'+Date.now();
+  fetch(url,{method:'POST',body:JSON.stringify({action:'subirRegistro',id:id,nombre:nombre,tel:tel,cotId:'',direccion:'',notas:'USR::'+JSON.stringify({nombre:nombre,tel:tel,fecha:new Date().toISOString()}),fecha:new Date().toISOString(),totalFotosTrabajo:0,totalFotosDanado:0})})
+    .then(function(r){return r.json();}).then(function(j){ localStorage.setItem('campo_acceso_pedido', new Date().toISOString()); if(!silencioso || j.ok) alert(j.ok ? '✅ Se mandó tu solicitud. Cuando el administrador te apruebe, te llega tu enlace por WhatsApp.' : '⚠️ No se pudo mandar: '+(j.error||'')); try{aplicarRolCampo();}catch(e){} })
+    .catch(function(){ if(!silencioso) alert('⚠️ Sin internet. Inténtalo de nuevo.'); });
+}
+function pedirAccesoCampo(){
+  var n=prompt('Tu nombre completo:', localStorage.getItem('campo_ayudante_nombre')||''); if(!n) return;
+  var t=prompt('Tu teléfono (ahí te llega tu enlace):',''); if(t===null) return;
+  n=n.trim().toUpperCase(); localStorage.setItem('campo_ayudante_nombre', n);
+  enviarSolicitudAcceso(n, t.trim(), false);
 }
 function entrarComoAyudante(nombre){
   if(nombre) localStorage.setItem('campo_ayudante_nombre', nombre);
@@ -8800,7 +9276,9 @@ function entrarComoAyudante(nombre){
   try { if(vjEstado().activo) setTimeout(() => switchTab('viajes'), 600); } catch(e) {}
 }
 function volverAlSelector(){localStorage.removeItem('mudanzas_modo');document.getElementById('app-selector').style.display='flex';document.getElementById('app-campo').style.display='none';var h=document.querySelector('.app-header');var n=document.querySelector('.nav');if(h)h.style.display='';if(n)n.style.display='';}
-(function(){var m=localStorage.getItem('mudanzas_modo');if(m==='ayudante'){var n=localStorage.getItem('campo_ayudante_nombre')||'';entrarComoAyudante(n);}else if(m==='admin'){document.getElementById('app-selector').style.display='none';}})();
+// v13.16: abrir con enlace personal (?u=ID&n=NOMBRE) → este celular queda como ese usuario
+(function(){try{var p=new URLSearchParams(location.search);var u=p.get('u');if(u){var n=(p.get('n')||'').toUpperCase();localStorage.setItem('campo_usuario',JSON.stringify({id:u,nombre:n,rol:p.get('r')||''}));if(n)localStorage.setItem('campo_ayudante_nombre',n);localStorage.setItem('mudanzas_modo','ayudante');localStorage.removeItem('trabajoActivoCampo');history.replaceState(null,'',location.pathname);}}catch(e){}})();
+(function(){var m=localStorage.getItem('mudanzas_modo');if(m==='ayudante'){var n=localStorage.getItem('campo_ayudante_nombre')||'';entrarComoAyudante(n);}else if(m==='admin'){document.getElementById('app-selector').style.display='none';try{iniciarAutoSyncTerminados();}catch(e){}}})();
 </script>
 
 <script>
@@ -9175,14 +9653,170 @@ function iniciarVerificacionAutomatica() {
 
 let trabajosCola = [];
 
+
+// ===================== v13.17: GUARDIA DEL CELULAR (enlace válido + PIN personal) =====================
+async function eqEstadoRemoto(){
+  try {
+    const r = await fetch(CAMPO_APPS_URL + '?action=listarRegistros'); const j = await r.json();
+    if(!j || !j.ok) throw 0;
+    const ids = (j.registros || []).map(x => String(x.id || '')).filter(i => /^EQ(REV|RST|PIN|CFG)-/.test(i) || i.indexOf('TERM-') === 0);
+    try { localStorage.setItem('eq_cache', JSON.stringify(ids)); } catch(e) {}
+    return eqParseMarcas(ids);
+  } catch(e) {
+    try { return eqParseMarcas(JSON.parse(localStorage.getItem('eq_cache') || '[]')); } catch(x) { return eqParseMarcas([]); }
+  }
+}
+function eqOcultar(){ const o = document.getElementById('eq-overlay'); if(o) o.remove(); }
+function eqOverlay(html){
+  let o = document.getElementById('eq-overlay');
+  if(!o) { o = document.createElement('div'); o.id = 'eq-overlay'; o.style.cssText = 'position:fixed;inset:0;background:#143F74;z-index:100001;display:flex;align-items:center;justify-content:center;padding:24px'; document.body.appendChild(o); }
+  o.innerHTML = '<div style="background:#1a2535;border-radius:16px;padding:24px;width:100%;max-width:340px;text-align:center;color:#e8edf2">' + html + '</div>';
+  return o;
+}
+let eqGuardiaCorriendo = null;
+function eqGuardia(){ if(!eqGuardiaCorriendo) eqGuardiaCorriendo = eqGuardiaReal().finally(() => { eqGuardiaCorriendo = null; }); return eqGuardiaCorriendo; }
+async function eqGuardiaReal(){
+  const r = await eqEstadoRemoto();
+  window._termCampo = r.term || {};
+  if(esModoDueno()) { eqOcultar(); return true; }
+  const u = campoUsuario(); if(!u) { eqOcultar(); return true; }
+  // v13.19: si el Apps Script ya es el nuevo, él decide
+  const srv = await eqServidorEstado(u.id);
+  window._eqServidor = !!srv;
+  if(srv) {
+    if(srv.estado === 'revocado') r.rev[u.id] = 1;
+    else if(srv.estado === 'ok') { eqOcultar(); return true; }
+    else { eqPantallaPin(u, srv.estado === 'crearPin', (srv.usados || 0) > 0); return false; }
+  }
+  if(r.rev[u.id]) {
+    localStorage.removeItem('campo_usuario'); localStorage.removeItem('trabajoActivoCampo'); localStorage.removeItem('eq_pin_ok'); localStorage.removeItem('campo_token');
+    trabajosCola = []; trabajoActivo = null;
+    eqOverlay('<div style="font-size:48px">🚫</div><div style="font-size:18px;font-weight:800;margin:8px 0">Enlace no válido</div>'
+      + '<div style="font-size:13px;color:#b0c4d8;margin-bottom:16px">Este acceso ya no funciona. Si trabajas con Mudanzas Express LA, pide tu enlace nuevo al administrador.</div>'
+      + '<button onclick="eqOcultar();volverAlSelector()" style="width:100%;padding:12px;border:none;border-radius:10px;background:#26344A;color:#fff;font-weight:700">Salir</button>');
+    return false;
+  }
+  if(!r.cfg) { eqOcultar(); return true; }
+  const act = eqPinActual(r, u.id);
+  if(!act) {
+    window._eqUsados = (r.pins[u.id] || []).map(x => x.h);
+    eqPantallaPin(u, true, window._eqUsados.length > 0);
+    return false;
+  }
+  let ok = null; try { ok = JSON.parse(localStorage.getItem('eq_pin_ok') || 'null'); } catch(e) {}
+  if(ok && ok.ts === act.ts && ok.u === u.id && Date.now() - ok.at < 12 * 3600000) { eqOcultar(); return true; }
+  window._eqActual = act;
+  eqPantallaPin(u, false, false);
+  return false;
+}
+function eqPantallaPin(u, crear, usadosAntes){
+  if(crear) {
+    eqOverlay('<div style="font-size:40px">🔐</div><div style="font-size:17px;font-weight:800;margin:6px 0">Hola ' + escH(u.nombre.split(' ')[0]) + ', crea tu PIN</div>'
+      + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:12px">De 4 a 6 números. Nadie más lo ve, ni el administrador.' + (usadosAntes ? ' No puede ser uno que ya usaste antes.' : '') + '</div>'
+      + '<input id="eq-p1" type="password" inputmode="numeric" maxlength="6" placeholder="PIN nuevo" style="font-size:24px;text-align:center;letter-spacing:8px;margin-bottom:8px">'
+      + '<input id="eq-p2" type="password" inputmode="numeric" maxlength="6" placeholder="Repite el PIN" style="font-size:24px;text-align:center;letter-spacing:8px;margin-bottom:8px">'
+      + '<div id="eq-err" style="color:#E24B4A;font-size:12px;min-height:18px;margin-bottom:8px"></div>'
+      + '<button id="eq-ok" onclick="eqCrearPin()" style="width:100%;padding:14px;border:none;border-radius:10px;background:#1D9E75;color:#fff;font-size:15px;font-weight:700">Guardar PIN</button>');
+  } else {
+    eqOverlay('<div style="font-size:40px">🔐</div><div style="font-size:17px;font-weight:800;margin:6px 0">Hola ' + escH(u.nombre.split(' ')[0]) + '</div>'
+      + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:12px">Escribe tu PIN para entrar</div>'
+      + '<input id="eq-p1" type="password" inputmode="numeric" maxlength="6" placeholder="••••" style="font-size:28px;text-align:center;letter-spacing:10px;margin-bottom:8px" onkeyup="if(event.key===\'Enter\')eqEntrarPin()">'
+      + '<div id="eq-err" style="color:#E24B4A;font-size:12px;min-height:18px;margin-bottom:8px"></div>'
+      + '<button id="eq-ok" onclick="eqEntrarPin()" style="width:100%;padding:14px;border:none;border-radius:10px;background:#1F5EA8;color:#fff;font-size:15px;font-weight:700">Entrar</button>'
+      + '<div style="font-size:11px;color:#b0c4d8;margin-top:12px">¿Se te olvidó? Pídele al administrador que renueve tu PIN.</div>');
+  }
+}
+function campoToken(uid){ try { const x = JSON.parse(localStorage.getItem('campo_token') || 'null'); return x && x.u === uid ? x.t : ''; } catch(e) { return ''; } }
+function campoTrabajoUrl(){
+  let url = CAMPO_APPS_URL + '?action=obtenerTrabajoCampo&ayudanteId=' + CAMPO_AYUDANTE_ID;
+  const u = campoUsuario();
+  if(u) { url += '&u=' + encodeURIComponent(u.id); const t = campoToken(u.id); if(t) url += '&t=' + encodeURIComponent(t); }
+  const dk = localStorage.getItem('campo_dk');
+  if(esModoDueno() && dk) url += '&dk=' + encodeURIComponent(dk);
+  return url;
+}
+async function eqServidorEstado(uid){
+  try {
+    const r = await fetch(CAMPO_APPS_URL + '?action=campoEstado&u=' + encodeURIComponent(uid) + '&t=' + encodeURIComponent(campoToken(uid)));
+    const j = await r.json();
+    if(j && j.ok && j.estado) { try { localStorage.setItem('eq_srv', '1'); } catch(e) {} return j; }
+    return null;   // Apps Script viejo
+  } catch(e) {
+    // sin internet: si el script es el nuevo y ya teníamos token, dejamos ver lo guardado
+    if(localStorage.getItem('eq_srv') === '1') return { estado: campoToken(uid) ? 'ok' : 'pedirPin' };
+    return null;
+  }
+}
+async function eqServidorPost(body){
+  const r = await fetch(CAMPO_APPS_URL, { method: 'POST', body: JSON.stringify(body) });
+  return await r.json();
+}
+const EQ_ERRORES = { repetido: 'Ese PIN ya lo usaste antes. Escoge otro.', incorrecto: 'PIN incorrecto', espera: 'Demasiados intentos. Espera 5 minutos.', revocado: 'Este enlace ya no es válido.', yaTiene: 'Ya tienes PIN. Escríbelo para entrar.', crearPin: 'Primero crea tu PIN.' };
+async function eqCrearPin(){
+  const u = campoUsuario(); if(!u) return;
+  const p1 = (document.getElementById('eq-p1') || {}).value || '', p2 = (document.getElementById('eq-p2') || {}).value || '';
+  const err = document.getElementById('eq-err');
+  if(!/^\d{4,6}$/.test(p1)) { err.textContent = 'El PIN debe ser de 4 a 6 números'; return; }
+  if(p1 !== p2) { err.textContent = 'Los dos PIN no son iguales'; return; }
+  if(window._eqServidor) {
+    const b = document.getElementById('eq-ok'); b.disabled = true; b.textContent = '⏳ Guardando...';
+    try {
+      const j = await eqServidorPost({ action: 'campoCrearPin', u: u.id, pin: p1 });
+      if(j && j.ok) { localStorage.setItem('campo_token', JSON.stringify({ u: u.id, t: j.token })); eqOcultar(); cargarTrabajoCampo(); return; }
+      err.textContent = EQ_ERRORES[j && j.error] || ((j && j.error) || 'Error');
+      if(j && (j.error === 'yaTiene' || j.error === 'revocado')) setTimeout(() => eqGuardia(), 1200);
+    } catch(e) { err.textContent = 'Sin internet. Inténtalo de nuevo.'; }
+    b.disabled = false; b.textContent = 'Guardar PIN'; return;
+  }
+  const h = await eqHash(u.id, p1);
+  if((window._eqUsados || []).includes(h)) { err.textContent = 'Ese PIN ya lo usaste antes. Escoge otro.'; return; }
+  const b = document.getElementById('eq-ok'); b.disabled = true; b.textContent = '⏳ Guardando...';
+  const ts = Date.now();
+  try { await eqMarcaEn(CAMPO_APPS_URL, 'EQPIN-' + ts + '-' + h + '-' + u.id); }
+  catch(e) { err.textContent = 'Sin internet. Inténtalo de nuevo.'; b.disabled = false; b.textContent = 'Guardar PIN'; return; }
+  try { const c = JSON.parse(localStorage.getItem('eq_cache') || '[]'); c.push('EQPIN-' + ts + '-' + h + '-' + u.id); localStorage.setItem('eq_cache', JSON.stringify(c)); } catch(e) {}
+  localStorage.setItem('eq_pin_ok', JSON.stringify({ u: u.id, ts, at: Date.now() }));
+  eqOcultar(); cargarTrabajoCampo();
+}
+let eqIntentos = 0;
+async function eqEntrarPin(){
+  const u = campoUsuario(); if(!u) return;
+  const p = (document.getElementById('eq-p1') || {}).value || '';
+  const err = document.getElementById('eq-err');
+  if(window._eqServidor) {
+    const b = document.getElementById('eq-ok'); b.disabled = true;
+    try {
+      const j = await eqServidorPost({ action: 'campoLogin', u: u.id, pin: p });
+      if(j && j.ok) { localStorage.setItem('campo_token', JSON.stringify({ u: u.id, t: j.token })); eqOcultar(); cargarTrabajoCampo(); return; }
+      document.getElementById('eq-p1').value = '';
+      err.textContent = EQ_ERRORES[j && j.error] || ((j && j.error) || 'Error');
+      if(j && (j.error === 'crearPin' || j.error === 'revocado')) setTimeout(() => eqGuardia(), 1200);
+    } catch(e) { err.textContent = 'Sin internet. Inténtalo de nuevo.'; }
+    b.disabled = false; return;
+  }
+  const act = window._eqActual; if(!act) return;
+  if(eqIntentos >= 5) { err.textContent = 'Demasiados intentos. Espera un minuto.'; return; }
+  if((await eqHash(u.id, p)) !== act.h) {
+    eqIntentos++; document.getElementById('eq-p1').value = '';
+    err.textContent = 'PIN incorrecto';
+    if(eqIntentos >= 5) setTimeout(() => { eqIntentos = 0; }, 60000);
+    return;
+  }
+  eqIntentos = 0;
+  localStorage.setItem('eq_pin_ok', JSON.stringify({ u: u.id, ts: act.ts, at: Date.now() }));
+  eqOcultar(); cargarTrabajoCampo();
+}
+
 async function verificarTrabajoSilencioso() {
   if(!CAMPO_APPS_URL || CAMPO_APPS_URL.includes('PEGA_AQUI')) return;
+  if(!(await eqGuardia())) return;
   try {
-    const res = await fetch(CAMPO_APPS_URL + '?action=obtenerTrabajoCampo&ayudanteId=' + CAMPO_AYUDANTE_ID);
+    const res = await fetch(campoTrabajoUrl());
     const data = await res.json();
+    if(data && data.acceso === 'denegado') { localStorage.removeItem('campo_token'); eqGuardia(); }
     const trabajosRaw = (data.ok && data.trabajos) ? data.trabajos : [];
     // Filtrar los ya terminados localmente
-    const trabajos = trabajosRaw.filter(t => !trabajoYaTerminado(t.cotId));
+    const trabajos = trabajosRaw.filter(t => !trabajoYaTerminado(t.cotId) && !trabajoCerradoEnCompu(t) && trabajoEsMio(t));
     if(trabajos.length > 0) {
       trabajosCola = trabajos;
       trabajoActivo = trabajos[0];
@@ -9214,6 +9848,7 @@ function trabajoYaTerminado(cotId) {
 }
 
 async function cargarTrabajoCampo() {
+  if(!(await eqGuardia())) { document.getElementById('sin-trabajo').style.display = ''; document.getElementById('campo-lista-trabajos').style.display = 'none'; document.getElementById('con-trabajo').style.display = 'none'; return; }
   if(!CAMPO_APPS_URL || CAMPO_APPS_URL.includes('PEGA_AQUI')) {
     // Fallback: leer de localStorage (si el jefe está en el mismo dispositivo)
     try {
@@ -9221,7 +9856,7 @@ async function cargarTrabajoCampo() {
       if(raw) {
         const t = JSON.parse(raw);
         // BUG 3 FIX: No mostrar si ya está terminado en la app principal
-        if(trabajoYaTerminado(t.cotId)) {
+        if(trabajoYaTerminado(t.cotId) || trabajoCerradoEnCompu(t) || !trabajoEsMio(t)) {
           localStorage.removeItem('trabajoActivoCampo');
           trabajoActivo = null;
         } else {
@@ -9241,11 +9876,12 @@ async function cargarTrabajoCampo() {
   document.getElementById('con-trabajo').style.display = 'none';
 
   try {
-    const res = await fetch(CAMPO_APPS_URL + '?action=obtenerTrabajoCampo&ayudanteId=' + CAMPO_AYUDANTE_ID);
+    const res = await fetch(campoTrabajoUrl());
     const data = await res.json();
+    if(data && data.acceso === 'denegado') { localStorage.removeItem('campo_token'); eqGuardia(); }
     const trabajosRaw = (data.ok && data.trabajos) ? data.trabajos : (data.ok && data.trabajo ? [data.trabajo] : []);
     // BUG 3 FIX: Exclude jobs already marked as terminado in the main app
-    const trabajos = trabajosRaw.filter(t => !trabajoYaTerminado(t.cotId));
+    const trabajos = trabajosRaw.filter(t => !trabajoYaTerminado(t.cotId) && !trabajoCerradoEnCompu(t) && trabajoEsMio(t));
     if(trabajos.length > 0) {
       trabajosCola = trabajos;
       trabajoActivo = trabajos[0];
@@ -9329,6 +9965,7 @@ function mostrarTrabajo(t, pendientes) {
     badgePend.style.display = 'none';
   }
   document.getElementById('campo-cotid').textContent = t.cotId ? 'Cotización: ' + t.cotId : '';
+  { const ce = document.getElementById('campo-equipo'); const partes = []; if(t.choferNombre) partes.push('🚚 Chofer: <b>' + escH(t.choferNombre) + '</b>'); if((t.acompanantes||[]).length) partes.push('👷 Acompaña: <b>' + t.acompanantes.map(a => escH(a.nombre)).join(', ') + '</b>'); if(ce) { ce.style.display = partes.length ? '' : 'none'; ce.innerHTML = '👥 ' + partes.join('<br>'); } }
   document.getElementById('campo-nombre').textContent = t.nombre || '—';
   document.getElementById('campo-tel').textContent = t.tel || '—';
   document.getElementById('campo-origen').textContent = t.origen || '—';
@@ -10117,7 +10754,7 @@ window.addEventListener('load', () => {
     const raw = localStorage.getItem('trabajoActivoCampo');
     if(raw) {
       const t = JSON.parse(raw);
-      if(trabajoYaTerminado(t.cotId)) {
+      if(trabajoYaTerminado(t.cotId) || trabajoCerradoEnCompu(t) || !trabajoEsMio(t)) {
         localStorage.removeItem('trabajoActivoCampo');
       } else {
         trabajoActivo = t;
@@ -10180,7 +10817,29 @@ document.addEventListener('input', e => { if(e.target && e.target.id === 'campo-
 
 const DUENO_PIN = '98129812'; // v13.1: PIN propio para el modo dueño en el celular (el nombre NO da permisos)
 function esModoDueno() { return localStorage.getItem('campo_rol') === 'dueno'; }
-function campoPuedeCobrar() { return esModoDueno() || !!(trabajoActivo && trabajoActivo.puedeCobrar); }
+// v13.16: solo el CHOFER asignado cobra. Si el trabajo no tiene chofer, se usa el permiso general.
+function campoPuedeCobrar() {
+  if(esModoDueno()) return true;
+  const t = trabajoActivo; if(!t) return false;
+  if(t.choferId) { const u = campoUsuario(); return !!(u && u.id === t.choferId); }
+  return !!t.puedeCobrar;
+}
+// v13.18: trabajo terminado/cancelado en la computadora después de enviarlo al celular
+function trabajoCerradoEnCompu(t) {
+  if(!t || !t.cotId) return false;
+  const m = (window._termCampo || {})[t.cotId]; if(!m) return false;
+  const env = Date.parse(t.enviado || '') || 0;
+  return m > env;
+}
+// v13.16: cada celular solo ve sus trabajos (si el trabajo no tiene equipo asignado, lo ven todos)
+function trabajoEsMio(t) {
+  if(!t) return false;
+  if(esModoDueno()) return true;
+  const asignado = !!t.choferId || (t.acompanantes || []).length > 0;
+  if(!asignado) return true;
+  const u = campoUsuario(); if(!u) return false;
+  return t.choferId === u.id || (t.acompanantes || []).some(a => a.id === u.id);
+}
 function aplicarRolCampo() {
   const dueno = esModoDueno();
   const cobra = campoPuedeCobrar();
@@ -10191,7 +10850,9 @@ function aplicarRolCampo() {
   const bG = document.getElementById('tab-gasto-btn'); if(bG) bG.style.display = dueno ? '' : 'none';
   if(!dueno) { const e = document.getElementById('tab-gasto'); if(e && !e.classList.contains('hidden')) switchTab('asignado'); }
   const badge = document.getElementById('campo-rol-badge');
-  if(badge) badge.textContent = dueno ? '👔 Modo administrador — ves todo' : ('👷 Modo ayudante' + (cobra ? ' — puedes cobrar este trabajo' : ''));
+  const _u = campoUsuario();
+  if(badge) badge.textContent = dueno ? '👔 Modo administrador — ves todo' : (_u ? ((_u.rol === 'chofer' ? '🚚 Chofer: ' : '👷 ') + _u.nombre) : '👷 Modo ayudante') + (!dueno && cobra ? ' — puedes cobrar este trabajo' : '');
+  const bp = document.getElementById('btn-pedir-acceso'); if(bp) { bp.style.display = (dueno || _u) ? 'none' : 'block'; bp.textContent = localStorage.getItem('campo_acceso_pedido') ? '📝 Volver a pedir mi acceso' : '📝 Pedir mi acceso personal'; }
   // si está en Terminar sin permiso, regresar
   const tt = document.getElementById('tab-terminar');
   if(!cobra && tt && !tt.classList.contains('hidden')) {
@@ -10201,18 +10862,24 @@ function aplicarRolCampo() {
     });
   }
 }
-function toggleModoDueno() {
+async function toggleModoDueno() {
   if(esModoDueno()) {
     if(!confirm('¿Salir del modo administrador? Este celular quedará en modo ayudante (sin precios).')) return;
-    localStorage.removeItem('campo_rol');
+    localStorage.removeItem('campo_rol'); localStorage.removeItem('campo_dk');
   } else {
-    const pin = prompt('PIN de 8 dígitos:');
+    const pin = prompt('PIN del modo administrador:');
     if(pin === null) return;
-    if(pin.trim() !== DUENO_PIN) { alert('PIN incorrecto'); return; }
+    // v13.19: lo revisa el Apps Script (DUENO_PIN). Con el script viejo se usa el PIN de antes.
+    let j = null;
+    try { const r = await fetch(CAMPO_APPS_URL, { method: 'POST', body: JSON.stringify({ action: 'verificarDueno', pin: pin.trim() }) }); j = await r.json(); }
+    catch(e) { alert('Sin internet. Inténtalo con conexión.'); return; }
+    if(j && j.ok) { localStorage.setItem('campo_dk', pin.trim()); }
+    else if(j && (/desconocida/i.test(j.error || '') || j.error === 'sinPin')) { if(pin.trim() !== DUENO_PIN) { alert('PIN incorrecto'); return; } }
+    else { alert(j && j.error === 'espera' ? 'Demasiados intentos. Espera 10 minutos.' : 'PIN incorrecto'); return; }
     localStorage.setItem('campo_rol', 'dueno');
   }
   aplicarRolCampo();
-  if(trabajoActivo) mostrarTrabajo(trabajoActivo, Math.max(0, trabajosCola.length - 1));
+  try { cargarTrabajoCampo(); } catch(e) { if(trabajoActivo) mostrarTrabajo(trabajoActivo, Math.max(0, trabajosCola.length - 1)); }
 }
 
 // ===================== v13: LISTA DE SALIDA =====================
@@ -10476,6 +11143,38 @@ function eliminarFotoGal(id){
 }
 
 </script>
+
+<!-- ═══════════════ EQUIPO (v13.16) ═══════════════ -->
+<div id="tab-equipo" class="tab-content">
+  <div class="section-header">
+    <div class="section-title">👥 Equipo</div>
+    <button class="btn btn-sm" onclick="revisarSolicitudesEquipo()">🔄 Revisar solicitudes</button>
+  </div>
+  <div class="notice notice-blue">
+    <strong>🚚 Chofer:</strong> tiene su enlace, en su celular ve <u>solo sus trabajos</u> y es el único que puede cobrar.<br>
+    <strong>👷 Ayudante:</strong> acompaña. Queda anotado en el trabajo para su pago. Si le mandas enlace, ve los trabajos donde va, sin precios.<br>
+    Para asignar: en <strong>Agenda</strong> o <strong>Trabajos</strong> toca <strong>👥 Equipo</strong> en cada trabajo. Los trabajos sin equipo asignado los siguen viendo todos.
+  </div>
+  <div class="card">
+    <div class="card-title">➕ Agregar persona</div>
+    <div class="form-row">
+      <div><label>Nombre completo *</label><input type="text" id="eq-nombre" placeholder="Gelacio Huerta López" style="text-transform:uppercase"></div>
+      <div><label>Teléfono / WhatsApp</label><input type="tel" id="eq-tel" placeholder="(323) 000-0000"></div>
+    </div>
+    <div class="form-row">
+      <div><label>Rol</label><select id="eq-rol"><option value="chofer">🚚 Chofer — ve sus trabajos y cobra</option><option value="ayudante">👷 Ayudante — acompaña, no cobra</option></select></div>
+      <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" onclick="guardarMiembroForm()">💾 Agregar al equipo</button></div>
+    </div>
+    <div style="font-size:11.5px;color:#b0c4d8">También pueden pedir acceso ellos mismos desde la app de campo ("Soy Ayudante" → nombre y teléfono). Te aparecen aquí para aprobarlos.</div>
+  </div>
+  <div id="equipo-contenido"></div>
+  <div class="card">
+    <div class="card-title">🔗 Dirección de la app de campo (para los enlaces)</div>
+    <div style="font-size:12px;color:#b0c4d8;margin-bottom:8px">Pon la dirección del sitio que abren en el celular. Si la dejas vacía se usa la de esta página.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><input type="text" id="eq-enlace-base" style="flex:1;min-width:240px" placeholder="https://..."><button class="btn btn-primary btn-sm" onclick="guardarEnlaceCampo()">💾 Guardar</button></div>
+    <div id="eq-enlace-actual" style="font-size:11px;color:#7ab8d8;margin-top:6px"></div>
+  </div>
+</div>
 
 <!-- ═══════════════ GALERÍA ═══════════════ -->
 <div id="tab-galeria" class="tab-content">
