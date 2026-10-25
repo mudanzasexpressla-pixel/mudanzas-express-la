@@ -2656,8 +2656,8 @@ async function vjCargarRemoto() {
     const r = await fetch(CAMPO_APPS_URL + '?action=listarRegistros'); const j = await r.json(); if(!j.ok) return;
     const hoy = hoyLocal().replace(/-/g, '');
     const ids = (j.registros || []).map(x => String(x.id || ''));
-    vjRemoto.locks = ids.filter(i => i.indexOf('VJLOCK-' + hoy + '-') === 0).map(i => { const p = i.split('-'); return { key: p[2], quien: p[3], ts: +p[4] || 0 }; });
-    vjRemoto.dones = ids.filter(i => i.indexOf('VJDONE-' + hoy + '-') === 0).map(i => { const p = i.split('-'); return { key: p[2], quien: p[3], ts: +p[4] || 0, lock: +p[5] || 0 }; });
+    vjRemoto.locks = ids.filter(i => i.indexOf('VJLOCK-' + hoy + '-') === 0).map(i => { const p = i.split('-'); return { key: p[2], quien: p[3], ts: +p[4] || 0, veh: p[5] || '', dest: p[6] || p[2] }; });
+    vjRemoto.dones = ids.filter(i => i.indexOf('VJDONE-' + hoy + '-') === 0).map(i => { const p = i.split('-'); return { key: p[2], quien: p[3], ts: +p[4] || 0, lock: +p[5] || 0, dest: p[6] || p[2] }; });
     vjRemoto.t = Date.now();
   } catch(e) {}
 }
@@ -2668,20 +2668,64 @@ function vjActivosOtros() {
   return vjRemoto.locks.filter(l => !mios.has(l.ts) && !cerrados.has(l.ts) && (Date.now() - l.ts) < 6 * 3600000);
 }
 function vjBloqueoOtro(key) { return vjActivosOtros().find(l => l.key === key) || null; }
-function vjLlegadosHoy() { return new Set(vjRemoto.dones.map(d => d.key)); }
+function vjLlegadosHoy() { return new Set(vjRemoto.dones.map(d => d.dest || d.key)); }
+// v13.15d: dos vehículos en el mismo viaje (la otra camioneta de respaldo)
+function vjVehs() { const v = localStorage.getItem('vj_ultimo_veh') || ''; if(!v) return []; const seg = v === 'tacoma' ? 'ford' : 'tacoma'; return (localStorage.getItem('vj_dos') === '1' && esModoDueno()) ? [v, seg] : [v]; }
+function vjLockKey(h, v) { return vjHash(vjDestKey(h) + '|' + v); }
+function vjBloqueoDest(h) { for(const v of vjVehs()) { const b = vjBloqueoOtro(vjLockKey(h, v)); if(b) return b; } return null; }
+function vjHtmlDos(fn) {
+  const v = localStorage.getItem('vj_ultimo_veh') || ''; if(!v || !esModoDueno()) return '';
+  const seg = v === 'tacoma' ? 'ford' : 'tacoma', on = localStorage.getItem('vj_dos') === '1';
+  return '<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:0 0 10px;color:#e8edf2;cursor:pointer"><input type="checkbox" ' + (on ? 'checked ' : '') + 'onchange="localStorage.setItem(\'vj_dos\', this.checked ? \'1\' : \'0\');' + fn + '" style="width:18px;height:18px"> También va la ' + gasVehTexto(seg) + ' (las dos juntas)</label>';
+}
+function vjVehTxt(a) { return (GAS_VEH[a.vehiculo] || a.vehiculo) + (a.vehiculo2 ? ' + ' + (GAS_VEH[a.vehiculo2] || a.vehiculo2) : ''); }
 async function vjPostMarca(id) {
   if(typeof CAMPO_APPS_URL === 'undefined' || !CAMPO_APPS_URL || CAMPO_APPS_URL.includes('PEGA_AQUI')) return false;
   try { const r = await fetch(CAMPO_APPS_URL, { method: 'POST', body: JSON.stringify({ action: 'subirRegistro', id, nombre: 'VIAJE-MARCA', tel: '', cotId: '', direccion: '', notas: '', fecha: new Date().toISOString(), totalFotosTrabajo: 0, totalFotosDanado: 0 }) }); const j = await r.json(); return !!j.ok; } catch(e) { return false; }
 }
 function vjCerrarMarca(a) {
   if(!a || !a.lockTs) return;
-  vjPostMarca('VJDONE-' + hoyLocal().replace(/-/g, '') + '-' + a.lockKey + '-' + vjQuien() + '-' + Date.now() + '-' + a.lockTs);
+  const ls = a.locks && a.locks.length ? a.locks : [{ key: a.lockKey, ts: a.lockTs }];
+  ls.forEach((l, i) => vjPostMarca('VJDONE-' + hoyLocal().replace(/-/g, '') + '-' + l.key + '-' + vjQuien() + '-' + (Date.now() + i) + '-' + l.ts + '-' + (a.destKey || l.key)));
 }
 // Abrir Google Maps sin perder la app (Android abre la navegación directo)
 function vjAbrirMaps(txt) {
   const q = encodeURIComponent(txt || '');
   if(/Android/i.test(navigator.userAgent)) { location.href = 'google.navigation:q=' + q + '&mode=d'; return; }
   location.href = vjMapsUrl(txt);
+}
+
+// v13.15c: botones de viaje dentro de cada trabajo (pestaña Trabajo)
+let vjOpsTrabajo = {}, vjVehAbierto = false;
+function vjRefrescarTrabajo() {
+  const box = document.getElementById('campo-vj-botones'); if(!box) return;
+  const t = trabajoActivo; if(!t || !t.cotId) { box.innerHTML = ''; return; }
+  const s = vjEstado(), veh = localStorage.getItem('vj_ultimo_veh') || '';
+  const n = (t.nombre || 'Cliente') + ' (' + t.cotId + ')';
+  const puntos = [];
+  if(t.origen) puntos.push({ tipo: 'origen', cotId: t.cotId, etiqueta: '📦 Origen — ' + n, txt: t.origen, boton: '📦 Ir al origen' });
+  (t.paradas || []).forEach((p, i) => puntos.push({ tipo: 'parada', cotId: t.cotId, etiqueta: '📍 Parada ' + (i + 2) + ' — ' + n, txt: p, boton: '📍 Ir a la parada ' + (i + 2) }));
+  if(t.destino) puntos.push({ tipo: 'destino', cotId: t.cotId, etiqueta: '🏁 Destino — ' + n, txt: t.destino, boton: '🏁 Ir al destino' });
+  let h = '<div style="border-top:1px solid #2a3a4a;margin-top:10px;padding-top:10px"><div style="font-size:12px;font-weight:700;color:#7ab8d8;margin-bottom:8px">🚗 Viaje</div>';
+  if(s.activo) {
+    const a = s.activo, esEste = a.hacia && a.hacia.cotId === t.cotId;
+    h += '<div style="background:#1D9E7522;border:1px solid #1D9E75;border-radius:10px;padding:10px;margin-bottom:8px;font-size:13px">🟢 En camino' + (esEste ? '' : ' (otro lugar)') + ': <b>' + escH(a.hacia.etiqueta) + '</b> · ' + vjVehTxt(a) + ' · salió ' + hora12(horaLocal(a.inicio)) + '</div>'
+      + '<button class="btn btn-primary" id="vj-btn-llegue-t" style="width:100%;padding:14px;font-size:16px;background:#1D9E75;border-color:#1D9E75" onclick="this.disabled=true;this.textContent=\'⏳ Calculando millas...\';vjLlegue()">✅ Llegué</button>'
+      + '<button class="btn" style="width:100%;margin-top:6px" onclick="vjAbrirMaps(vjEstado().activo.hacia.txt)">🧭 Abrir en Maps</button></div>';
+    box.innerHTML = h; return;
+  }
+  h += '<div style="font-size:12px;color:#b0c4d8;margin-bottom:8px">Vehículo: <b style="color:#e8edf2">' + (veh ? GAS_VEH[veh] : '— elige —') + '</b> <a href="#" onclick="vjVehAbierto=!vjVehAbierto;vjRefrescarTrabajo();return false" style="color:#7ab8d8;margin-left:6px">cambiar</a></div>' + vjHtmlDos('vjRefrescarTrabajo()');
+  if(vjVehAbierto || !veh) h += '<div style="display:flex;gap:6px;margin-bottom:8px">' + ['tacoma', 'ford', 'uhaul'].map(k => '<button onclick="localStorage.setItem(\'vj_ultimo_veh\',\'' + k + '\');vjVehAbierto=false;vjRefrescarTrabajo()" style="flex:1;padding:10px 4px;border-radius:10px;border:1px solid #2a3a4a;font-weight:700;background:' + (veh === k ? '#1D9E75' : '#1a2535') + ';color:' + (veh === k ? '#fff' : '#b0c4d8') + '">' + GAS_VEH[k] + '</button>').join('') + '</div>';
+  const llegados = vjLlegadosHoy(), mios = new Set(s.tramos.map(x => vjDestKey(x.hacia)));
+  vjOpsTrabajo = {};
+  h += puntos.map((o, i) => {
+    vjOpsTrabajo[i] = o;
+    const k = vjDestKey(o), bl = vjBloqueoDest(o), ya = llegados.has(k) || mios.has(k);
+    if(bl) return '<button disabled style="width:100%;padding:12px;margin-bottom:6px;border-radius:10px;border:1px solid #EF9F27;background:#1a2535;color:#EF9F27;font-weight:700;opacity:.8">🔒 ' + escH(o.boton.replace(/^\S+\s/, '')) + ' — lo registra ' + escH(bl.quien) + '</button>';
+    return '<button onclick="vjIniciar(vjOpsTrabajo[' + i + '])" style="width:100%;padding:12px;margin-bottom:6px;border-radius:10px;border:1px solid ' + (ya ? '#2a3a4a' : '#1F5EA8') + ';background:' + (ya ? '#1a2535' : '#1F5EA8') + ';color:#fff;font-weight:700;font-size:15px">' + escH(o.boton) + (ya ? ' <span style="font-size:11px;color:#7ee0b8">✓ ya se llegó</span>' : '') + '</button>';
+  }).join('') + '</div>';
+  box.innerHTML = h;
+  if(Date.now() - vjRemoto.t > 30000) { vjRemoto.t = Date.now(); vjCargarRemoto().then(() => { const b2 = document.getElementById('campo-vj-botones'); if(b2) vjRefrescarTrabajo(); }); }
 }
 function vjInit() {
   const c = vjCfg();
@@ -2708,11 +2752,11 @@ function vjRender() {
   const otros = vjActivosOtros();
   if(otros.length) {
     const etq = k => { const o = vjOpciones().find(x => vjDestKey(x) === k); return o ? o.etiqueta : 'otra dirección'; };
-    h += otros.map(l => '<div class="card" style="border:2px solid #EF9F27"><div style="font-weight:800">🔒 ' + escH(l.quien) + ' va en camino</div><div style="font-size:13px;margin-top:4px">' + escH(etq(l.key)) + ' · salió ' + hora12(horaLocal(new Date(l.ts).toISOString())) + '</div><div style="font-size:11px;color:#b0c4d8;margin-top:4px">Su celular está contando las millas de este viaje.</div></div>').join('');
+    h += otros.map(l => '<div class="card" style="border:2px solid #EF9F27"><div style="font-weight:800">🔒 ' + escH(l.quien) + ' va en camino</div><div style="font-size:13px;margin-top:4px">' + escH(etq(l.dest)) + (l.veh ? ' · ' + (GAS_VEH[l.veh] || l.veh) : '') + ' · salió ' + hora12(horaLocal(new Date(l.ts).toISOString())) + '</div><div style="font-size:11px;color:#b0c4d8;margin-top:4px">Su celular está contando las millas de este viaje.</div></div>').join('');
   }
   if(s.activo) {
     const a = s.activo;
-    h += '<div class="card" style="border:2px solid #1D9E75"><div style="font-size:12px;color:#7ab8d8;font-weight:700">🟢 EN CAMINO · ' + (GAS_VEH[a.vehiculo] || a.vehiculo) + ' · salió ' + hora12(horaLocal(a.inicio)) + '</div>'
+    h += '<div class="card" style="border:2px solid #1D9E75"><div style="font-size:12px;color:#7ab8d8;font-weight:700">🟢 EN CAMINO · ' + vjVehTxt(a) + ' · salió ' + hora12(horaLocal(a.inicio)) + '</div>'
       + '<div style="font-size:17px;font-weight:800;margin:6px 0">' + escH(a.hacia.etiqueta) + '</div><div style="font-size:12px;color:#b0c4d8;margin-bottom:10px">' + escH(a.hacia.txt) + '</div>'
       + '<div id="vj-cerca" style="display:none;background:#1D9E7533;color:#7ee0b8;border-radius:10px;padding:8px;text-align:center;font-weight:700;margin-bottom:8px">📍 Parece que ya llegaste</div>'
       + '<button class="btn btn-primary" id="vj-btn-llegue" style="width:100%;padding:16px;font-size:17px;background:#1D9E75;border-color:#1D9E75" onclick="vjLlegue()">✅ Llegué</button>'
@@ -2724,18 +2768,18 @@ function vjRender() {
     const ops = vjOpciones();
     h += '<div class="card"><div style="font-weight:800;margin-bottom:8px">▶️ Nuevo viaje</div>'
       + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:6px">¿Qué vehículo llevas?</div><div style="display:flex;gap:8px;margin-bottom:12px">'
-      + ['tacoma', 'ford', 'uhaul'].map(k => '<button onclick="localStorage.setItem(\'vj_ultimo_veh\',\'' + k + '\');vjRender()" style="flex:1;padding:12px 6px;border-radius:10px;border:1px solid #2a3a4a;font-weight:700;background:' + (veh === k ? '#1D9E75' : '#1a2535') + ';color:' + (veh === k ? '#fff' : '#b0c4d8') + '">' + GAS_VEH[k] + '</button>').join('') + '</div>'
+      + ['tacoma', 'ford', 'uhaul'].map(k => '<button onclick="localStorage.setItem(\'vj_ultimo_veh\',\'' + k + '\');vjRender()" style="flex:1;padding:12px 6px;border-radius:10px;border:1px solid #2a3a4a;font-weight:700;background:' + (veh === k ? '#1D9E75' : '#1a2535') + ';color:' + (veh === k ? '#fff' : '#b0c4d8') + '">' + GAS_VEH[k] + '</button>').join('') + '</div>' + vjHtmlDos('vjRender()')
       + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:6px">¿A dónde vas?' + (sug ? ' <span style="color:#7ee0b8">(sugerido: ' + escH(sug.etiqueta) + ')</span>' : '') + '</div>'
       + (!vjTrabajos().length ? '<div style="font-size:12px;color:#EF9F27;margin-bottom:8px">📭 ' + (vjVerTodos ? 'No hay trabajos asignados.' : 'No hay trabajos agendados para hoy.') + '</div>' : '')
       + '<div style="text-align:right;margin:-2px 0 8px"><a href="#" onclick="vjVerTodos=!vjVerTodos;vjSel=null;vjRender();return false" style="font-size:12px;color:#7ab8d8">' + (vjVerTodos ? '📅 Ver solo los de hoy' : '📅 Ver trabajos de otros días') + '</a></div>'
-      + ops.map(o => { const k = vjClaveOp(o), act = k === vjSel, dk = vjDestKey(o), bl = o.tipo !== 'otra' ? vjBloqueoOtro(dk) : null, ya = o.tipo !== 'otra' && vjLlegadosHoy().has(dk);
+      + ops.map(o => { const k = vjClaveOp(o), act = k === vjSel, dk = vjDestKey(o), bl = o.tipo !== 'otra' ? vjBloqueoDest(o) : null, ya = o.tipo !== 'otra' && vjLlegadosHoy().has(dk);
         return '<button ' + (bl ? 'disabled ' : '') + 'onclick="vjSel=decodeURIComponent(\'' + encodeURIComponent(k).replace(/'/g, '%27') + '\');vjRender()" style="display:block;width:100%;text-align:left;padding:11px 12px;margin-bottom:6px;border-radius:10px;border:1px solid ' + (act ? '#1D9E75' : '#2a3a4a') + ';background:' + (act ? '#1D9E7522' : '#1a2535') + ';color:#e8edf2;font-size:14px;opacity:' + (bl ? '.45' : '1') + '"><div style="font-weight:700">' + (bl ? '🔒 ' : act ? '🔘 ' : '⚪ ') + escH(o.etiqueta) + (ya ? ' <span style="color:#7ee0b8;font-size:11px">✓ ya se llegó hoy</span>' : '') + '</div>' + (bl ? '<div style="font-size:11px;color:#EF9F27;margin-top:2px">Lo está registrando ' + escH(bl.quien) + '</div>' : o.txt ? '<div style="font-size:11px;color:#b0c4d8;margin-top:2px">' + escH(o.txt) + '</div>' : '') + '</button>'; }).join('')
       + (vjSel && vjSel.indexOf('otra|') === 0 ? '<input id="vj-otra" placeholder="Escribe la dirección" value="' + escH(vjOtraTxt) + '" oninput="vjOtraTxt=this.value" style="margin-bottom:8px">' : '')
       + '<button class="btn btn-primary" style="width:100%;padding:16px;font-size:17px;margin-top:6px" onclick="vjIniciar()">▶️ Iniciar viaje</button></div>';
   }
   if(s.tramos.length) {
     h += '<div class="card"><div style="font-weight:800;margin-bottom:6px">📋 Viajes de hoy</div>'
-      + s.tramos.map((t, i) => '<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #2a3a4a;font-size:12px"><div style="flex:1"><b>' + hora12(horaLocal(t.inicio)) + ' → ' + hora12(horaLocal(t.fin)) + '</b> · ' + (GAS_VEH[t.vehiculo] || t.vehiculo) + '<br><span style="color:#b0c4d8">' + escH(t.hacia.etiqueta) + '</span></div><div style="font-weight:800;color:#1D9E75;white-space:nowrap">' + (+t.millas).toFixed(1) + ' mi' + (t.fuente === 'aprox' ? '~' : '') + '</div><button class="btn btn-sm" onclick="vjEditarMillas(' + i + ')">✏️</button></div>').join('')
+      + s.tramos.map((t, i) => '<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #2a3a4a;font-size:12px"><div style="flex:1"><b>' + hora12(horaLocal(t.inicio)) + ' → ' + hora12(horaLocal(t.fin)) + '</b> · ' + (GAS_VEH[t.vehiculo] || t.vehiculo) + (t.acompana ? ' (junto)' : '') + '<br><span style="color:#b0c4d8">' + escH(t.hacia.etiqueta) + '</span></div><div style="font-weight:800;color:#1D9E75;white-space:nowrap">' + (+t.millas).toFixed(1) + ' mi' + (t.fuente === 'aprox' ? '~' : '') + '</div><button class="btn btn-sm" onclick="vjEditarMillas(' + i + ')">✏️</button></div>').join('')
       + '<button class="btn btn-primary" style="width:100%;margin-top:10px;background:#143F74" onclick="vjTerminarDia()">🏁 Terminar el día y enviar a la computadora</button></div>';
   }
   const cola = vjCola();
@@ -2744,34 +2788,38 @@ function vjRender() {
   vjVigilarLlegada();
 }
 function vjMapsUrl(txt) { return 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' + encodeURIComponent(txt || ''); }
-async function vjIniciar() {
+async function vjIniciar(opDirecta) {
   const veh = localStorage.getItem('vj_ultimo_veh') || '';
   if(!veh) { alert('⚠️ Elige el vehículo'); return; }
-  const op = vjOpciones().find(o => vjClaveOp(o) === vjSel);
+  const op = opDirecta || vjOpciones().find(o => vjClaveOp(o) === vjSel);
   if(!op) { alert('⚠️ Elige a dónde vas'); return; }
   const hacia = Object.assign({}, op);
   if(hacia.tipo === 'otra') { hacia.txt = (vjOtraTxt || '').trim(); if(!hacia.txt) { alert('⚠️ Escribe la dirección'); return; } hacia.etiqueta = '✏️ ' + hacia.txt; }
   const btnIni = document.querySelector('#vj-contenido button[onclick="vjIniciar()"]'); if(btnIni) { btnIni.disabled = true; btnIni.textContent = '⏳ Iniciando...'; }
   await vjCargarRemoto();
-  const lockKey = vjDestKey(hacia);
+  const vehs = vjVehs(), destKey = vjDestKey(hacia);
   if(hacia.tipo !== 'otra') {
-    const bl = vjBloqueoOtro(lockKey);
-    if(bl) { alert('🔒 ' + bl.quien + ' ya inició el viaje a este lugar (' + hora12(horaLocal(new Date(bl.ts).toISOString())) + ').\n\nSu celular está contando las millas, así no se cuentan dos veces.'); vjRender(); return; }
+    for(const v of vehs) {
+      const bl = vjBloqueoOtro(vjLockKey(hacia, v));
+      if(bl) { alert('🔒 ' + bl.quien + ' ya inició el viaje a este lugar con la ' + gasVehTexto(v) + ' (' + hora12(horaLocal(new Date(bl.ts).toISOString())) + ').\n\nSu celular está contando esas millas, así no se cuentan dos veces.'); vjRender(); vjRefrescarTrabajo(); return; }
+    }
   }
-  const lockTs = Date.now();
-  const mis = vjMisLocks(); mis.push(lockTs); localStorage.setItem('vj_mis_locks', JSON.stringify(mis.slice(-60)));
-  vjPostMarca('VJLOCK-' + hoyLocal().replace(/-/g, '') + '-' + lockKey + '-' + vjQuien() + '-' + lockTs);
+  const t0 = Date.now();
+  const locks = vehs.map((v, i) => ({ key: vjLockKey(hacia, v), ts: t0 + i, veh: v }));
+  const mis = vjMisLocks(); locks.forEach(l => mis.push(l.ts)); localStorage.setItem('vj_mis_locks', JSON.stringify(mis.slice(-80)));
+  locks.forEach(l => vjPostMarca('VJLOCK-' + hoyLocal().replace(/-/g, '') + '-' + l.key + '-' + vjQuien() + '-' + l.ts + '-' + l.veh + '-' + destKey));
+  const lockTs = locks[0].ts, lockKey = locks[0].key;
   const s = vjEstado();
   if(s.fecha !== hoyLocal() && !s.tramos.length) s.fecha = hoyLocal();
   const ult = s.tramos.length ? s.tramos[s.tramos.length - 1] : null;
   const geo = await vjGeo(8000);
   const desde = { txt: ult ? ult.hacia.txt : (vjCfg().casa || ''), lat: geo ? geo.lat : (ult && ult.llegada ? ult.llegada.lat : null), lng: geo ? geo.lng : (ult && ult.llegada ? ult.llegada.lng : null) };
-  s.activo = { id: 'T' + Date.now(), vehiculo: veh, desde, hacia, inicio: new Date().toISOString(), lockTs, lockKey, quien: vjQuien() };
+  s.activo = { id: 'T' + Date.now(), vehiculo: veh, vehiculo2: vehs[1] || '', desde, hacia, inicio: new Date().toISOString(), lockTs, lockKey, locks, destKey, quien: vjQuien() };
   vjGuardar(s); vjSel = null; vjOtraTxt = ''; vjDestGeo = null;
-  vjRender();
+  vjRender(); vjRefrescarTrabajo();
   if(vjCfg().abrirMaps !== false) setTimeout(() => vjAbrirMaps(hacia.txt), 350);
 }
-function vjCancelarActivo() { if(!confirm('¿Cancelar este viaje? No se contarán sus millas.')) return; const s = vjEstado(); vjCerrarMarca(s.activo); s.activo = null; vjGuardar(s); vjRender(); }
+function vjCancelarActivo() { if(!confirm('¿Cancelar este viaje? No se contarán sus millas.')) return; const s = vjEstado(); vjCerrarMarca(s.activo); s.activo = null; vjGuardar(s); vjRender(); vjRefrescarTrabajo(); }
 async function vjMillasMaps(o, dst) {
   if(typeof google === 'undefined' || !google.maps || !google.maps.DistanceMatrixService) return null;
   return new Promise(res => {
@@ -2792,11 +2840,13 @@ async function vjLlegue() {
   if(mi == null && a.desde.lat != null && geo) { mi = vjDistKm(a.desde, geo) * 0.621371 * 1.25; fuente = 'aprox'; }
   if(mi == null) { const m = prompt('No se pudieron calcular las millas (sin internet o sin GPS). Escríbelas si las sabes:', ''); mi = parseFloat(m) || 0; fuente = 'manual'; }
   a.fin = new Date().toISOString(); a.llegada = geo; a.millas = +(+mi).toFixed(1); a.fuente = fuente;
-  s.tramos.push(a); s.activo = null; vjGuardar(s);
+  s.tramos.push(a);
+  if(a.vehiculo2) s.tramos.push(Object.assign({}, a, { id: a.id + 'b', vehiculo: a.vehiculo2, vehiculo2: '', acompana: true }));
+  s.activo = null; vjGuardar(s);
   vjCerrarMarca(a);
   vjDetenerVigilancia();
-  toastV('✅ +' + a.millas.toFixed(1) + ' mi en ' + gasVehTexto(a.vehiculo), '#1D9E75');
-  vjRender();
+  toastV('✅ +' + a.millas.toFixed(1) + ' mi en ' + gasVehTexto(a.vehiculo) + (a.vehiculo2 ? ' y en ' + gasVehTexto(a.vehiculo2) : ''), '#1D9E75');
+  vjRender(); vjRefrescarTrabajo();
 }
 function vjEditarMillas(i) {
   const s = vjEstado(); const t = s.tramos[i]; if(!t) return;
@@ -8460,6 +8510,7 @@ initDarkMode();
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">📦 Origen:</span> <span id="campo-origen"></span></div>
         <div id="campo-paradas" style="display:none;margin-bottom:8px"></div>
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">🏠 Destino:</span> <span id="campo-destino"></span></div>
+        <div id="campo-vj-botones"></div>
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">📅 Fecha:</span> <span id="campo-fecha"></span> &nbsp;<span style="font-weight:700;color:#7ab8d8">⏰</span> <span id="campo-hora"></span></div>
         <div id="campo-monto-wrap" style="display:none;margin-bottom:8px;background:#143F7415;border-radius:10px;padding:10px">
           <div style="font-size:12px;color:#7ab8d8;font-weight:700;margin-bottom:2px">💵 Total a cobrar</div>
@@ -9265,6 +9316,7 @@ function volverListaTrabajos() {
 
 function mostrarTrabajo(t, pendientes) {
   trabajoActivo = t;
+  setTimeout(() => { try { vjRefrescarTrabajo(); } catch(e) {} }, 0);
   document.getElementById('sin-trabajo').style.display = 'none';
   document.getElementById('campo-lista-trabajos').style.display = 'none';
   document.getElementById('con-trabajo').style.display = '';
