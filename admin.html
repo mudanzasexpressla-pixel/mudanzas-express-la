@@ -676,6 +676,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
       <div><label style="font-size:11px">Hasta</label><input type="date" id="rg-hasta" style="padding:6px"></div>
       <button class="btn btn-primary btn-sm" id="btn-rg-pdf" onclick="reporteGastosPDF()">📄 PDF con fotos</button>
       <button class="btn btn-sm" onclick="gastosExcelComprobantes()">📊 Excel con hora y tarjeta</button>
+      <button class="btn btn-sm" id="btn-revisar-cel" onclick="revisarCelularAhora()">🔄 Buscar gastos del celular</button>
     </div>
   </div>
   <div class="tabs-inner">
@@ -2351,14 +2352,40 @@ async function reporteGastosPDF() {
 }
 
 // ===================== v13.15: IMPORTAR GASTOS Y VIAJES QUE MANDA EL CELULAR =====================
+
+// v13.15b: revisar a mano lo que mandó el celular y explicar qué encontró
+async function revisarCelularAhora() {
+  const btn = document.getElementById('btn-revisar-cel'); if(btn) { btn.disabled = true; btn.textContent = '⏳ Buscando...'; }
+  let msg = '';
+  try {
+    const url = urlAppsScript();
+    if(!url) throw new Error('Falta la URL del Apps Script en Configuración');
+    const res = await fetch(url + '?action=listarRegistros');
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || 'Google respondió con error');
+    const regs = data.registros || [];
+    const ids = regs.map(r => String(r.id || ''));
+    const gastos = ids.filter(i => i.indexOf('GASTO-') === 0), viajes = ids.filter(i => i.indexOf('VIAJE-') === 0);
+    const d = getData(); const ya = new Set(d.campoImportados || []);
+    const nuevos = ids.filter(i => /^(GASTO|VIAJE)-/.test(i) && !ya.has(i));
+    const errores = [];
+    for(const i of nuevos) { try { await importarRegistroDesdeScript(i); } catch(e) { errores.push(i + ': ' + e.message); } }
+    renderGastosPend(); try { renderGastos(); } catch(e) {}
+    msg = '🔎 Google tiene ' + regs.length + ' registro(s) del celular.\n\n🧾 Gastos: ' + gastos.length + '   🚗 Días de viajes: ' + viajes.length + '\n✅ Nuevos traídos ahora: ' + (nuevos.length - errores.length) + '\n📸 Esperando que los completes: ' + (getData().gastosPend || []).length
+      + (errores.length ? '\n\n⚠️ Errores:\n' + errores.join('\n') : '')
+      + (!gastos.length ? '\n\n⚠️ Google no tiene ningún gasto del celular. Toma foto de este mensaje y mándasela a Claude junto con los últimos registros:\n' + ids.slice(-5).join('\n') : '');
+  } catch(e) { msg = '❌ No se pudo revisar: ' + e.message; }
+  if(btn) { btn.disabled = false; btn.textContent = '🔄 Buscar gastos del celular'; }
+  alert(msg);
+}
 async function importarRegistroEspecial(reg, id) {
-  if(id.indexOf('COMP-') === 0) { const d = getData(); if(!d.campoImportados.includes(id)) { d.campoImportados.push(id); saveData(d); } return; }
+  if(id.indexOf('COMP-') === 0 || /^VJ(LOCK|DONE)-/.test(id)) { const d = getData(); if(!d.campoImportados.includes(id)) { d.campoImportados.push(id); saveData(d); } return; }
   const raw = String(reg.notas || ''); const k = raw.indexOf('::');
   let meta = {}; try { meta = JSON.parse(raw.slice(k + 2)); } catch(e) {}
   if(id.indexOf('GASTO-') === 0) {
     const fotos = reg.fotosTrabajo || [];
     const edadMin = (Date.now() - new Date(meta.fechaHora || reg.fecha || Date.now()).getTime()) / 60000;
-    if((meta.nfotos || 0) > fotos.length && edadMin < 15) return; // las fotos todavía se están subiendo
+    // v13.15b: se importa de inmediato; si la foto aún no llega, se vuelve a buscar en Drive al abrirla (por su regId)
     const fotoIds = [], fotoUrls = [];
     for(let i = 0; i < fotos.length; i++) {
       const f = fotos[i];
@@ -2566,8 +2593,11 @@ function vjDistKm(a, b) {
   const x = Math.sin(dLa / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLo / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(x));
 }
+let vjVerTodos = false;
 function vjTrabajos() {
-  const lista = (typeof trabajosCola !== 'undefined' && trabajosCola && trabajosCola.length) ? trabajosCola : [];
+  const todos = (typeof trabajosCola !== 'undefined' && trabajosCola && trabajosCola.length) ? trabajosCola : [];
+  const hoy = hoyLocal();
+  const lista = vjVerTodos ? todos : todos.filter(t => String(t.fecha || '').slice(0, 10) === hoy);
   return lista.slice().sort((a, b) => ((a.fecha || '') + (a.hora || '')).localeCompare((b.fecha || '') + (b.hora || '')));
 }
 // Lista de destinos posibles, en el orden natural del día
@@ -2613,6 +2643,46 @@ function vjResumen(s) {
   Object.values(r).forEach(v => { v.trabajos = Object.keys(v._cots).length; delete v._cots; v.millas = +v.millas.toFixed(1); });
   return r;
 }
+
+// v13.15b: coordinación entre el celular del dueño y el del ayudante (para no contar el mismo viaje dos veces)
+let vjRemoto = { locks: [], dones: [], t: 0 }, vjRemTimer = null;
+function vjQuien() { return ((localStorage.getItem('campo_ayudante_nombre') || '').split(' ')[0] || (esModoDueno() ? 'DUENO' : 'AYUDANTE')).toUpperCase().normalize('NFD').replace(/[^A-Z0-9]/g, '').slice(0, 14) || 'CEL'; }
+function vjHash(str) { let h = 5381; for(const ch of String(str)) h = ((h << 5) + h + ch.charCodeAt(0)) >>> 0; return h.toString(36); }
+function vjDestKey(h) { return vjHash(h.tipo + '|' + (h.cotId || '') + '|' + String(h.txt || '').trim().toUpperCase()); }
+function vjMisLocks() { try { return JSON.parse(localStorage.getItem('vj_mis_locks') || '[]'); } catch(e) { return []; } }
+async function vjCargarRemoto() {
+  if(typeof CAMPO_APPS_URL === 'undefined' || !CAMPO_APPS_URL || CAMPO_APPS_URL.includes('PEGA_AQUI')) return;
+  try {
+    const r = await fetch(CAMPO_APPS_URL + '?action=listarRegistros'); const j = await r.json(); if(!j.ok) return;
+    const hoy = hoyLocal().replace(/-/g, '');
+    const ids = (j.registros || []).map(x => String(x.id || ''));
+    vjRemoto.locks = ids.filter(i => i.indexOf('VJLOCK-' + hoy + '-') === 0).map(i => { const p = i.split('-'); return { key: p[2], quien: p[3], ts: +p[4] || 0 }; });
+    vjRemoto.dones = ids.filter(i => i.indexOf('VJDONE-' + hoy + '-') === 0).map(i => { const p = i.split('-'); return { key: p[2], quien: p[3], ts: +p[4] || 0, lock: +p[5] || 0 }; });
+    vjRemoto.t = Date.now();
+  } catch(e) {}
+}
+// Viajes que el OTRO celular tiene en camino ahora
+function vjActivosOtros() {
+  const mios = new Set(vjMisLocks());
+  const cerrados = new Set(vjRemoto.dones.map(d => d.lock));
+  return vjRemoto.locks.filter(l => !mios.has(l.ts) && !cerrados.has(l.ts) && (Date.now() - l.ts) < 6 * 3600000);
+}
+function vjBloqueoOtro(key) { return vjActivosOtros().find(l => l.key === key) || null; }
+function vjLlegadosHoy() { return new Set(vjRemoto.dones.map(d => d.key)); }
+async function vjPostMarca(id) {
+  if(typeof CAMPO_APPS_URL === 'undefined' || !CAMPO_APPS_URL || CAMPO_APPS_URL.includes('PEGA_AQUI')) return false;
+  try { const r = await fetch(CAMPO_APPS_URL, { method: 'POST', body: JSON.stringify({ action: 'subirRegistro', id, nombre: 'VIAJE-MARCA', tel: '', cotId: '', direccion: '', notas: '', fecha: new Date().toISOString(), totalFotosTrabajo: 0, totalFotosDanado: 0 }) }); const j = await r.json(); return !!j.ok; } catch(e) { return false; }
+}
+function vjCerrarMarca(a) {
+  if(!a || !a.lockTs) return;
+  vjPostMarca('VJDONE-' + hoyLocal().replace(/-/g, '') + '-' + a.lockKey + '-' + vjQuien() + '-' + Date.now() + '-' + a.lockTs);
+}
+// Abrir Google Maps sin perder la app (Android abre la navegación directo)
+function vjAbrirMaps(txt) {
+  const q = encodeURIComponent(txt || '');
+  if(/Android/i.test(navigator.userAgent)) { location.href = 'google.navigation:q=' + q + '&mode=d'; return; }
+  location.href = vjMapsUrl(txt);
+}
 function vjInit() {
   const c = vjCfg();
   ['casa', 'gelacio', 'base'].forEach(k => { const e = document.getElementById('vj-cfg-' + k); if(e && !e.value) e.value = c[k] || ''; });
@@ -2620,6 +2690,9 @@ function vjInit() {
   if(typeof cargarTrabajoCampo === 'function' && (typeof trabajosCola === 'undefined' || !trabajosCola.length)) { try { verificarTrabajoSilencioso().then(vjRender); } catch(e) {} }
   vjReintentarCola();
   vjRender();
+  vjCargarRemoto().then(vjRender);
+  if(vjRemTimer) clearInterval(vjRemTimer);
+  vjRemTimer = setInterval(() => { const t = document.getElementById('tab-viajes'); if(!t || t.classList.contains('hidden')) { clearInterval(vjRemTimer); vjRemTimer = null; return; } vjCargarRemoto().then(() => { if(!vjEstado().activo) vjRender(); }); }, 30000);
 }
 function vjRender() {
   const el = document.getElementById('vj-contenido'); if(!el) return;
@@ -2632,13 +2705,19 @@ function vjRender() {
   }
   h += '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:800">🛣️ Hoy</div><div style="font-size:12px;color:#b0c4d8">' + s.tramos.length + ' viaje(s)</div></div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' + (Object.keys(res).length ? Object.keys(res).map(k => '<div style="background:#0d1520;border-radius:10px;padding:8px 12px;font-size:13px"><b>' + (GAS_VEH[k] || k) + '</b><br><span style="color:#1D9E75;font-weight:800;font-size:18px">' + res[k].millas.toFixed(1) + '</span> mi · ' + res[k].viajes + ' viajes</div>').join('') : '<div style="font-size:12px;color:#b0c4d8">Aún no hay viajes hoy.</div>') + '</div></div>';
+  const otros = vjActivosOtros();
+  if(otros.length) {
+    const etq = k => { const o = vjOpciones().find(x => vjDestKey(x) === k); return o ? o.etiqueta : 'otra dirección'; };
+    h += otros.map(l => '<div class="card" style="border:2px solid #EF9F27"><div style="font-weight:800">🔒 ' + escH(l.quien) + ' va en camino</div><div style="font-size:13px;margin-top:4px">' + escH(etq(l.key)) + ' · salió ' + hora12(horaLocal(new Date(l.ts).toISOString())) + '</div><div style="font-size:11px;color:#b0c4d8;margin-top:4px">Su celular está contando las millas de este viaje.</div></div>').join('');
+  }
   if(s.activo) {
     const a = s.activo;
     h += '<div class="card" style="border:2px solid #1D9E75"><div style="font-size:12px;color:#7ab8d8;font-weight:700">🟢 EN CAMINO · ' + (GAS_VEH[a.vehiculo] || a.vehiculo) + ' · salió ' + hora12(horaLocal(a.inicio)) + '</div>'
       + '<div style="font-size:17px;font-weight:800;margin:6px 0">' + escH(a.hacia.etiqueta) + '</div><div style="font-size:12px;color:#b0c4d8;margin-bottom:10px">' + escH(a.hacia.txt) + '</div>'
       + '<div id="vj-cerca" style="display:none;background:#1D9E7533;color:#7ee0b8;border-radius:10px;padding:8px;text-align:center;font-weight:700;margin-bottom:8px">📍 Parece que ya llegaste</div>'
       + '<button class="btn btn-primary" id="vj-btn-llegue" style="width:100%;padding:16px;font-size:17px;background:#1D9E75;border-color:#1D9E75" onclick="vjLlegue()">✅ Llegué</button>'
-      + '<div style="display:flex;gap:8px;margin-top:8px"><a class="btn" style="flex:1;text-align:center;text-decoration:none" target="_blank" href="' + vjMapsUrl(a.hacia.txt) + '">🧭 Abrir en Maps</a><button class="btn" style="flex:1" onclick="vjCancelarActivo()">✖️ Cancelar viaje</button></div></div>';
+      + '<div style="display:flex;gap:8px;margin-top:8px"><button class="btn" style="flex:1" onclick="vjAbrirMaps(vjEstado().activo.hacia.txt)">🧭 Abrir en Maps</button><button class="btn" style="flex:1" onclick="vjCancelarActivo()">✖️ Cancelar viaje</button></div>'
+      + '<div style="font-size:11px;color:#b0c4d8;margin-top:8px;text-align:center">Al llegar, regresa con el botón ◁ (atrás) del celular y toca ✅ Llegué.</div></div>';
   } else {
     const sug = vjSugerencia(s);
     if(!vjSel && sug) vjSel = vjClaveOp(sug);
@@ -2647,7 +2726,10 @@ function vjRender() {
       + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:6px">¿Qué vehículo llevas?</div><div style="display:flex;gap:8px;margin-bottom:12px">'
       + ['tacoma', 'ford', 'uhaul'].map(k => '<button onclick="localStorage.setItem(\'vj_ultimo_veh\',\'' + k + '\');vjRender()" style="flex:1;padding:12px 6px;border-radius:10px;border:1px solid #2a3a4a;font-weight:700;background:' + (veh === k ? '#1D9E75' : '#1a2535') + ';color:' + (veh === k ? '#fff' : '#b0c4d8') + '">' + GAS_VEH[k] + '</button>').join('') + '</div>'
       + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:6px">¿A dónde vas?' + (sug ? ' <span style="color:#7ee0b8">(sugerido: ' + escH(sug.etiqueta) + ')</span>' : '') + '</div>'
-      + ops.map(o => { const k = vjClaveOp(o), act = k === vjSel; return '<button onclick="vjSel=decodeURIComponent(\'' + encodeURIComponent(k).replace(/'/g, '%27') + '\');vjRender()" style="display:block;width:100%;text-align:left;padding:11px 12px;margin-bottom:6px;border-radius:10px;border:1px solid ' + (act ? '#1D9E75' : '#2a3a4a') + ';background:' + (act ? '#1D9E7522' : '#1a2535') + ';color:#e8edf2;font-size:14px"><div style="font-weight:700">' + (act ? '🔘 ' : '⚪ ') + escH(o.etiqueta) + '</div>' + (o.txt ? '<div style="font-size:11px;color:#b0c4d8;margin-top:2px">' + escH(o.txt) + '</div>' : '') + '</button>'; }).join('')
+      + (!vjTrabajos().length ? '<div style="font-size:12px;color:#EF9F27;margin-bottom:8px">📭 ' + (vjVerTodos ? 'No hay trabajos asignados.' : 'No hay trabajos agendados para hoy.') + '</div>' : '')
+      + '<div style="text-align:right;margin:-2px 0 8px"><a href="#" onclick="vjVerTodos=!vjVerTodos;vjSel=null;vjRender();return false" style="font-size:12px;color:#7ab8d8">' + (vjVerTodos ? '📅 Ver solo los de hoy' : '📅 Ver trabajos de otros días') + '</a></div>'
+      + ops.map(o => { const k = vjClaveOp(o), act = k === vjSel, dk = vjDestKey(o), bl = o.tipo !== 'otra' ? vjBloqueoOtro(dk) : null, ya = o.tipo !== 'otra' && vjLlegadosHoy().has(dk);
+        return '<button ' + (bl ? 'disabled ' : '') + 'onclick="vjSel=decodeURIComponent(\'' + encodeURIComponent(k).replace(/'/g, '%27') + '\');vjRender()" style="display:block;width:100%;text-align:left;padding:11px 12px;margin-bottom:6px;border-radius:10px;border:1px solid ' + (act ? '#1D9E75' : '#2a3a4a') + ';background:' + (act ? '#1D9E7522' : '#1a2535') + ';color:#e8edf2;font-size:14px;opacity:' + (bl ? '.45' : '1') + '"><div style="font-weight:700">' + (bl ? '🔒 ' : act ? '🔘 ' : '⚪ ') + escH(o.etiqueta) + (ya ? ' <span style="color:#7ee0b8;font-size:11px">✓ ya se llegó hoy</span>' : '') + '</div>' + (bl ? '<div style="font-size:11px;color:#EF9F27;margin-top:2px">Lo está registrando ' + escH(bl.quien) + '</div>' : o.txt ? '<div style="font-size:11px;color:#b0c4d8;margin-top:2px">' + escH(o.txt) + '</div>' : '') + '</button>'; }).join('')
       + (vjSel && vjSel.indexOf('otra|') === 0 ? '<input id="vj-otra" placeholder="Escribe la dirección" value="' + escH(vjOtraTxt) + '" oninput="vjOtraTxt=this.value" style="margin-bottom:8px">' : '')
       + '<button class="btn btn-primary" style="width:100%;padding:16px;font-size:17px;margin-top:6px" onclick="vjIniciar()">▶️ Iniciar viaje</button></div>';
   }
@@ -2669,17 +2751,27 @@ async function vjIniciar() {
   if(!op) { alert('⚠️ Elige a dónde vas'); return; }
   const hacia = Object.assign({}, op);
   if(hacia.tipo === 'otra') { hacia.txt = (vjOtraTxt || '').trim(); if(!hacia.txt) { alert('⚠️ Escribe la dirección'); return; } hacia.etiqueta = '✏️ ' + hacia.txt; }
-  if(vjCfg().abrirMaps !== false) { try { window.open(vjMapsUrl(hacia.txt), '_blank'); } catch(e) {} }
+  const btnIni = document.querySelector('#vj-contenido button[onclick="vjIniciar()"]'); if(btnIni) { btnIni.disabled = true; btnIni.textContent = '⏳ Iniciando...'; }
+  await vjCargarRemoto();
+  const lockKey = vjDestKey(hacia);
+  if(hacia.tipo !== 'otra') {
+    const bl = vjBloqueoOtro(lockKey);
+    if(bl) { alert('🔒 ' + bl.quien + ' ya inició el viaje a este lugar (' + hora12(horaLocal(new Date(bl.ts).toISOString())) + ').\n\nSu celular está contando las millas, así no se cuentan dos veces.'); vjRender(); return; }
+  }
+  const lockTs = Date.now();
+  const mis = vjMisLocks(); mis.push(lockTs); localStorage.setItem('vj_mis_locks', JSON.stringify(mis.slice(-60)));
+  vjPostMarca('VJLOCK-' + hoyLocal().replace(/-/g, '') + '-' + lockKey + '-' + vjQuien() + '-' + lockTs);
   const s = vjEstado();
   if(s.fecha !== hoyLocal() && !s.tramos.length) s.fecha = hoyLocal();
   const ult = s.tramos.length ? s.tramos[s.tramos.length - 1] : null;
   const geo = await vjGeo(8000);
   const desde = { txt: ult ? ult.hacia.txt : (vjCfg().casa || ''), lat: geo ? geo.lat : (ult && ult.llegada ? ult.llegada.lat : null), lng: geo ? geo.lng : (ult && ult.llegada ? ult.llegada.lng : null) };
-  s.activo = { id: 'T' + Date.now(), vehiculo: veh, desde, hacia, inicio: new Date().toISOString() };
+  s.activo = { id: 'T' + Date.now(), vehiculo: veh, desde, hacia, inicio: new Date().toISOString(), lockTs, lockKey, quien: vjQuien() };
   vjGuardar(s); vjSel = null; vjOtraTxt = ''; vjDestGeo = null;
   vjRender();
+  if(vjCfg().abrirMaps !== false) setTimeout(() => vjAbrirMaps(hacia.txt), 350);
 }
-function vjCancelarActivo() { if(!confirm('¿Cancelar este viaje? No se contarán sus millas.')) return; const s = vjEstado(); s.activo = null; vjGuardar(s); vjRender(); }
+function vjCancelarActivo() { if(!confirm('¿Cancelar este viaje? No se contarán sus millas.')) return; const s = vjEstado(); vjCerrarMarca(s.activo); s.activo = null; vjGuardar(s); vjRender(); }
 async function vjMillasMaps(o, dst) {
   if(typeof google === 'undefined' || !google.maps || !google.maps.DistanceMatrixService) return null;
   return new Promise(res => {
@@ -2701,6 +2793,7 @@ async function vjLlegue() {
   if(mi == null) { const m = prompt('No se pudieron calcular las millas (sin internet o sin GPS). Escríbelas si las sabes:', ''); mi = parseFloat(m) || 0; fuente = 'manual'; }
   a.fin = new Date().toISOString(); a.llegada = geo; a.millas = +(+mi).toFixed(1); a.fuente = fuente;
   s.tramos.push(a); s.activo = null; vjGuardar(s);
+  vjCerrarMarca(a);
   vjDetenerVigilancia();
   toastV('✅ +' + a.millas.toFixed(1) + ' mi en ' + gasVehTexto(a.vehiculo), '#1D9E75');
   vjRender();
@@ -7986,6 +8079,8 @@ async function sincronizarRegistrosCampoSilencioso() {
     if(!data.ok) return;
     const d = getData();
     const yaImportados = new Set(d.campoImportados||[]);
+    const marcas = (data.registros||[]).filter(r => /^VJ(LOCK|DONE)-/.test(String(r.id||'')) && !yaImportados.has(r.id));
+    if(marcas.length) { marcas.forEach(r => d.campoImportados.push(r.id)); saveData(d); marcas.forEach(r => yaImportados.add(r.id)); }
     const nuevos = (data.registros||[]).filter(r => !yaImportados.has(r.id));
     if(!nuevos.length) return;
     for(const reg of nuevos) {
@@ -8145,7 +8240,7 @@ async function importarRegistroDesdeScript(id) {
   var data = await res.json();
   if(!data.ok||!data.registro) throw new Error(data.error||'No encontrado');
   var reg = data.registro;
-  if(/^(GASTO|VIAJE|COMP)-/.test(String(reg.id || id))) { await importarRegistroEspecial(reg, String(reg.id || id)); return; }
+  if(/^(GASTO|VIAJE|COMP|VJLOCK|VJDONE)-/.test(String(reg.id || id))) { await importarRegistroEspecial(reg, String(reg.id || id)); return; }
   var d = getData();
   var registro = { id:reg.id, fecha:reg.fecha||new Date().toISOString(), nombre:reg.nombre||'', tel:reg.tel||'', cotId:reg.cotId||'', direccion:reg.direccion||'', notas:reg.notas||'', fotosTrabajo:reg.fotosTrabajo||[], fotosDanado:reg.fotosDanado||[] };
   var idx = d.campo.findIndex(function(r){ return r.id===registro.id; });
@@ -8292,7 +8387,7 @@ initDarkMode();
     <button id="tab-terminar-btn" onclick="switchTab('terminar')">✅ Terminar<span class="dot-badge" id="badge-terminar"></span></button>
     <button id="tab-cola-btn" onclick="switchTab('cola')">📤 Cola</button>
     <button id="tab-gasto-btn" style="display:none" onclick="switchTab('gasto')">🧾 Gasto</button>
-    <button id="tab-viajes-btn" style="display:none" onclick="switchTab('viajes')">🚗 Viajes</button>
+    <button id="tab-viajes-btn" onclick="switchTab('viajes')">🚗 Viajes</button>
   </div>
 
   <!-- ===================== v13.15 TAB GASTO RÁPIDO (solo dueño) ===================== -->
@@ -8651,6 +8746,7 @@ function entrarComoAyudante(nombre){
   setTimeout(function(){if(typeof cargarTrabajoCampo==='function')cargarTrabajoCampo();},300);
   iniciarVerificacionAutomatica();
   try { aplicarRolCampo(); } catch(e) {}
+  try { if(vjEstado().activo) setTimeout(() => switchTab('viajes'), 600); } catch(e) {}
 }
 function volverAlSelector(){localStorage.removeItem('mudanzas_modo');document.getElementById('app-selector').style.display='flex';document.getElementById('app-campo').style.display='none';var h=document.querySelector('.app-header');var n=document.querySelector('.nav');if(h)h.style.display='';if(n)n.style.display='';}
 (function(){var m=localStorage.getItem('mudanzas_modo');if(m==='ayudante'){var n=localStorage.getItem('campo_ayudante_nombre')||'';entrarComoAyudante(n);}else if(m==='admin'){document.getElementById('app-selector').style.display='none';}})();
@@ -8681,7 +8777,7 @@ let firmaIsDrawing = false;
 // ===================== TABS =====================
 function switchTab(t) {
   if(t === 'terminar' && typeof campoPuedeCobrar === 'function' && !campoPuedeCobrar()) return;
-  if((t === 'gasto' || t === 'viajes') && !esModoDueno()) return;
+  if(t === 'gasto' && !esModoDueno()) return;
   ['asignado','nuevo','terminar','cola','gasto','viajes'].forEach(x => {
     const el = document.getElementById('tab-'+x);
     if(el) el.classList.toggle('hidden', x !== t);
@@ -10040,8 +10136,8 @@ function aplicarRolCampo() {
   const bi = document.getElementById('btn-ir-terminar'); if(bi) bi.style.display = cobra ? '' : 'none';
   const mw = document.getElementById('campo-monto-wrap'); if(mw && !cobra) mw.style.display = 'none';
   const bd = document.getElementById('btn-modo-dueno'); if(bd) bd.textContent = dueno ? '🔒 Salir de modo administrador' : '🔓 Modo administrador';
-  ['tab-gasto-btn','tab-viajes-btn'].forEach(id => { const b = document.getElementById(id); if(b) b.style.display = dueno ? '' : 'none'; });
-  if(!dueno) { ['gasto','viajes'].forEach(x => { const e = document.getElementById('tab-'+x); if(e && !e.classList.contains('hidden')) switchTab('asignado'); }); }
+  const bG = document.getElementById('tab-gasto-btn'); if(bG) bG.style.display = dueno ? '' : 'none';
+  if(!dueno) { const e = document.getElementById('tab-gasto'); if(e && !e.classList.contains('hidden')) switchTab('asignado'); }
   const badge = document.getElementById('campo-rol-badge');
   if(badge) badge.textContent = dueno ? '👔 Modo administrador — ves todo' : ('👷 Modo ayudante' + (cobra ? ' — puedes cobrar este trabajo' : ''));
   // si está en Terminar sin permiso, regresar
