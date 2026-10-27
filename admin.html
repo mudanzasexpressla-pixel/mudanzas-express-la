@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.19</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.20</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -3160,7 +3160,7 @@ async function eqSyncServidor(){
     ok = !!(j && j.ok);
     if(j && /desconocida/i.test(j.error || '')) { eqServidorViejo = true; ok = true; }
   } catch(e) {}
-  const d = getData(); d.equipoSyncPend = !ok; saveData(d);
+  const d = getData(); if(!!d.equipoSyncPend !== !ok) { d.equipoSyncPend = !ok; saveData(d); }
   return ok;
 }
 let servidorQuitarViejo = false;
@@ -5634,7 +5634,7 @@ function confirmarTerminar() {
   document.getElementById('tm-resumen').style.display='none';
   let _msgMeta = '';
   try { _msgMeta = mensajeCoberturaNueva(_cobAntes, estadoMetaMes(getData())); } catch(e) {}
-  barrerTerminadosCampo();
+  barrerTerminadosCampo(true);
   alert('✅ Trabajo marcado como TERMINADO.\n\nAhora puedes generar el recibo PDF oficial en la pestaña Terminados.' + (usaAyudante==='si' ? '\n\n👷 El pago de '+(nombreAyudante||'tu ayudante')+' quedó PENDIENTE en Gastos → Ayudantes.' : '') + _msgMeta);
   showTab('terminados');
 }
@@ -8546,23 +8546,40 @@ function iniciarAutoSyncTerminados() {
   verificarTerminadosCampo();
   sincronizarRegistrosCampoSilencioso();
   autoSyncTimer = setInterval(() => {
+    if(document.hidden) return;            // v13.20: si la pestaña no está a la vista, no gasta
     verificarTerminadosCampo();
     sincronizarRegistrosCampoSilencioso();
-  }, 20000);
+  }, 60000);
 }
 
 // Igual que ejecutarSincronizacion() pero sin botones/log visibles —
 // pensado para correr solo, en segundo plano, cada 20 segundos.
 // v13.18: avisar al celular de los trabajos que se terminaron o cancelaron en la computadora
 let barridoCorriendo = false;
-async function barrerTerminadosCampo(){
+let barridoUltimo = 0;
+async function barrerTerminadosCampo(forzar){
   if(barridoCorriendo || !urlAppsScript()) return;
+  if(!forzar && Date.now() - barridoUltimo < 120000) return;
+  barridoUltimo = Date.now();
   barridoCorriendo = true;
   try {
     const d = getData();
     const lista = [].concat((d.cots || []).filter(c => c.estatus === 'terminado'), d.cancelados || [])
       .filter(c => c.enviadoCampo && !c.termMarcado).map(c => c.id);
-    for(const id of lista) {
+    if(!lista.length) return;
+    // Apps Script nuevo: lo borra de la cola directamente (sin marcas en Drive)
+    if(!servidorQuitarViejo) {
+      try {
+        const j = await postJson(urlAppsScript(), { action: 'quitarTrabajoCampo', cotIds: lista });
+        if(j && j.ok) {
+          const d2 = getData();
+          [].concat(d2.cots || [], d2.cancelados || []).forEach(c => { if(lista.indexOf(c.id) >= 0) { c.termMarcado = true; c.quitadoServ = true; } });
+          saveData(d2); return;
+        }
+        if(j && /desconocida/i.test(j.error || '')) servidorQuitarViejo = true; else return;
+      } catch(e) { return; }
+    }
+    for(const id of lista.slice(0, 5)) {
       try {
         await eqMarca('TERM-' + Date.now() + '-' + id);
         const d2 = getData();
@@ -8571,7 +8588,6 @@ async function barrerTerminadosCampo(){
       } catch(e) { break; } // sin internet: se reintenta en el siguiente ciclo
     }
   } finally { barridoCorriendo = false; }
-  quitarTerminadosServidor();
   if(getData().equipoSyncPend) eqSyncServidor();
 }
 async function sincronizarRegistrosCampoSilencioso() {
@@ -9656,6 +9672,12 @@ let trabajosCola = [];
 
 // ===================== v13.17: GUARDIA DEL CELULAR (enlace válido + PIN personal) =====================
 async function eqEstadoRemoto(){
+  // v13.20: el Apps Script nuevo ya borra los terminados y revisa enlaces/PINs → no hace falta listar Drive
+  if(localStorage.getItem('eq_srv') === '1') return eqParseMarcas([]);
+  if(!window._eqProbado) {
+    window._eqProbado = true;
+    try { const r = await fetch(CAMPO_APPS_URL + '?action=campoEstado&u=_'); const j = await r.json(); if(j && j.ok && j.estado) { localStorage.setItem('eq_srv', '1'); return eqParseMarcas([]); } } catch(e) {}
+  }
   try {
     const r = await fetch(CAMPO_APPS_URL + '?action=listarRegistros'); const j = await r.json();
     if(!j || !j.ok) throw 0;
@@ -9674,7 +9696,12 @@ function eqOverlay(html){
   return o;
 }
 let eqGuardiaCorriendo = null;
-function eqGuardia(){ if(!eqGuardiaCorriendo) eqGuardiaCorriendo = eqGuardiaReal().finally(() => { eqGuardiaCorriendo = null; }); return eqGuardiaCorriendo; }
+let eqGuardiaOkHasta = 0;
+function eqGuardia(forzar){
+  if(!forzar && Date.now() < eqGuardiaOkHasta && !document.getElementById('eq-overlay')) return Promise.resolve(true);
+  if(!eqGuardiaCorriendo) eqGuardiaCorriendo = eqGuardiaReal().then(ok => { eqGuardiaOkHasta = ok ? Date.now() + 120000 : 0; return ok; }).finally(() => { eqGuardiaCorriendo = null; });
+  return eqGuardiaCorriendo;
+}
 async function eqGuardiaReal(){
   const r = await eqEstadoRemoto();
   window._termCampo = r.term || {};
@@ -9813,7 +9840,7 @@ async function verificarTrabajoSilencioso() {
   try {
     const res = await fetch(campoTrabajoUrl());
     const data = await res.json();
-    if(data && data.acceso === 'denegado') { localStorage.removeItem('campo_token'); eqGuardia(); }
+    if(data && data.acceso === 'denegado') { localStorage.removeItem('campo_token'); eqGuardiaOkHasta = 0; eqGuardia(true); }
     const trabajosRaw = (data.ok && data.trabajos) ? data.trabajos : [];
     // Filtrar los ya terminados localmente
     const trabajos = trabajosRaw.filter(t => !trabajoYaTerminado(t.cotId) && !trabajoCerradoEnCompu(t) && trabajoEsMio(t));
@@ -9878,7 +9905,7 @@ async function cargarTrabajoCampo() {
   try {
     const res = await fetch(campoTrabajoUrl());
     const data = await res.json();
-    if(data && data.acceso === 'denegado') { localStorage.removeItem('campo_token'); eqGuardia(); }
+    if(data && data.acceso === 'denegado') { localStorage.removeItem('campo_token'); eqGuardiaOkHasta = 0; eqGuardia(true); }
     const trabajosRaw = (data.ok && data.trabajos) ? data.trabajos : (data.ok && data.trabajo ? [data.trabajo] : []);
     // BUG 3 FIX: Exclude jobs already marked as terminado in the main app
     const trabajos = trabajosRaw.filter(t => !trabajoYaTerminado(t.cotId) && !trabajoCerradoEnCompu(t) && trabajoEsMio(t));
