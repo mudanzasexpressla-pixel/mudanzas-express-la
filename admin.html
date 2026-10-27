@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.21</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.22</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -731,10 +731,10 @@ table.data-table tr:hover td{background:#1A2A42!important}
           <select id="gg-cat">
             <option>Materiales y suministros</option>
             <option>Seguro del vehículo</option>
-            <option>Flota (Tacoma + Ford) — pago combinado</option>
             <option>Licencia comercial / DOT</option>
             <option>Mantenimiento del camión</option>
             <option>Herramientas y equipo</option>
+            <option>Pago a ayudantes (fuera de la pestaña Ayudantes)</option>
             <option>Marketing y publicidad</option>
             <option>Teléfono / internet</option>
             <option>Software y apps</option>
@@ -4762,6 +4762,8 @@ const GASTOS_FIJOS_DEF = [
 ];
 // Categorías de Gastos Generales que ya están contadas como gasto fijo (para no restarlas dos veces)
 const CATS_FIJAS = ['Seguro del vehículo','Flota (Tacoma + Ford) — pago combinado','Teléfono / internet','Marketing y publicidad'];
+// v13.22: "Flota — pago combinado" era el mismo seguro → se junta con "Seguro del vehículo"
+(function(){ try { const d = getData(); let n = 0; (d.gg || []).forEach(g => { if((g.cat || g.categoria) === 'Flota (Tacoma + Ford) — pago combinado') { g.cat = 'Seguro del vehículo'; if(g.categoria) g.categoria = 'Seguro del vehículo'; n++; } }); if(n) saveData(d); } catch(e) {} })();
 function gastosFijosCfg() {
   const c = getCfg();
   return Array.isArray(c.gastosFijos) ? c.gastosFijos : GASTOS_FIJOS_DEF.map(x => Object.assign({}, x));
