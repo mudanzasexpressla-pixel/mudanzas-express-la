@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.20</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.21</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -2291,13 +2291,16 @@ function agregarFotoGastoIdx(tipo, i) {
 }
 
 // ===================== v13.15: REPORTE DE GASTOS CON FOTOS (PDF) Y EXCEL =====================
+// v13.21: en reportes nunca sale el número completo de la tarjeta (solo los últimos 4)
+function tarjetaSegura(t) { return String(t || '').replace(/\d[\d\s-]{6,}\d/g, m => { const dg = m.replace(/\D/g, ''); return dg.length >= 8 ? '••••' + dg.slice(-4) : m; }); }
+function gastoTieneFoto(g) { return !!((g.fotoIds || []).length || (g.fotoUrls || []).length || g.regId); }
 function gastosEnRango() {
   const desde = (document.getElementById('rg-desde') || {}).value || '0000-00-00';
   const hasta = (document.getElementById('rg-hasta') || {}).value || '9999-12-31';
   const d = getData();
   const items = [].concat(
-    (d.gas || []).map(g => ({ g, fecha: g.fecha, hora: g.hora || '', tipo: 'Gasolina', det: gasVehTexto(g.vehiculo) + (g.estacion ? ' · ' + g.estacion : '') + (g.galones ? ' · ' + g.galones + ' gal' : ''), monto: +g.monto || 0, tarjeta: g.tarjeta || '', notas: g.notas || '' })),
-    (d.gg || []).map(g => ({ g, fecha: g.fecha, hora: g.hora || '', tipo: g.cat || g.categoria || 'Otro', det: g.desc || '', monto: +g.monto || 0, tarjeta: g.tarjeta || '', notas: (g.recibo ? 'Recibo: ' + g.recibo + ' ' : '') + (g.notas || '') }))
+    (d.gas || []).map(g => ({ g, fecha: g.fecha, hora: g.hora || '', tipo: 'Gasolina', det: gasVehTexto(g.vehiculo) + (g.estacion ? ' · ' + g.estacion : '') + (g.galones ? ' · ' + g.galones + ' gal' : ''), monto: +g.monto || 0, tarjeta: tarjetaSegura(g.tarjeta), notas: g.notas || '' })),
+    (d.gg || []).map(g => ({ g, fecha: g.fecha, hora: g.hora || '', tipo: g.cat || g.categoria || 'Otro', det: g.desc || '', monto: +g.monto || 0, tarjeta: tarjetaSegura(g.tarjeta), notas: (g.recibo ? 'Recibo: ' + g.recibo + ' ' : '') + (g.notas || '') }))
   ).filter(x => x.fecha >= desde && x.fecha <= hasta);
   items.sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
   return { items, desde, hasta };
@@ -2329,6 +2332,8 @@ async function reporteGastosPDF() {
     const W = 215.9, M = 14;
     const tot = items.reduce((a, x) => a + x.monto, 0);
     const porCat = {}; items.forEach(x => porCat[x.tipo] = (porCat[x.tipo] || 0) + x.monto);
+    // v13.21: agrupado por categoría (la de más gasto primero) y por fecha dentro de cada una
+    items.sort((a, b) => (porCat[b.tipo] - porCat[a.tipo]) || a.tipo.localeCompare(b.tipo) || (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
     const per = (desde.startsWith('0000') ? 'Desde el inicio' : desde) + '  a  ' + (hasta.startsWith('9999') ? hoyLocal() : hasta);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(20, 63, 116);
     doc.text('Comprobantes de gastos', M, 20);
@@ -2339,15 +2344,56 @@ async function reporteGastosPDF() {
     let y = 46; doc.setFontSize(10);
     doc.text('Resumen por categoría', M, y); y += 6; doc.setFont('helvetica', 'normal');
     Object.entries(porCat).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => { doc.text(k, M + 2, y); doc.text('$' + v.toFixed(2), W - M, y, { align: 'right' }); y += 5.5; if(y > 260) { doc.addPage(); y = 20; } });
-    // Una hoja por cada 2 gastos
+    // v13.21: 1) lista compacta de TODOS los gastos  2) solo los que tienen foto, 3 por hoja
+    const corta = (t, n) => { t = String(t || ''); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+    y += 4; if(y > 240) { doc.addPage(); y = 20; }
+    const encabezado = () => {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(20, 63, 116);
+      doc.text('#', M, y); doc.text('Fecha', M + 9, y); doc.text('Tipo', M + 31, y); doc.text('Detalle', M + 66, y); doc.text('Pagado con', M + 128, y); doc.text('Foto', M + 160, y); doc.text('Monto', W - M, y, { align: 'right' });
+      doc.setDrawColor(20, 63, 116); doc.line(M, y + 1.5, W - M, y + 1.5); y += 6;
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(40, 40, 40);
+    };
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(0, 0, 0); doc.text('Lista de gastos', M, y); y += 6;
+    encabezado();
+    let catActual = null;
+    const cerrarCat = () => {
+      if(catActual === null) return;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(20, 63, 116);
+      doc.text('Subtotal ' + catActual, M + 66, y); doc.text('$' + porCat[catActual].toFixed(2), W - M, y, { align: 'right' });
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(40, 40, 40); y += 7;
+    };
+    items.forEach((x, i) => {
+      if(x.tipo !== catActual) {
+        cerrarCat();
+        if(y > 258) { doc.addPage(); y = 18; encabezado(); }
+        catActual = x.tipo;
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(0, 0, 0);
+        doc.text(x.tipo, M, y); y += 5.5; doc.setFont('helvetica', 'normal'); doc.setTextColor(40, 40, 40);
+      }
+      if(y > 266) { doc.addPage(); y = 18; encabezado(); }
+      if(i % 2 === 1) { doc.setFillColor(242, 245, 249); doc.rect(M - 1, y - 3.6, W - 2 * M + 2, 5, 'F'); }
+      doc.setFontSize(8);
+      doc.text(String(i + 1), M, y); doc.text(x.fecha, M + 9, y); doc.text(corta(x.tipo, 20), M + 31, y); doc.text(corta(x.det, 36), M + 66, y);
+      { const tj = x.tarjeta || '—'; doc.text(tj.length > 19 ? tj.slice(0, 9).trim() + '… ' + tj.slice(-9) : tj, M + 128, y); } doc.text(gastoTieneFoto(x.g) ? 'Sí' : '—', M + 160, y);
+      doc.text('$' + x.monto.toFixed(2), W - M, y, { align: 'right' });
+      y += 5;
+    });
+    if(y > 266) { doc.addPage(); y = 18; }
+    cerrarCat();
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(0, 0, 0); doc.line(M, y - 2.5, W - M, y - 2.5); y += 2;
+    doc.text('TOTAL', M + 128, y); doc.text('$' + tot.toFixed(2), W - M, y, { align: 'right' });
+    // Comprobantes con foto: 3 por hoja
+    const conFoto = items.map((x, i) => ({ x, n: i + 1 })).filter(o => gastoTieneFoto(o.x.g));
+    const ALTO = 84, TOPS = [12, 100, 188];
     let slot = 0;
-    for(let i = 0; i < items.length; i++) {
-      const x = items[i];
-      if(slot === 0) { doc.addPage(); }
-      const top = slot === 0 ? 14 : 140;
-      doc.setDrawColor(200, 200, 200); doc.roundedRect(M - 2, top - 4, W - 2 * M + 4, 122, 2, 2);
+    for(const { x, n } of conFoto) {
+      if(slot === 0) {
+        doc.addPage();
+      }
+      const top = TOPS[slot];
+      doc.setDrawColor(200, 200, 200); doc.roundedRect(M - 2, top - 4, W - 2 * M + 4, ALTO, 2, 2);
       doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(20, 63, 116);
-      doc.text((i + 1) + '. ' + x.tipo + '  —  $' + x.monto.toFixed(2), M, top + 3);
+      doc.text(n + '. ' + x.tipo + '  —  $' + x.monto.toFixed(2), M, top + 3);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(40, 40, 40);
       const lineas = [
         'Fecha: ' + x.fecha + (x.hora ? '   Hora: ' + hora12(x.hora) : ''),
@@ -2357,19 +2403,19 @@ async function reporteGastosPDF() {
         x.g.lat ? 'Ubicación: ' + (+x.g.lat).toFixed(5) + ', ' + (+x.g.lng).toFixed(5) : ''
       ].filter(Boolean);
       let ty = top + 10;
-      lineas.forEach(l => { doc.splitTextToSize(l, 70).forEach(s => { doc.text(s, M, ty); ty += 4.6; }); });
+      lineas.forEach(l => { doc.splitTextToSize(l, 78).forEach(sx => { if(ty < top + ALTO - 6) { doc.text(sx, M, ty); ty += 4.6; } }); });
       const fs = await fotosDeGasto(x.g);
       const foto = fs.find(f => String(f).startsWith('data:image'));
       if(foto) {
         const md = await medidasImagen(foto);
-        const maxW = 110, maxH = 110;
+        const maxW = 100, maxH = ALTO - 8;
         let w = maxW, h = maxH;
         if(md) { const r = Math.min(maxW / md.w, maxH / md.h); w = md.w * r; h = md.h * r; }
-        try { doc.addImage(foto, foto.indexOf('image/png') > 0 ? 'PNG' : 'JPEG', W - M - w, top, w, h); } catch(e) {}
+        try { doc.addImage(foto, foto.indexOf('image/png') > 0 ? 'PNG' : 'JPEG', W - M - w, top - 1, w, h); } catch(e) {}
       } else {
-        doc.setTextColor(200, 60, 60); doc.text(fs.length ? 'Foto en Drive (no se pudo insertar): ' + String(fs[0]).slice(0, 60) : 'Sin foto de comprobante', W - M - 110, top + 10); doc.setTextColor(40, 40, 40);
+        doc.setTextColor(200, 60, 60); doc.text(fs.length ? 'Foto en Drive (no se pudo insertar)' : 'No se encontró la foto en esta computadora', W - M - 100, top + 10); doc.setTextColor(40, 40, 40);
       }
-      slot = slot === 0 ? 1 : 0;
+      slot = (slot + 1) % 3;
     }
     doc.save('Comprobantes_gastos_' + (desde.startsWith('0000') ? 'todo' : desde) + '_a_' + (hasta.startsWith('9999') ? hoyLocal() : hasta) + '.pdf');
   } catch(e) { alert('No se pudo crear el PDF: ' + e.message); }
@@ -4018,7 +4064,7 @@ function renderGastos() {
             <td>${g.fecha}${g.hora ? '<div style="font-size:11px;color:#b0c4d8">' + hora12(g.hora) + '</div>' : ''}</td><td>${gasSelectVeh(i, g.vehiculo)}</td><td>${g.estacion||'—'}</td><td><strong>$${g.monto.toFixed(2)}</strong></td>
             <td>${g.galones||'—'}</td><td>${g.galones?'$'+(g.monto/g.galones).toFixed(2):'—'}</td>
             <td>${g.trabajos}</td><td>$${(g.monto/g.trabajos).toFixed(2)}</td>
-            <td>${escH(g.tarjeta||'—')}</td><td>${celdaFotoGasto('gas', i, g)}</td>
+            <td>${escH(tarjetaSegura(g.tarjeta)||'—')}</td><td>${celdaFotoGasto('gas', i, g)}</td>
             <td style="white-space:nowrap"><button class="btn btn-sm" title="Corregir" onclick="editarGas(${i})">✏️</button> <button class="btn btn-sm" title="Borrar" onclick="eliminarGas(${i})">🗑️</button></td>
           </tr>`).join('')}</tbody>
         </table>
@@ -4036,7 +4082,7 @@ function renderGastos() {
           <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th>Recibo</th><th>Pagado con</th><th>📷</th><th></th></tr></thead>
           <tbody>${gg.slice().reverse().map((g,i)=>`<tr>
             <td>${g.fecha}${g.hora ? '<div style="font-size:11px;color:#b0c4d8">' + hora12(g.hora) + '</div>' : ''}</td><td>${ggSelectCat(i, g.cat&&g.cat!=='undefined'?g.cat:(g.categoria||'Otro'))}</td><td>${g.desc||'—'}</td>
-            <td><strong style="color:#E24B4A">$${g.monto.toFixed(2)}</strong></td><td>${g.recibo||'—'}</td><td>${escH(g.tarjeta||'—')}</td><td>${celdaFotoGasto('gg', i, g)}</td>
+            <td><strong style="color:#E24B4A">$${g.monto.toFixed(2)}</strong></td><td>${g.recibo||'—'}</td><td>${escH(tarjetaSegura(g.tarjeta)||'—')}</td><td>${celdaFotoGasto('gg', i, g)}</td>
             <td><button onclick="eliminarGastoGG(${i})" style="background:#E24B4A;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🗑️</button></td>
           </tr>`).join('')}</tbody>
         </table>
@@ -7202,7 +7248,7 @@ function exportarExcel(tipo) {
 
   if(tipo === 'completo' || tipo === 'gastos') {
     const hg = ['Fecha','Vehículo','Estación','Monto $','Galones','$/Galón','Trabajos por tanque','Costo por trabajo','Hora','Pagado con','Foto'];
-    const rg = (d.gas||[]).map(g=>[g.fecha,gasVehTexto(g.vehiculo),g.estacion||'',g.monto,g.galones||0,g.galones?+(g.monto/g.galones).toFixed(3):0,g.trabajos,+(g.monto/g.trabajos).toFixed(2),hora12(g.hora||''),g.tarjeta||'',((g.fotoIds||[]).length||g.regId)?'Sí':'No']);
+    const rg = (d.gas||[]).map(g=>[g.fecha,gasVehTexto(g.vehiculo),g.estacion||'',g.monto,g.galones||0,g.galones?+(g.monto/g.galones).toFixed(3):0,g.trabajos,+(g.monto/g.trabajos).toFixed(2),hora12(g.hora||''),tarjetaSegura(g.tarjeta),((g.fotoIds||[]).length||g.regId)?'Sí':'No']);
     const totG = (d.gas||[]).reduce((a,g)=>a+(g.monto||0),0);
     rg.push(['','','','TOTAL: $'+totG.toFixed(2),'','','','']);
     Object.entries(gasPorVehiculo(d.gas||[])).forEach(([k,v]) => rg.push(['', gasVehTexto(k), 'Subtotal', +v.monto.toFixed(2), +v.galones.toFixed(1), v.galones ? +(v.monto/v.galones).toFixed(3) : '', v.cargas + ' carga(s)', '']));
@@ -7211,7 +7257,7 @@ function exportarExcel(tipo) {
     XLSX.utils.book_append_sheet(wb, wsg, 'Gasolina');
 
     const hgg = ['Fecha','Categoría','Descripción','Monto $','Recibo','Hora','Pagado con','Foto'];
-    const rgg = (d.gg||[]).map(g=>[g.fecha,g.cat||g.categoria||'',g.desc||'',g.monto,g.recibo||'',hora12(g.hora||''),g.tarjeta||'',((g.fotoIds||[]).length||g.regId)?'Sí':'No']);
+    const rgg = (d.gg||[]).map(g=>[g.fecha,g.cat||g.categoria||'',g.desc||'',g.monto,g.recibo||'',hora12(g.hora||''),tarjetaSegura(g.tarjeta),((g.fotoIds||[]).length||g.regId)?'Sí':'No']);
     const totGG = (d.gg||[]).reduce((a,g)=>a+(g.monto||0),0);
     rgg.push(['','','TOTAL:',totGG,'']);
     const wsgg = XLSX.utils.aoa_to_sheet([hgg,...rgg]);
