@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.22</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.23</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -2453,6 +2453,27 @@ async function importarRegistroEspecial(reg, id) {
   if(id.indexOf('COMP-') === 0 || /^VJ(LOCK|DONE)-/.test(id) || /^EQ(REV|RST|PIN|CFG)-/.test(id) || id.indexOf('TERM-') === 0) { const d = getData(); if(!d.campoImportados.includes(id)) { d.campoImportados.push(id); saveData(d); } return; }
   const raw = String(reg.notas || ''); const k = raw.indexOf('::');
   let meta = {}; try { meta = JSON.parse(raw.slice(k + 2)); } catch(e) {}
+  // v13.23: direcciones corregidas desde el celular
+  if(id.indexOf('DIR-') === 0) {
+    const d = getData();
+    const c = (d.cots || []).find(x => x.id === meta.cotId);
+    let reenviar = false;
+    if(c && !(c.dirTs && c.dirTs >= (+meta.ts || 0))) {
+      if(meta.origen) c.origen = meta.origen;
+      if(meta.destino) c.destino = meta.destino;
+      c.paradas = Array.isArray(meta.paradas) ? meta.paradas : (c.paradas || []);
+      c.dirTs = +meta.ts || Date.now();
+      reenviar = !!c.enviadoCampo && (c.estatus === 'agendado' || c.estatus === 'en_trabajo');
+    }
+    if(!d.campoImportados.includes(id)) d.campoImportados.push(id);
+    saveData(d);
+    if(c) {
+      toastV('📍 Direcciones de ' + c.id + ' (' + ((c.cliente && c.cliente.nombre) || '') + ') corregidas desde el celular', '#1D9E75');
+      try { renderAgenda(); renderTrabajos(); if(vistaAgendaActual === 'calendario') renderCalendarioAgenda(); } catch(e) {}
+      if(reenviar) enviarTrabajoCampoDesdeTrabajos(c.id, true);
+    }
+    return;
+  }
   if(id.indexOf('USR-') === 0) {
     const d = getData(); if(!d.solicitudesEquipo) d.solicitudesEquipo = [];
     const nom = String(meta.nombre || reg.nombre || '').toUpperCase(), tel = meta.tel || reg.tel || '';
@@ -3814,7 +3835,7 @@ function renderTrabajos() {
   }).join('');
 }
 
-function enviarTrabajoCampoDesdeTrabajos(cotId) {
+function enviarTrabajoCampoDesdeTrabajos(cotId, silencioso) {
   const d = getData();
   const cot = d.cots.find(c => c.id === cotId);
   if(!cot) { alert('No se encontró el trabajo'); return; }
@@ -3858,10 +3879,10 @@ function enviarTrabajoCampoDesdeTrabajos(cotId) {
       body: JSON.stringify(Object.assign({action:'enviarTrabajoCampo'}, trabajoCampo))
     })
     .then(r => r.json())
-    .then(data => alert(data.ok ? '✅ Enviado a la app de campo.\n\n👷 El ayudante ya puede ver:\n📍 '+trabajoCampo.origen+'\n🏠 '+trabajoCampo.destino+'\n📅 '+trabajoCampo.fecha+' ⏰ '+trabajoCampo.hora : '⚠️ Error: '+(data.error||'')))
-    .catch(() => alert('✅ Guardado localmente.\n\n👷 El ayudante puede abrir su app y ver el trabajo:\n📍 '+trabajoCampo.origen+'\n🏠 '+trabajoCampo.destino));
+    .then(data => { if(silencioso) return; alert(data.ok ? '✅ Enviado a la app de campo.\n\n👷 El ayudante ya puede ver:\n📍 '+trabajoCampo.origen+'\n🏠 '+trabajoCampo.destino+'\n📅 '+trabajoCampo.fecha+' ⏰ '+trabajoCampo.hora : '⚠️ Error: '+(data.error||'')); })
+    .catch(() => { if(!silencioso) alert('✅ Guardado localmente.\n\n👷 El ayudante puede abrir su app y ver el trabajo:\n📍 '+trabajoCampo.origen+'\n🏠 '+trabajoCampo.destino); });
   } else {
-    alert('✅ Enviado a la app de campo.\n\n👷 El ayudante ya puede ver el trabajo en su celular:\n📍 Origen: '+(trabajoCampo.origen||'—')+'\n🏠 Destino: '+(trabajoCampo.destino||'—')+'\n📅 '+trabajoCampo.fecha+' ⏰ '+trabajoCampo.hora+'\n\n💡 Dile que abra la app de campo en su celular.');
+    if(!silencioso) alert('✅ Enviado a la app de campo.\n\n👷 El ayudante ya puede ver el trabajo en su celular:\n📍 Origen: '+(trabajoCampo.origen||'—')+'\n🏠 Destino: '+(trabajoCampo.destino||'—')+'\n📅 '+trabajoCampo.fecha+' ⏰ '+trabajoCampo.hora+'\n\n💡 Dile que abra la app de campo en su celular.');
   }
 }
 
@@ -8809,7 +8830,7 @@ async function importarRegistroDesdeScript(id) {
   var data = await res.json();
   if(!data.ok||!data.registro) throw new Error(data.error||'No encontrado');
   var reg = data.registro;
-  if(/^(GASTO|VIAJE|COMP|VJLOCK|VJDONE|USR|EQREV|EQRST|EQPIN|EQCFG|TERM)-/.test(String(reg.id || id))) { await importarRegistroEspecial(reg, String(reg.id || id)); return; }
+  if(/^(GASTO|VIAJE|COMP|VJLOCK|VJDONE|USR|EQREV|EQRST|EQPIN|EQCFG|TERM|DIR)-/.test(String(reg.id || id))) { await importarRegistroEspecial(reg, String(reg.id || id)); return; }
   var d = getData();
   var registro = { id:reg.id, fecha:reg.fecha||new Date().toISOString(), nombre:reg.nombre||'', tel:reg.tel||'', cotId:reg.cotId||'', direccion:reg.direccion||'', notas:reg.notas||'', fotosTrabajo:reg.fotosTrabajo||[], fotosDanado:reg.fotosDanado||[] };
   var idx = d.campo.findIndex(function(r){ return r.id===registro.id; });
@@ -9031,6 +9052,7 @@ initDarkMode();
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">📦 Origen:</span> <span id="campo-origen"></span></div>
         <div id="campo-paradas" style="display:none;margin-bottom:8px"></div>
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">🏠 Destino:</span> <span id="campo-destino"></span></div>
+        <button id="campo-btn-dir" onclick="abrirEditarDirecciones()" style="display:none;width:100%;padding:12px;margin:4px 0 8px;border-radius:10px;border:1px solid #EF9F27;background:#1a2535;color:#EF9F27;font-weight:700;font-size:15px;cursor:pointer">✏️ Corregir direcciones (el cliente dio la exacta)</button>
         <div id="campo-vj-botones"></div>
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">📅 Fecha:</span> <span id="campo-fecha"></span> &nbsp;<span style="font-weight:700;color:#7ab8d8">⏰</span> <span id="campo-hora"></span></div>
         <div id="campo-monto-wrap" style="display:none;margin-bottom:8px;background:#143F7415;border-radius:10px;padding:10px">
@@ -9891,7 +9913,7 @@ async function verificarTrabajoSilencioso() {
     if(data && data.acceso === 'denegado') { localStorage.removeItem('campo_token'); eqGuardiaOkHasta = 0; eqGuardia(true); }
     const trabajosRaw = (data.ok && data.trabajos) ? data.trabajos : [];
     // Filtrar los ya terminados localmente
-    const trabajos = trabajosRaw.filter(t => !trabajoYaTerminado(t.cotId) && !trabajoCerradoEnCompu(t) && trabajoEsMio(t));
+    const trabajos = trabajosRaw.filter(t => !trabajoYaTerminado(t.cotId) && !trabajoCerradoEnCompu(t) && trabajoEsMio(t)).map(aplicarDirOverride);
     if(trabajos.length > 0) {
       trabajosCola = trabajos;
       trabajoActivo = trabajos[0];
@@ -9956,7 +9978,7 @@ async function cargarTrabajoCampo() {
     if(data && data.acceso === 'denegado') { localStorage.removeItem('campo_token'); eqGuardiaOkHasta = 0; eqGuardia(true); }
     const trabajosRaw = (data.ok && data.trabajos) ? data.trabajos : (data.ok && data.trabajo ? [data.trabajo] : []);
     // BUG 3 FIX: Exclude jobs already marked as terminado in the main app
-    const trabajos = trabajosRaw.filter(t => !trabajoYaTerminado(t.cotId) && !trabajoCerradoEnCompu(t) && trabajoEsMio(t));
+    const trabajos = trabajosRaw.filter(t => !trabajoYaTerminado(t.cotId) && !trabajoCerradoEnCompu(t) && trabajoEsMio(t)).map(aplicarDirOverride);
     if(trabajos.length > 0) {
       trabajosCola = trabajos;
       trabajoActivo = trabajos[0];
@@ -10890,6 +10912,97 @@ function obsCampoFinal() {
 }
 document.addEventListener('input', e => { if(e.target && e.target.id === 'campo-crono-horas') { try { recalcLaborCampo(); } catch(x) {} } });
 
+// ===================== v13.23: CORREGIR DIRECCIONES DESDE EL CELULAR =====================
+// El cambio se ve al instante en este celular (y en 🚗 Viajes), se manda a la computadora,
+// y la computadora vuelve a enviar el trabajo para que todos los celulares lo vean igual.
+const DIR_KEY = 'campo_dir_override', DIR_COLA = 'campo_dir_cola';
+function dirOverrides() { try { return JSON.parse(localStorage.getItem(DIR_KEY) || '{}'); } catch(e) { return {}; } }
+function aplicarDirOverride(t) {
+  if(!t || !t.cotId) return t;
+  const o = dirOverrides()[t.cotId];
+  if(!o) return t;
+  if((Date.parse(t.enviado || '') || 0) > o.ts) return t; // la computadora ya mandó una versión más nueva
+  t.origen = o.origen; t.destino = o.destino; t.paradas = o.paradas || [];
+  return t;
+}
+function cerrarEditarDirecciones() { const m = document.getElementById('dir-overlay'); if(m) m.remove(); }
+function abrirEditarDirecciones() {
+  const t = trabajoActivo; if(!t || !t.cotId) return;
+  cerrarEditarDirecciones();
+  if(!document.getElementById('dir-pac-css')) { const st = document.createElement('style'); st.id = 'dir-pac-css'; st.textContent = '.pac-container{z-index:100003!important}'; document.head.appendChild(st); }
+  const ps = t.paradas || [];
+  const campo = (id, lbl, val, ph) => '<label style="display:block;font-size:12px;font-weight:700;color:#7ab8d8;margin:8px 0 4px">' + lbl + '</label>'
+    + '<input id="' + id + '" value="' + escH(val || '') + '" placeholder="' + ph + '" autocomplete="off" style="width:100%;padding:12px;border:1px solid #33445E;border-radius:10px;font-size:15px;background:#0d1520;color:#e8edf2">';
+  const m = document.createElement('div'); m.id = 'dir-overlay';
+  m.style.cssText = 'position:fixed;inset:0;background:#000c;z-index:100002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto';
+  m.innerHTML = '<div style="background:#1a2535;border-radius:14px;padding:18px;width:100%;max-width:460px;color:#e8edf2;margin-top:20px">'
+    + '<div style="font-size:16px;font-weight:800;margin-bottom:4px">✏️ Corregir direcciones</div>'
+    + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:6px">' + escH(t.nombre || '') + ' · ' + escH(t.cotId) + '. Escribe la dirección exacta y elige la sugerencia de Google.</div>'
+    + campo('dir-origen', '📦 Origen (donde se recoge)', t.origen, 'Dirección de origen')
+    + campo('dir-p1', '📍 Parada 2 (opcional)', ps[0], 'Otra dirección para recoger o entregar')
+    + campo('dir-p2', '📍 Parada 3 (opcional)', ps[1], 'Otra dirección para recoger o entregar')
+    + campo('dir-destino', '🏠 Destino (donde se entrega)', t.destino, 'Dirección de destino')
+    + '<div id="dir-err" style="color:#E24B4A;font-size:12px;min-height:16px;margin-top:8px"></div>'
+    + '<div style="display:flex;gap:8px;margin-top:8px"><button id="dir-guardar" onclick="guardarDireccionesCampo()" style="flex:2;padding:14px;border:none;border-radius:10px;background:#1D9E75;color:#fff;font-size:15px;font-weight:700">💾 Guardar</button>'
+    + '<button onclick="cerrarEditarDirecciones()" style="flex:1;padding:14px;border:none;border-radius:10px;background:#26344A;color:#fff;font-size:14px">Cancelar</button></div></div>';
+  document.body.appendChild(m);
+  try {
+    if(typeof google !== 'undefined' && google.maps && google.maps.places) {
+      const opts = { componentRestrictions: { country: 'us' }, types: ['address'] };
+      ['dir-origen', 'dir-p1', 'dir-p2', 'dir-destino'].forEach(id => {
+        const el = document.getElementById(id);
+        const ac = new google.maps.places.Autocomplete(el, opts);
+        ac.addListener('place_changed', () => { const pl = ac.getPlace(); if(pl && pl.formatted_address) el.value = pl.formatted_address; });
+      });
+    }
+  } catch(e) {}
+}
+async function guardarDireccionesCampo() {
+  const t = trabajoActivo; if(!t || !t.cotId) return;
+  const v = id => ((document.getElementById(id) || {}).value || '').trim();
+  const origen = v('dir-origen'), destino = v('dir-destino');
+  const paradas = [v('dir-p1'), v('dir-p2')].filter(Boolean);
+  if(!origen || !destino) { document.getElementById('dir-err').textContent = 'Falta el origen o el destino'; return; }
+  const ts = Date.now();
+  const o = dirOverrides(); o[t.cotId] = { origen, destino, paradas, ts }; localStorage.setItem(DIR_KEY, JSON.stringify(o));
+  // Actualizar este celular al instante
+  [trabajoActivo].concat(trabajosCola || []).forEach(x => { if(x && x.cotId === t.cotId) { x.origen = origen; x.destino = destino; x.paradas = paradas; } });
+  try { localStorage.setItem('trabajoActivoCampo', JSON.stringify(trabajoActivo)); } catch(e) {}
+  // Si ya vas en camino a este trabajo, el viaje apunta a la dirección nueva
+  try {
+    const s = vjEstado();
+    if(s.activo && s.activo.hacia && s.activo.hacia.cotId === t.cotId) {
+      if(s.activo.hacia.tipo === 'origen') s.activo.hacia.txt = origen;
+      if(s.activo.hacia.tipo === 'destino') s.activo.hacia.txt = destino;
+      vjGuardar(s); vjDestGeo = null;
+    }
+  } catch(e) {}
+  // Mandarlo a la computadora (si no hay internet, se guarda y se reintenta)
+  const cola = (() => { try { return JSON.parse(localStorage.getItem(DIR_COLA) || '[]'); } catch(e) { return []; } })();
+  cola.push({ id: 'DIR-' + ts + '-' + vjQuien(), cotId: t.cotId, origen, destino, paradas, ts, quien: localStorage.getItem('campo_ayudante_nombre') || '' });
+  localStorage.setItem(DIR_COLA, JSON.stringify(cola));
+  cerrarEditarDirecciones();
+  mostrarTrabajo(trabajoActivo, Math.max(0, (trabajosCola || []).length - 1));
+  try { vjRender(); } catch(e) {}
+  const ok = await dirEnviarPendientes();
+  toastV(ok ? '✅ Direcciones corregidas y enviadas a la computadora' : '💾 Guardadas en el celular. Se mandan a la computadora cuando haya internet.', ok ? '#1D9E75' : '#EF9F27');
+}
+async function dirEnviarPendientes() {
+  let cola; try { cola = JSON.parse(localStorage.getItem(DIR_COLA) || '[]'); } catch(e) { cola = []; }
+  if(!cola.length) return true;
+  if(typeof CAMPO_APPS_URL === 'undefined' || !CAMPO_APPS_URL || CAMPO_APPS_URL.includes('PEGA_AQUI')) return false;
+  const quedan = [];
+  for(const it of cola) {
+    try {
+      const r = await fetch(CAMPO_APPS_URL, { method: 'POST', body: JSON.stringify({ action: 'subirRegistro', id: it.id, nombre: 'DIRECCIONES', tel: '', cotId: it.cotId, direccion: '', notas: 'DIR::' + JSON.stringify(it), fecha: new Date(it.ts).toISOString(), totalFotosTrabajo: 0, totalFotosDanado: 0 }) });
+      const j = await r.json(); if(!j || !j.ok) quedan.push(it);
+    } catch(e) { quedan.push(it); }
+  }
+  localStorage.setItem(DIR_COLA, JSON.stringify(quedan));
+  return !quedan.length;
+}
+setInterval(() => { try { if(localStorage.getItem('mudanzas_modo') === 'ayudante' && !document.hidden) dirEnviarPendientes(); } catch(e) {} }, 60000);
+
 const DUENO_PIN = '98129812'; // v13.1: PIN propio para el modo dueño en el celular (el nombre NO da permisos)
 function esModoDueno() { return localStorage.getItem('campo_rol') === 'dueno'; }
 // v13.16: solo el CHOFER asignado cobra. Si el trabajo no tiene chofer, se usa el permiso general.
@@ -10923,6 +11036,7 @@ function aplicarRolCampo() {
   const mw = document.getElementById('campo-monto-wrap'); if(mw && !cobra) mw.style.display = 'none';
   const bd = document.getElementById('btn-modo-dueno'); if(bd) bd.textContent = dueno ? '🔒 Salir de modo administrador' : '🔓 Modo administrador';
   const bG = document.getElementById('tab-gasto-btn'); if(bG) bG.style.display = dueno ? '' : 'none';
+  const bDir = document.getElementById('campo-btn-dir'); if(bDir) bDir.style.display = (dueno || cobra) && trabajoActivo && trabajoActivo.cotId ? '' : 'none';
   if(!dueno) { const e = document.getElementById('tab-gasto'); if(e && !e.classList.contains('hidden')) switchTab('asignado'); }
   const badge = document.getElementById('campo-rol-badge');
   const _u = campoUsuario();
