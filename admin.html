@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.23</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.24</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -546,12 +546,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="card">
     <div class="card-title">📸 Fotos ANTES del trabajo (evidencia de estado previo)</div>
     <div class="notice notice-amber">⚠️ IMPORTANTE: Estas fotos son su protección legal. Documenten el estado de muebles ANTES de moverlos. Si un cliente reclama daños, estas fotos son su evidencia.</div>
-    <div class="photo-grid" id="foto-grid-cot">
-      <div class="photo-slot" onclick="document.getElementById('file-cot').click()">📷<span>+ Foto</span></div>
-      <div class="photo-slot" onclick="document.getElementById('file-cot').click()">📷<span>+ Foto</span></div>
-      <div class="photo-slot" onclick="document.getElementById('file-cot').click()">📷<span>+ Foto</span></div>
-      <div class="photo-slot" onclick="document.getElementById('file-cot').click()">📷<span>+ Foto</span></div>
-    </div>
+    <div class="photo-grid" id="foto-grid-cot"></div>
     <input type="file" id="file-cot" accept="image/*" multiple style="display:none" onchange="handlePhotos(event,'cot')">
   </div>
 
@@ -1625,8 +1620,6 @@ function buscarClienteFrecuente() {
 
   if(nombre.length < 3) {
     badge.style.display = 'none';
-    fotosInventario = [];
-    renderFotosInventario();
     descuentoFrecuente = 0;
     calcTotal();
     return;
@@ -1644,8 +1637,6 @@ function buscarClienteFrecuente() {
 
   if(numTrabajos === 0) {
     badge.style.display = 'none';
-    fotosInventario = [];
-    renderFotosInventario();
     descuentoFrecuente = 0;
   } else if(numTrabajos >= 5) {
     descuentoFrecuente = 10;
@@ -1656,9 +1647,7 @@ function buscarClienteFrecuente() {
     badge.style.display = 'block';
     badge.innerHTML = `<div class="notice notice-green" style="margin:0;padding:8px 12px">⭐ <strong>Cliente frecuente — ${numTrabajos} trabajos</strong> · Descuento automático del <strong>5%</strong> aplicado</div>`;
   } else {
-    fotosInventario = [];
-  renderFotosInventario();
-  descuentoFrecuente = 0;
+    descuentoFrecuente = 0;
     badge.style.display = 'block';
     badge.innerHTML = `<div class="notice notice-blue" style="margin:0;padding:8px 12px">👤 Cliente conocido — ${numTrabajos} trabajo${numTrabajos>1?'s':''} anterior${numTrabajos>1?'es':''}. Con 3+ trabajos aplica descuento automático.</div>`;
   }
@@ -1784,6 +1773,8 @@ function limpiarForm(silencioso) {
   document.getElementById('c-tipo-trabajo').value = '';
   fotosInventario = [];
   renderFotosInventario();
+  fotosAntes = [];
+  renderFotosAntes();
   limpiarArticulosAdmin();
   descuentoFrecuente = 0;
   const badgeEl = document.getElementById('cliente-frecuente-badge');
@@ -1920,7 +1911,8 @@ function guardarCotizacion() {
     tarifaHora: parseFloat((document.getElementById('c-tarifa-hora')||{}).value) || 0,
     horasMin: parseFloat((document.getElementById('c-horas-min')||{}).value) || 0,
     precioMin: parseFloat((document.getElementById('c-precio-min')||{}).value) || 0,
-    fotosInventario: fotosInventario,
+    fotosInventario: fotosInventario.slice(),
+    fotosAntes: fotosAntes.slice(),
     articulosDetalle: recolectarArticulosAdmin(),
     base, horas: parseFloat(document.getElementById('c-horas').value)||3,
     descuento: desc, descuentoFrecuentePct: descuentoFrecuente,
@@ -2020,6 +2012,8 @@ function editarCot(id) {
   const _pm = document.getElementById('c-precio-min'); if(_pm) _pm.value = cot.laborOnly ? (cot.precioMin || ((cot.horasMin||0) * (cot.tarifaHora||0)) || '') : '';
   ccRestaurar(cot.calcCosto);
   pintarArticulosAdmin(cot.articulosDetalle);
+  fotosInventario = (cot.fotosInventario || []).slice(); renderFotosInventario();
+  fotosAntes = (cot.fotosAntes || []).slice(); renderFotosAntes();
   calcTotal();
   showTab('nueva-cot');
   window.scrollTo(0,0);
@@ -2462,13 +2456,16 @@ async function importarRegistroEspecial(reg, id) {
       if(meta.origen) c.origen = meta.origen;
       if(meta.destino) c.destino = meta.destino;
       c.paradas = Array.isArray(meta.paradas) ? meta.paradas : (c.paradas || []);
+      if(!c.cliente) c.cliente = {};
+      if(meta.nombre) c.cliente.nombre = meta.nombre;
+      if(meta.tel) c.cliente.tel = meta.tel;
       c.dirTs = +meta.ts || Date.now();
       reenviar = !!c.enviadoCampo && (c.estatus === 'agendado' || c.estatus === 'en_trabajo');
     }
     if(!d.campoImportados.includes(id)) d.campoImportados.push(id);
     saveData(d);
     if(c) {
-      toastV('📍 Direcciones de ' + c.id + ' (' + ((c.cliente && c.cliente.nombre) || '') + ') corregidas desde el celular', '#1D9E75');
+      toastV('📍 Datos de ' + c.id + ' (' + ((c.cliente && c.cliente.nombre) || '') + ') corregidas desde el celular', '#1D9E75');
       try { renderAgenda(); renderTrabajos(); if(vistaAgendaActual === 'calendario') renderCalendarioAgenda(); } catch(e) {}
       if(reenviar) enviarTrabajoCampoDesdeTrabajos(c.id, true);
     }
@@ -3849,7 +3846,7 @@ function enviarTrabajoCampoDesdeTrabajos(cotId, silencioso) {
     fecha: cot.fechaAgendada || '',
     hora: cot.horaAgendada || '',
     notas: cot.notas || '',
-    fotos: cot.fotosInventario || [],
+    fotos: (cot.fotosInventario || []).concat(cot.fotosAntes || []),
     articulosDetalle: cot.articulosDetalle || [],
     millas: cot.millas || 0,
     monto: cot.total || 0,
@@ -7466,17 +7463,24 @@ document.querySelectorAll('.modal-overlay').forEach(m => {
   });
 });
 
-function handlePhotos(event, tipo) {
-  const files = Array.from(event.target.files);
-  const grid = document.getElementById('foto-grid-' + tipo);
-  const slots = grid.querySelectorAll('.photo-slot');
-  files.forEach((file, i) => {
-    if(!slots[i]) return;
-    const reader = new FileReader();
-    reader.onload = e => { slots[i].innerHTML = '<img src="'+e.target.result+'" alt="foto">'; };
-    reader.readAsDataURL(file);
-  });
+// v13.24: las fotos ANTES se guardan con la cotización (antes solo se veían y no se guardaban)
+let fotosAntes = [];
+async function handlePhotos(event, tipo) {
+  const files = Array.from(event.target.files || []);
+  event.target.value = '';
+  for(const f of files) {
+    try { fotosAntes.push(await comprimirImagen(f, 800, 0.7)); } catch(e) {}
+  }
+  renderFotosAntes();
 }
+function renderFotosAntes() {
+  const grid = document.getElementById('foto-grid-cot'); if(!grid) return;
+  grid.innerHTML = fotosAntes.map((f, i) => '<div class="photo-slot" style="position:relative"><img src="' + f + '" alt="foto" onclick="verImagenGrande(this.src)">'
+    + '<button onclick="fotosAntes.splice(' + i + ',1);renderFotosAntes()" style="position:absolute;top:4px;right:4px;background:#E24B4A;color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer">✕</button></div>').join('')
+    + '<div class="photo-slot" onclick="document.getElementById(\'file-cot\').click()">📷<span>+ Foto</span></div>';
+}
+document.addEventListener('DOMContentLoaded', () => { try { renderFotosAntes(); } catch(e) {} });
+setTimeout(() => { try { if(!fotosAntes.length) renderFotosAntes(); } catch(e) {} }, 500);
 
 // ===================== SINCRONIZACIÓN CON GOOGLE DRIVE (app de campo) =====================
 // ⚠️ IMPORTANTE: Usa el MISMO Client ID que pusiste en app-movil-campo.html
@@ -9052,7 +9056,7 @@ initDarkMode();
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">📦 Origen:</span> <span id="campo-origen"></span></div>
         <div id="campo-paradas" style="display:none;margin-bottom:8px"></div>
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">🏠 Destino:</span> <span id="campo-destino"></span></div>
-        <button id="campo-btn-dir" onclick="abrirEditarDirecciones()" style="display:none;width:100%;padding:12px;margin:4px 0 8px;border-radius:10px;border:1px solid #EF9F27;background:#1a2535;color:#EF9F27;font-weight:700;font-size:15px;cursor:pointer">✏️ Corregir direcciones (el cliente dio la exacta)</button>
+        <button id="campo-btn-dir" onclick="abrirEditarDirecciones()" style="display:none;width:100%;padding:12px;margin:4px 0 8px;border-radius:10px;border:1px solid #EF9F27;background:#1a2535;color:#EF9F27;font-weight:700;font-size:15px;cursor:pointer">✏️ Corregir nombre, teléfono o direcciones</button>
         <div id="campo-vj-botones"></div>
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">📅 Fecha:</span> <span id="campo-fecha"></span> &nbsp;<span style="font-weight:700;color:#7ab8d8">⏰</span> <span id="campo-hora"></span></div>
         <div id="campo-monto-wrap" style="display:none;margin-bottom:8px;background:#143F7415;border-radius:10px;padding:10px">
@@ -10923,6 +10927,8 @@ function aplicarDirOverride(t) {
   if(!o) return t;
   if((Date.parse(t.enviado || '') || 0) > o.ts) return t; // la computadora ya mandó una versión más nueva
   t.origen = o.origen; t.destino = o.destino; t.paradas = o.paradas || [];
+  if(o.nombre) t.nombre = o.nombre;
+  if(o.tel) t.tel = o.tel;
   return t;
 }
 function cerrarEditarDirecciones() { const m = document.getElementById('dir-overlay'); if(m) m.remove(); }
@@ -10936,8 +10942,10 @@ function abrirEditarDirecciones() {
   const m = document.createElement('div'); m.id = 'dir-overlay';
   m.style.cssText = 'position:fixed;inset:0;background:#000c;z-index:100002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto';
   m.innerHTML = '<div style="background:#1a2535;border-radius:14px;padding:18px;width:100%;max-width:460px;color:#e8edf2;margin-top:20px">'
-    + '<div style="font-size:16px;font-weight:800;margin-bottom:4px">✏️ Corregir direcciones</div>'
-    + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:6px">' + escH(t.nombre || '') + ' · ' + escH(t.cotId) + '. Escribe la dirección exacta y elige la sugerencia de Google.</div>'
+    + '<div style="font-size:16px;font-weight:800;margin-bottom:4px">✏️ Corregir cliente y direcciones</div>'
+    + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:6px">' + escH(t.cotId) + '. Escribe la dirección exacta y elige la sugerencia de Google.</div>'
+    + campo('dir-nombre', '👤 Nombre del cliente', t.nombre, 'Nombre completo')
+    + campo('dir-tel', '📞 Teléfono', t.tel, '(323) 000-0000')
     + campo('dir-origen', '📦 Origen (donde se recoge)', t.origen, 'Dirección de origen')
     + campo('dir-p1', '📍 Parada 2 (opcional)', ps[0], 'Otra dirección para recoger o entregar')
     + campo('dir-p2', '📍 Parada 3 (opcional)', ps[1], 'Otra dirección para recoger o entregar')
@@ -10962,11 +10970,13 @@ async function guardarDireccionesCampo() {
   const v = id => ((document.getElementById(id) || {}).value || '').trim();
   const origen = v('dir-origen'), destino = v('dir-destino');
   const paradas = [v('dir-p1'), v('dir-p2')].filter(Boolean);
+  const nombre = v('dir-nombre').toUpperCase(), tel = v('dir-tel');
+  if(!nombre) { document.getElementById('dir-err').textContent = 'Falta el nombre del cliente'; return; }
   if(!origen || !destino) { document.getElementById('dir-err').textContent = 'Falta el origen o el destino'; return; }
   const ts = Date.now();
-  const o = dirOverrides(); o[t.cotId] = { origen, destino, paradas, ts }; localStorage.setItem(DIR_KEY, JSON.stringify(o));
+  const o = dirOverrides(); o[t.cotId] = { origen, destino, paradas, nombre, tel, ts }; localStorage.setItem(DIR_KEY, JSON.stringify(o));
   // Actualizar este celular al instante
-  [trabajoActivo].concat(trabajosCola || []).forEach(x => { if(x && x.cotId === t.cotId) { x.origen = origen; x.destino = destino; x.paradas = paradas; } });
+  [trabajoActivo].concat(trabajosCola || []).forEach(x => { if(x && x.cotId === t.cotId) { x.origen = origen; x.destino = destino; x.paradas = paradas; x.nombre = nombre; x.tel = tel; } });
   try { localStorage.setItem('trabajoActivoCampo', JSON.stringify(trabajoActivo)); } catch(e) {}
   // Si ya vas en camino a este trabajo, el viaje apunta a la dirección nueva
   try {
@@ -10979,13 +10989,13 @@ async function guardarDireccionesCampo() {
   } catch(e) {}
   // Mandarlo a la computadora (si no hay internet, se guarda y se reintenta)
   const cola = (() => { try { return JSON.parse(localStorage.getItem(DIR_COLA) || '[]'); } catch(e) { return []; } })();
-  cola.push({ id: 'DIR-' + ts + '-' + vjQuien(), cotId: t.cotId, origen, destino, paradas, ts, quien: localStorage.getItem('campo_ayudante_nombre') || '' });
+  cola.push({ id: 'DIR-' + ts + '-' + vjQuien(), cotId: t.cotId, origen, destino, paradas, nombre, tel, ts, quien: localStorage.getItem('campo_ayudante_nombre') || '' });
   localStorage.setItem(DIR_COLA, JSON.stringify(cola));
   cerrarEditarDirecciones();
   mostrarTrabajo(trabajoActivo, Math.max(0, (trabajosCola || []).length - 1));
   try { vjRender(); } catch(e) {}
   const ok = await dirEnviarPendientes();
-  toastV(ok ? '✅ Direcciones corregidas y enviadas a la computadora' : '💾 Guardadas en el celular. Se mandan a la computadora cuando haya internet.', ok ? '#1D9E75' : '#EF9F27');
+  toastV(ok ? '✅ Datos corregidos y enviados a la computadora' : '💾 Guardadas en el celular. Se mandan a la computadora cuando haya internet.', ok ? '#1D9E75' : '#EF9F27');
 }
 async function dirEnviarPendientes() {
   let cola; try { cola = JSON.parse(localStorage.getItem(DIR_COLA) || '[]'); } catch(e) { cola = []; }
