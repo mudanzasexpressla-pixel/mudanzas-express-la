@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.26</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.27</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -2459,6 +2459,11 @@ async function importarRegistroEspecial(reg, id) {
       if(!c.cliente) c.cliente = {};
       if(meta.nombre) c.cliente.nombre = meta.nombre;
       if(meta.tel) c.cliente.tel = meta.tel;
+      if(meta.extra && +meta.extra.monto > 0 && !(c.cargosExtra || []).some(x => x.ts === meta.extra.ts)) {
+        c.cargosExtra = (c.cargosExtra || []).concat([meta.extra]);
+        c.total = +((+c.total || 0) + (+meta.extra.monto)).toFixed(2);
+        c.notas = (c.notas ? c.notas + '\n' : '') + '💲 Dirección extra agregada en campo: +$' + meta.extra.monto + ' (' + meta.extra.millas + ' mi, ' + meta.extra.minutos + ' min, ' + meta.extra.personas + ' persona' + (meta.extra.personas > 1 ? 's' : '') + ').';
+      }
       c.dirTs = +meta.ts || Date.now();
       reenviar = !!c.enviadoCampo && (c.estatus === 'agendado' || c.estatus === 'en_trabajo');
     }
@@ -3909,6 +3914,7 @@ function enviarTrabajoCampoDesdeTrabajos(cotId, silencioso) {
     articulosDetalle: cot.articulosDetalle || [],
     millas: cot.millas || 0,
     monto: cot.total || 0,
+    cargosExtra: cot.cargosExtra || [],
     puedeCobrar: !!getCfg().ayudantePuedeCobrar,
     // v13.16: equipo asignado (en el celular solo lo ven ellos; solo el chofer cobra)
     choferId: cot.choferId || '',
@@ -6883,7 +6889,14 @@ function construirReciboPDF(c, idioma) {
   if(extras.length) descServ.push((idioma==='en'?'Includes: ':'Incluye: ') + extras.join(', ') + '.');
   let descServLines = [];
   descServ.forEach(t => { descServLines = descServLines.concat(doc.splitTextToSize(t, 110)); });
-  filaItem((idioma==='en'?'Moving service — ':'Servicio de mudanza — ') + tipoTrabajo, descServLines, 1, '$'+monto.toFixed(2), '$'+monto.toFixed(2));
+  const _ext = (Array.isArray(c.cargosExtra) ? c.cargosExtra : []).filter(x => +x.monto > 0);
+  const _sumExt = _ext.reduce((a, x) => a + (+x.monto || 0), 0);
+  const _base = (_sumExt > 0 && _sumExt < monto) ? monto - _sumExt : monto;
+  filaItem((idioma==='en'?'Moving service — ':'Servicio de mudanza — ') + tipoTrabajo, descServLines, 1, '$'+_base.toFixed(2), '$'+_base.toFixed(2));
+  if(_base !== monto) _ext.forEach(x => {
+    const dl = doc.splitTextToSize((idioma==='en' ? 'Added on the day of service: +' + x.millas + ' mi, +' + x.minutos + ' min.' : 'Agregada el día del servicio: +' + x.millas + ' mi, +' + x.minutos + ' min.') + (x.desc ? ' ' + x.desc : ''), 110);
+    filaItem(idioma==='en' ? 'Additional address' : 'Dirección adicional', dl, 1, '$'+(+x.monto).toFixed(2), '$'+(+x.monto).toFixed(2));
+  });
   if((c.propina||0) > 0) {
     filaItem(L.propina, doc.splitTextToSize(idioma==='en'?'Voluntary tip from the customer.':'Propina voluntaria del cliente.', 110), 1, '$'+Number(c.propina).toFixed(2), '$'+Number(c.propina).toFixed(2));
   }
@@ -10866,7 +10879,7 @@ async function reciboCampoPDF(idioma) {
     cliente: { nombre: t.nombre || '—', tel: t.tel || '', email: '' },
     origen: t.origen || '', destino: t.destino || '', paradas: t.paradas || [],
     millas: +t.millas || 0, millasX: 0, usaAyudante: t.usaAyudante || '', servicios: t.servicios || {},
-    montoFinal: monto, total: monto, propina,
+    montoFinal: monto, total: monto, propina, cargosExtra: t.cargosExtra || [],
     fechaAgendada: t.fecha || '', horaAgendada: t.hora || '',
     articulosDetalle: arts, articulos: typeof t.articulos === 'string' ? t.articulos : '',
     notas: t.notas || '', obsFinales: obsCampoFinal(),
@@ -11043,12 +11056,93 @@ function aplicarDirOverride(t) {
   t.origen = o.origen; t.destino = o.destino; t.paradas = o.paradas || [];
   if(o.nombre) t.nombre = o.nombre;
   if(o.tel) t.tel = o.tel;
+  if(Array.isArray(o.cargosExtra) && o.cargosExtra.length) {
+    t.cargosExtra = o.cargosExtra;
+    if(o.montoOriginal != null) t.monto = +o.montoOriginal + o.cargosExtra.reduce((a, x) => a + (+x.monto || 0), 0);
+  }
   return t;
 }
+// v13.27: cobrar una dirección agregada al último momento (millas + tiempo de Google Maps × personas)
+function dxTarifas() {
+  let tt = {}; try { tt = JSON.parse(localStorage.getItem('campo_tarifas_extra') || '{}'); } catch(e) {}
+  let cfg = {}; try { cfg = (typeof getCfg === 'function' ? getCfg() : {}) || {}; } catch(e) {}
+  return { milla: +tt.milla || +cfg.tarifaMilla || 2.5, yo: +tt.yo || 40, ayud: +tt.ayud || +cfg.tarifaAyudanteHr || 22 };
+}
+async function dxRuta(pts) {
+  if(pts.length < 2) return { mi: 0, min: 0 };
+  if(typeof google === 'undefined' || !google.maps || !google.maps.DistanceMatrixService) throw new Error('Google Maps no cargó');
+  return new Promise((res, rej) => {
+    new google.maps.DistanceMatrixService().getDistanceMatrix({ origins: pts.slice(0, -1), destinations: pts.slice(1), travelMode: google.maps.TravelMode.DRIVING, unitSystem: google.maps.UnitSystem.IMPERIAL }, (r, st) => {
+      try {
+        if(st !== 'OK') throw new Error(st);
+        let mi = 0, min = 0;
+        for(let i = 0; i < pts.length - 1; i++) { const e = r.rows[i].elements[i]; if(e.status !== 'OK') throw new Error('No se encontró: ' + pts[i + 1]); mi += e.distance.value / 1609.344; min += e.duration.value / 60; }
+        res({ mi, min });
+      } catch(x) { rej(x); }
+    });
+  });
+}
+function dxAbrir() {
+  const chk = document.getElementById('dx-on'); chk.checked = !chk.checked; dxToggle();
+  const b = document.getElementById('dx-btn');
+  if(b) { b.textContent = chk.checked ? '✖ Quitar cobro de dirección extra' : '💲 Cobrar dirección extra'; b.style.borderStyle = chk.checked ? 'solid' : 'dashed'; }
+  if(chk.checked) dxCalcular();
+}
+function dxAuto() {
+  if(!(document.getElementById('dx-on') || {}).checked) return;
+  clearTimeout(window._dxT); window._dxT = setTimeout(dxCalcular, 700);
+}
+function dxToggle() {
+  const on = document.getElementById('dx-on').checked;
+  document.getElementById('dx-box').style.display = on ? '' : 'none';
+  if(!on) { window._dxCalc = null; document.getElementById('dx-res').innerHTML = ''; }
+}
+async function dxCalcular() {
+  const t = trabajoActivo; if(!t) return null;
+  const v = id => ((document.getElementById(id) || {}).value || '').trim();
+  const res = document.getElementById('dx-res');
+  const tm = { milla: parseFloat(v('dx-milla')) || 0, yo: parseFloat(v('dx-yo')) || 0, ayud: parseFloat(v('dx-ayud')) || 0 };
+  try { localStorage.setItem('campo_tarifas_extra', JSON.stringify(tm)); } catch(e) {}
+  const conAy = document.getElementById('dx-conay').checked;
+  const minParada = parseFloat(v('dx-minparada')) || 0;
+  const antes = [t.origen].concat(t.paradas || [], [t.destino]).filter(Boolean);
+  const nuevas = [v('dir-p1'), v('dir-p2')].filter(Boolean);
+  const despues = [v('dir-origen')].concat(nuevas, [v('dir-destino')]).filter(Boolean);
+  const nParadas = Math.max(0, nuevas.length - (t.paradas || []).length);
+  res.innerHTML = '<span style="color:#b0c4d8">⏳ Preguntando a Google Maps...</span>';
+  try {
+    const [a, b] = await Promise.all([dxRuta(antes), dxRuta(despues)]);
+    const mi = Math.max(0, b.mi - a.mi), minManejo = Math.max(0, b.min - a.min), min = minManejo + nParadas * minParada;
+    const porHora = tm.yo + (conAy ? tm.ayud : 0);
+    const cargo = Math.ceil(mi * tm.milla + (t.laborOnly ? 0 : (min / 60) * porHora));
+    const hTxt = m => (m >= 60 ? Math.floor(m / 60) + ' h ' : '') + Math.round(m % 60) + ' min';
+    const base = +(t.monto || 0);
+    window._dxCalc = { monto: cargo, millas: +mi.toFixed(1), minutos: Math.round(min), personas: conAy ? 2 : 1, ts: Date.now(), desc: nuevas.slice((t.paradas || []).length).join(' | ') || 'Cambio de ruta' };
+    if(!nuevas.length && mi < 0.1) { window._dxCalc = null; res.innerHTML = '<span style="color:#b0c4d8">Escribe la dirección nueva en Parada 2 o 3.</span>'; return null; }
+    res.innerHTML = '<div style="font-size:15px;color:#e8edf2">📍 <b>+' + mi.toFixed(1) + ' millas extra</b></div>'
+      + '<div style="font-size:20px;font-weight:900;color:#1D9E75;margin-top:4px">Cargo extra: $' + cargo + '</div>'
+      + '<div style="font-size:13px;color:#e8edf2">Nuevo total: <b>$' + (base + cargo).toFixed(2) + '</b> (antes $' + base.toFixed(2) + ')</div>'
+      + '<button onclick="dxWhatsApp()" style="width:100%;margin-top:8px;padding:11px;border:none;border-radius:10px;background:#25D366;color:#fff;font-weight:700;font-size:14px">📲 Mandar el precio al cliente por WhatsApp</button>';
+    return window._dxCalc;
+  } catch(e) {
+    window._dxCalc = null;
+    res.innerHTML = '<span style="color:#E24B4A">No se pudo calcular: ' + escH(e.message || e) + '. Revisa las direcciones y el internet.</span>';
+    return null;
+  }
+}
+function dxWhatsApp() {
+  const t = trabajoActivo, c = window._dxCalc; if(!t || !c) return;
+  const tel = String(t.tel || '').replace(/\D/g, ''); const num = tel.length === 10 ? '1' + tel : tel;
+  const total = (+(t.monto || 0) + c.monto).toFixed(2);
+  const msg = 'Hola ' + String(t.nombre || '').split(' ')[0] + ', la dirección adicional agrega aprox. ' + c.millas + ' millas y ' + c.minutos + ' minutos al servicio. '
+    + 'El costo adicional es de $' + c.monto + ', y el total quedaría en $' + total + '. ¿Está de acuerdo para continuar? Gracias. — Mudanzas Express LA';
+  window.open('https://wa.me/' + num + '?text=' + encodeURIComponent(msg), '_blank');
+}
+
 function cerrarEditarDirecciones() { const m = document.getElementById('dir-overlay'); if(m) m.remove(); }
 function abrirEditarDirecciones() {
   const t = trabajoActivo; if(!t || !t.cotId) return;
-  cerrarEditarDirecciones();
+  cerrarEditarDirecciones(); window._dxCalc = null;
   if(!document.getElementById('dir-pac-css')) { const st = document.createElement('style'); st.id = 'dir-pac-css'; st.textContent = '.pac-container{z-index:100003!important}'; document.head.appendChild(st); }
   const ps = t.paradas || [];
   const campo = (id, lbl, val, ph) => '<label style="display:block;font-size:12px;font-weight:700;color:#7ab8d8;margin:8px 0 4px">' + lbl + '</label>'
@@ -11064,17 +11158,27 @@ function abrirEditarDirecciones() {
     + campo('dir-p1', '📍 Parada 2 (opcional)', ps[0], 'Otra dirección para recoger o entregar')
     + campo('dir-p2', '📍 Parada 3 (opcional)', ps[1], 'Otra dirección para recoger o entregar')
     + campo('dir-destino', '🏠 Destino (donde se entrega)', t.destino, 'Dirección de destino')
+    + (function() { const tf = dxTarifas(); const sm = 'width:64px;padding:8px;border:1px solid #33445E;border-radius:8px;background:#0d1520;color:#e8edf2;font-size:14px';
+        const conAy = (t.acompanantes || []).length > 0 || t.usaAyudante === 'si' || !t.acompanantes;
+        return '<input type="checkbox" id="dx-on" style="display:none">'
+        + '<button id="dx-btn" onclick="dxAbrir()" style="width:100%;margin-top:12px;padding:12px;border:1px dashed #EF9F27;border-radius:10px;background:#1a2535;color:#EF9F27;font-size:14px;font-weight:700;cursor:pointer">💲 Cobrar dirección extra</button>'
+        + '<div id="dx-box" style="display:none;background:#0d1520;border:1px solid #EF9F27;border-radius:10px;padding:12px;margin-top:8px">'
+        + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:8px">Escribe la dirección nueva arriba (Parada 2 o 3). El cargo se calcula solo.</div>'
+        + '<input type="hidden" id="dx-milla" value="' + tf.milla + '"><input type="hidden" id="dx-yo" value="' + tf.yo + '"><input type="hidden" id="dx-ayud" value="' + tf.ayud + '"><input type="hidden" id="dx-minparada" value="15">'
+        + '<label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="dx-conay"' + (conAy ? ' checked' : '') + ' onchange="dxCalcular()" style="width:18px;height:18px"> 👷 Va ayudante</label>'
+        + '<div id="dx-res" style="margin-top:8px"></div></div>'; })()
     + '<div id="dir-err" style="color:#E24B4A;font-size:12px;min-height:16px;margin-top:8px"></div>'
     + '<div style="display:flex;gap:8px;margin-top:8px"><button id="dir-guardar" onclick="guardarDireccionesCampo()" style="flex:2;padding:14px;border:none;border-radius:10px;background:#1D9E75;color:#fff;font-size:15px;font-weight:700">💾 Guardar</button>'
     + '<button onclick="cerrarEditarDirecciones()" style="flex:1;padding:14px;border:none;border-radius:10px;background:#26344A;color:#fff;font-size:14px">Cancelar</button></div></div>';
   document.body.appendChild(m);
+  ['dir-origen', 'dir-p1', 'dir-p2', 'dir-destino'].forEach(id => { const el = document.getElementById(id); if(el) el.addEventListener('change', dxAuto); });
   try {
     if(typeof google !== 'undefined' && google.maps && google.maps.places) {
       const opts = { componentRestrictions: { country: 'us' }, types: ['address'] };
       ['dir-origen', 'dir-p1', 'dir-p2', 'dir-destino'].forEach(id => {
         const el = document.getElementById(id);
         const ac = new google.maps.places.Autocomplete(el, opts);
-        ac.addListener('place_changed', () => { const pl = ac.getPlace(); if(pl && pl.formatted_address) el.value = pl.formatted_address; });
+        ac.addListener('place_changed', () => { const pl = ac.getPlace(); if(pl && pl.formatted_address) el.value = pl.formatted_address; dxAuto(); });
       });
     }
   } catch(e) {}
@@ -11087,8 +11191,20 @@ async function guardarDireccionesCampo() {
   const nombre = v('dir-nombre').toUpperCase(), tel = v('dir-tel');
   if(!nombre) { document.getElementById('dir-err').textContent = 'Falta el nombre del cliente'; return; }
   if(!origen || !destino) { document.getElementById('dir-err').textContent = 'Falta el origen o el destino'; return; }
+  // v13.27: cargo por dirección extra
+  let extra = null;
+  if((document.getElementById('dx-on') || {}).checked) {
+    extra = window._dxCalc || await dxCalcular();
+    if(!extra) { document.getElementById('dir-err').textContent = 'No se pudo calcular el cargo extra. Quita la casilla o revisa las direcciones.'; return; }
+    if(!confirm('💲 Se suma $' + extra.monto + ' al trabajo por la dirección extra.\n\n¿El cliente ya está de acuerdo?')) return;
+  }
   const ts = Date.now();
-  const o = dirOverrides(); o[t.cotId] = { origen, destino, paradas, nombre, tel, ts }; localStorage.setItem(DIR_KEY, JSON.stringify(o));
+  const o = dirOverrides();
+  const prevO = o[t.cotId] || {};
+  const cargosExtra = (Array.isArray(t.cargosExtra) ? t.cargosExtra.slice() : []).concat(extra ? [extra] : []);
+  const montoOriginal = prevO.montoOriginal != null ? prevO.montoOriginal : (+(t.monto || 0) - (Array.isArray(t.cargosExtra) ? t.cargosExtra.reduce((a, x) => a + (+x.monto || 0), 0) : 0));
+  o[t.cotId] = { origen, destino, paradas, nombre, tel, ts, cargosExtra, montoOriginal }; localStorage.setItem(DIR_KEY, JSON.stringify(o));
+  if(extra) { [trabajoActivo].concat(trabajosCola || []).forEach(x => { if(x && x.cotId === t.cotId) { x.cargosExtra = cargosExtra; x.monto = +montoOriginal + cargosExtra.reduce((a, y) => a + (+y.monto || 0), 0); } }); }
   // Actualizar este celular al instante
   [trabajoActivo].concat(trabajosCola || []).forEach(x => { if(x && x.cotId === t.cotId) { x.origen = origen; x.destino = destino; x.paradas = paradas; x.nombre = nombre; x.tel = tel; } });
   try { localStorage.setItem('trabajoActivoCampo', JSON.stringify(trabajoActivo)); } catch(e) {}
@@ -11103,7 +11219,7 @@ async function guardarDireccionesCampo() {
   } catch(e) {}
   // Mandarlo a la computadora (si no hay internet, se guarda y se reintenta)
   const cola = (() => { try { return JSON.parse(localStorage.getItem(DIR_COLA) || '[]'); } catch(e) { return []; } })();
-  cola.push({ id: 'DIR-' + ts + '-' + vjQuien(), cotId: t.cotId, origen, destino, paradas, nombre, tel, ts, quien: localStorage.getItem('campo_ayudante_nombre') || '' });
+  cola.push({ id: 'DIR-' + ts + '-' + vjQuien(), cotId: t.cotId, origen, destino, paradas, nombre, tel, ts, extra, quien: localStorage.getItem('campo_ayudante_nombre') || '' });
   localStorage.setItem(DIR_COLA, JSON.stringify(cola));
   cerrarEditarDirecciones();
   mostrarTrabajo(trabajoActivo, Math.max(0, (trabajosCola || []).length - 1));
