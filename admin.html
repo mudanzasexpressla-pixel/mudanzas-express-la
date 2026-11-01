@@ -9179,11 +9179,16 @@ initDarkMode();
 
       <!-- v13: Lista de salida (la marca el ayudante antes de irse) -->
       <div class="card" id="checklist-salida-card">
-        <div class="card-title">🧰 Lista de salida — antes de irnos</div>
-        <div class="notice notice-amber" style="font-size:11px">Mientras se cobra al cliente, revisa que TODO el equipo esté en el camión. Marca cada cosa.</div>
-        <div id="checklist-items"></div>
-        <div id="checklist-status" style="display:none;padding:10px;border-radius:8px;font-size:12px;margin:8px 0;font-weight:700"></div>
-        <button class="btn btn-primary" id="btn-checklist" onclick="confirmarChecklistSalida()" style="background:#1D9E75">✅ Todo está en el camión</button>
+        <div id="checklist-head" onclick="toggleChecklistSalida()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none">
+          <div class="card-title" style="margin:0">🧰 Lista de salida <span id="checklist-progreso" style="font-size:12px;font-weight:700;color:#EF9F27"></span></div>
+          <span id="checklist-flecha" style="font-size:16px;color:#7ab8d8">▼</span>
+        </div>
+        <div id="checklist-body" style="display:none;margin-top:10px">
+          <div class="notice notice-amber" style="font-size:11px">Mientras se cobra al cliente, revisa que TODO el equipo esté en el camión. Marca cada cosa.</div>
+          <div id="checklist-items"></div>
+          <div id="checklist-status" style="display:none;padding:10px;border-radius:8px;font-size:12px;margin:8px 0;font-weight:700"></div>
+          <button class="btn btn-primary" id="btn-checklist" onclick="confirmarChecklistSalida()" style="background:#1D9E75">✅ Todo está en el camión</button>
+        </div>
       </div>
       <button class="btn btn-primary" id="btn-ir-terminar" onclick="switchTab('terminar')" style="margin-top:4px">✅ Ir a terminar este trabajo</button>
       <div style="font-size:11px;color:#b0c4d8;text-align:center;margin-top:8px" id="campo-enviado"></div>
@@ -11326,12 +11331,20 @@ const CHECKLIST_SALIDA = [
 function checklistKey(cotId) { return 'checklist_salida_' + (cotId || ''); }
 function leerChecklist(cotId) { try { return JSON.parse(localStorage.getItem(checklistKey(cotId)) || '{}'); } catch(e) { return {}; } }
 function checklistCompleto(cotId) { const c = leerChecklist(cotId); return !!c.completo; }
+// v13.27: la lista se abre y se cierra con un toque (ahorra espacio)
+function toggleChecklistSalida(abrir) {
+  const b = document.getElementById('checklist-body'), f = document.getElementById('checklist-flecha'); if(!b) return;
+  const ab = typeof abrir === 'boolean' ? abrir : b.style.display === 'none';
+  b.style.display = ab ? 'block' : 'none'; if(f) f.textContent = ab ? '▲' : '▼';
+}
 function renderChecklistSalida() {
   const el = document.getElementById('checklist-items');
   if(!el) return;
   const cotId = trabajoActivo ? trabajoActivo.cotId : '';
   const c = leerChecklist(cotId);
   const marcas = c.marcas || [];
+  const pr = document.getElementById('checklist-progreso');
+  if(pr) { const n = CHECKLIST_SALIDA.filter((_, i) => marcas[i]).length; pr.textContent = c.completo ? '✅ Revisado' : '(' + n + '/' + CHECKLIST_SALIDA.length + ')'; pr.style.color = c.completo ? '#1D9E75' : '#EF9F27'; }
   el.innerHTML = CHECKLIST_SALIDA.map((txt, i) =>
     '<label style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid #26344A;font-size:14px;cursor:pointer">'
     + '<input type="checkbox" style="width:22px;height:22px;accent-color:#1D9E75" ' + (marcas[i] ? 'checked' : '') + ' onchange="marcarChecklist(' + i + ', this.checked)"> ' + txt + '</label>').join('');
@@ -11364,6 +11377,7 @@ async function confirmarChecklistSalida() {
   c.nombre = nombre;
   localStorage.setItem(checklistKey(cotId), JSON.stringify(c));
   renderChecklistSalida();
+  toggleChecklistSalida(false);
   // Avisar al administrador (queda como registro de campo del trabajo)
   try {
     if(CAMPO_APPS_URL && !CAMPO_APPS_URL.includes('PEGA_AQUI')) {
