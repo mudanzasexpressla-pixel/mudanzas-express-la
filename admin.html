@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.27</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.29</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -838,6 +838,23 @@ table.data-table tr:hover td{background:#1A2A42!important}
       <div id="ay-historial-tabla">
         <div class="empty-state" style="padding:24px"><p>Sin registros de ayudantes todavía</p></div>
       </div>
+    </div>
+
+    <!-- v13.29: Adelantos / préstamos a ayudantes (no son gasto; se descuentan después) -->
+    <div class="card" style="border-left:4px solid #EF9F27">
+      <div style="font-size:13.5px;font-weight:700;color:#EF9F27">💸 Adelantos a ayudantes</div>
+      <div style="font-size:11px;color:var(--ink-faint);margin:2px 0 12px">Un adelanto NO es gasto ni cuenta para el 1099: es dinero que te deben. Cada domingo registra el descuento (abono) hasta llegar a $0.</div>
+      <div class="form-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+        <div><label>Ayudante</label><input type="text" id="adl-nombre" list="ay-nombres-list" placeholder="GELACIO HUERTA LOPEZ"></div>
+        <div><label>Tipo</label><select id="adl-tipo"><option value="adelanto">💸 Adelanto / préstamo (le doy dinero)</option><option value="abono">✅ Descuento / abono (me lo regresa)</option></select></div>
+        <div><label>Fecha</label><input type="date" id="adl-fecha"></div>
+        <div><label>Monto ($)</label><input type="number" id="adl-monto" step="0.01" min="0" placeholder="0.00"></div>
+        <div><label>Forma</label><select id="adl-forma"><option>Zelle</option><option>Efectivo</option><option>Descontado de su pago</option><option>Otro</option></select></div>
+        <div><label>Descontar cada domingo ($)</label><input type="number" id="adl-semanal" step="0.01" min="0" placeholder="Ej: 200 (solo adelantos)"></div>
+        <div><label>Nota (opcional)</label><input type="text" id="adl-nota" placeholder="Opcional"></div>
+      </div>
+      <button class="btn btn-primary" onclick="guardarAdelanto()" style="background:#EF9F27;border-color:#EF9F27;margin-top:10px">💾 Guardar y hacer comprobante</button>
+      <div id="adl-lista" style="margin-top:14px"></div>
     </div>
 
     <div id="lista-ay"></div>
@@ -4458,7 +4475,7 @@ function showGTab(t, btn) {
   document.querySelectorAll('.tab-inner-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   if(t==='resumen') renderResumen();
-  if(t==='ayudantes') { const tHr=document.getElementById('ay-tarifa-hr'); if(tHr&&!tHr.value) tHr.value=(getCfg().tarifaAyudanteHr||22.50); const fec=document.getElementById('ay-fecha'); if(fec&&!fec.value) fec.value=hoyLocal(); renderAyHistorial(); renderAyPendientes(); }
+  if(t==='ayudantes') { const tHr=document.getElementById('ay-tarifa-hr'); if(tHr&&!tHr.value) tHr.value=(getCfg().tarifaAyudanteHr||22.50); const fec=document.getElementById('ay-fecha'); if(fec&&!fec.value) fec.value=hoyLocal(); renderAyHistorial(); renderAyPendientes(); try { renderAdelantos(); } catch(e) {} }
 }
 
 // ===================== HISTORIAL ACUMULADO AYUDANTES =====================
@@ -4810,7 +4827,7 @@ function renderAyHistorial() {
     </div>`;
   }).join('');
 
-  el.innerHTML = html;
+  el.innerHTML = (typeof adelantosAviso === 'function' ? adelantosAviso() : '') + html;
 }
 
 function toggleAyHist(uid) {
@@ -4828,7 +4845,8 @@ function ayComprobanteSemana(nombre, semKey) {
   const domingo = new Date(lunes); domingo.setDate(lunes.getDate()+6); domingo.setHours(23,59,59,999);
   const regs = todos.filter(r=>{ const fd=ayParseFecha(r.fecha); return fd&&fd>=lunes&&fd<=domingo; });
   if(!regs.length){ alert('Sin registros para esa semana'); return; }
-  generarComprobanteAyudante(nombre, aySemanLabel(lunes), regs);
+  const _iso = x => x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0');
+  generarComprobanteAyudante(nombre, aySemanLabel(lunes), regs, { desde: _iso(lunes), hasta: _iso(domingo) });
 }
 
 function generarComprobanteNombreCompleto(nombre) {
@@ -5744,7 +5762,7 @@ function confirmarTerminar() {
   cot.gananciaReal=monto+propina-pagoAyudante-rentaCosto;
   if(horasTrabajadas>0&&nombreAyudante&&nombreAyudante.trim()){var tAr=getCfg().tarifaAyudanteHr||23;var bAr=huboDificultad?15:0;if(!d.ay)d.ay=[];if(!d.ay.some(function(a){return a.trabajo===cot.id&&a.esAutoComprobante;})){d.ay.push({id:"AY-AUTO-"+Date.now(),nombre:nombreAyudante,trabajo:cot.id,cliente:cot.cliente?(cot.cliente.nombre||cot.cliente):"",fecha:hoyLocal(),horas:horasTrabajadas,tarifaHr:tAr,bono:bAr,monto:Math.round(horasTrabajadas*tAr)+bAr,pagoReal:pagoAyudante,tipo:"Por trabajo terminado",esAutoComprobante:true,pagadoEnSemana:false});}}
   // Guardar también pago doble si vino de campo
-  if(dc && dc.formaPago2) { cot.formaPago2=dc.formaPago2; cot.montoPago1=dc.montoPago1; cot.montoPago2=dc.montoPago2; cot.refPago2=dc.refPago2||''; }
+  if(dc && dc.formaPago2) { cot.formaPago1=dc.formaPago1||''; cot.formaPago2=dc.formaPago2; cot.montoPago1=dc.montoPago1; cot.montoPago2=dc.montoPago2; cot.refPago2=dc.refPago2||''; }
   const fechaRealVal = document.getElementById('tm-fecha-real') ? document.getElementById('tm-fecha-real').value : '';
   cot.fechaTerminado    = fechaRealVal ? new Date(fechaRealVal+'T12:00:00').toLocaleDateString('es-US') : new Date().toLocaleDateString('es-US');
   cot.fechaTerminadoISO = fechaRealVal || hoyLocal();
@@ -6958,7 +6976,8 @@ function construirReciboPDF(c, idioma) {
   notasPartes.forEach(t => { notasLines = notasLines.concat(doc.splitTextToSize(t, 90)); });
 
   const _descR = +c.descuentoFinal || 0;
-  const filasTotales = 2 + ((c.propina||0)>0?1:0) + (c.refPago?1:0) + (_descR>0?2:0);
+  const _split = !!(c.formaPago2 && +c.montoPago2 > 0);
+  const filasTotales = 2 + ((c.propina||0)>0?1:0) + (c.refPago?1:0) + (_descR>0?2:0) + (_split?1:0);
   const altoTotales = 14 + filasTotales*6 + 8;
   const altoNotas = 12 + notasLines.length*3.6;
   const altoBloque = Math.max(altoTotales, altoNotas, 34);
@@ -6991,7 +7010,11 @@ function construirReciboPDF(c, idioma) {
   doc.text(idioma==='en'?'TOTAL PAID:':'TOTAL PAGADO:', 123, yT);
   doc.text('$'+totalPagado.toFixed(2), 193, yT, {align:'right'}); yT += 6;
   doc.setFont('helvetica','normal'); doc.setFontSize(7.6); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
-  doc.text(L.forma + ': ' + (c.pagoFinal||'—'), 123, yT); yT += 4.5;
+  if(_split) {
+    const f1 = c.formaPago1 || String(c.pagoFinal || '').split(' + ')[0] || '—';
+    doc.text(L.forma + ': ' + f1 + ' $' + (+c.montoPago1 || 0).toFixed(2), 123, yT); yT += 4.5;
+    doc.text('          + ' + c.formaPago2 + ' $' + (+c.montoPago2).toFixed(2), 123, yT); yT += 4.5;
+  } else { doc.text(L.forma + ': ' + (c.pagoFinal||'—'), 123, yT); yT += 4.5; }
   if(c.refPago) doc.text(L.ref + ': ' + c.refPago, 123, yT);
 
   y += altoBloque + 10;
@@ -7111,9 +7134,10 @@ function generarComprobanteSeleccionado() {
   });
   if(!registros.length) { alert('No hay registros para esa semana'); return; }
   const semanaLabel = lunes.toLocaleDateString('es-US')+' - '+dom.toLocaleDateString('es-US');
-  generarComprobanteAyudante(nombre, semanaLabel, registros);
+  const _iso = x => x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0');
+  generarComprobanteAyudante(nombre, semanaLabel, registros, { desde: _iso(lunes), hasta: _iso(dom) });
 }
-function generarComprobanteAyudante(nombre, semanaLabel, registros) {
+function generarComprobanteAyudante(nombre, semanaLabel, registros, rango) {
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF();
   const NAVY=[20,63,116], BRAND=[31,94,168], GRIS=[100,108,118], TINT=[237,243,251], GREEN=[29,158,117];
@@ -7217,12 +7241,45 @@ function generarComprobanteAyudante(nombre, semanaLabel, registros) {
   doc.text('$'+totalGeneral.toFixed(2), 193, y+4, {align:'right'});
   y += 22;
 
+  // ── v13.29: ADELANTOS de la semana (préstamo, se descuenta de pagos futuros) ──
+  let _adlAd = 0, _adlAb = 0, _adlSaldo = 0, _adlMovs = [];
+  if(rango) {
+    const _k = ayNormNombre(nombre);
+    const _all = (getData().adelantos || []).filter(a => ayNormNombre(a.nombre) === _k).sort((a, b) => (a.fecha + a.id) > (b.fecha + b.id) ? 1 : -1);
+    _adlMovs = _all.filter(a => a.fecha >= rango.desde && a.fecha <= rango.hasta);
+    _adlMovs.forEach(a => { if(a.tipo === 'abono') _adlAb += +a.monto || 0; else _adlAd += +a.monto || 0; });
+    _adlSaldo = _all.filter(a => a.fecha <= rango.hasta).reduce((t, a) => t + (a.tipo === 'abono' ? -1 : 1) * (+a.monto || 0), 0);
+  }
+  if(_adlMovs.length || _adlSaldo > 0.009) {
+    if(y > 215) { doc.addPage(); y = 20; }
+    doc.setFillColor(239,159,39); doc.rect(12,y-5,186,8,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.text('ADELANTO (préstamo — se descuenta de pagos futuros)', 16, y); doc.text('Monto', 193, y, {align:'right'}); y += 8;
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(25,30,38);
+    _adlMovs.forEach(a => {
+      doc.text(a.fecha + '   ' + (a.tipo === 'abono' ? 'Descuento al adelanto' : 'Adelanto entregado') + (a.forma ? ' (' + a.forma + ')' : ''), 16, y);
+      doc.text((a.tipo === 'abono' ? '−$' : '+$') + (+a.monto).toFixed(2), 193, y, {align:'right'}); y += 6;
+    });
+    doc.setFont('helvetica','bold'); doc.setTextColor(150,95,10);
+    doc.text('Saldo pendiente del adelanto al cierre de la semana:', 16, y); doc.text('$' + Math.max(0, _adlSaldo).toFixed(2), 193, y, {align:'right'});
+    y += 10;
+  }
+
   // ── CAJA TOTAL A PAGAR ──
+  if(_adlAd > 0 || _adlAb > 0) {
+    if(y > 230) { doc.addPage(); y = 20; }
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(50,56,64);
+    doc.text('Pago por trabajo:', 123, y); doc.text('$'+totalGeneral.toFixed(2), 193, y, {align:'right'}); y += 5.5;
+    if(_adlAb > 0) { doc.text('− Descuento de adelanto:', 123, y); doc.text('−$'+_adlAb.toFixed(2), 193, y, {align:'right'}); y += 5.5; }
+    if(_adlAd > 0) { doc.text('+ Adelanto entregado:', 123, y); doc.text('+$'+_adlAd.toFixed(2), 193, y, {align:'right'}); y += 5.5; }
+    y += 4;
+  }
+  const _totalEnv = totalGeneral - _adlAb + _adlAd;
   doc.setFillColor(GREEN[0],GREEN[1],GREEN[2]); RR(118,y-4,80,18,'F');
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(10);
-  doc.text('TOTAL A PAGAR:', 123, y+4);
+  doc.text((_adlAd > 0 || _adlAb > 0) ? 'TOTAL ENVIADO:' : 'TOTAL A PAGAR:', 123, y+4);
   doc.setFontSize(14);
-  doc.text('$'+totalGeneral.toFixed(2), 193, y+7, {align:'right'});
+  doc.text('$'+_totalEnv.toFixed(2), 193, y+7, {align:'right'});
   y += 25;
 
   // ── NOTA INFORMATIVA ──
@@ -7416,6 +7473,18 @@ function exportarExcel(tipo) {
     const wscap = XLSX.utils.aoa_to_sheet([hcap,...rcap]);
     wscap['!cols']=[{wch:12},{wch:11},{wch:28},{wch:32},{wch:50}];
     XLSX.utils.book_append_sheet(wb, wscap, 'Capital-Aportaciones');
+
+    // v13.29: Adelantos a ayudantes (préstamos, no son gasto)
+    const adl = (d.adelantos||[]).slice().sort((a,b)=>a.fecha<b.fecha?-1:1);
+    if(adl.length) {
+      const radl = adl.map(a=>[a.fecha, a.nombre, a.tipo==='abono'?'Abono (me regresa)':'Adelanto (le di)', a.tipo==='abono'?-(+a.monto||0):(+a.monto||0), a.forma||'', a.nota||'']);
+      const saldos = {}; adl.forEach(a=>{ saldos[a.nombre]=(saldos[a.nombre]||0)+(a.tipo==='abono'?-1:1)*(+a.monto||0); });
+      radl.push([]); Object.keys(saldos).forEach(n=>radl.push(['', n, 'SALDO PENDIENTE', +saldos[n].toFixed(2), '', '']));
+      radl.push(['','','','','','⚠️ Los adelantos son préstamos: NO son gasto ni pago para el 1099. Lo que trabaja para pagarlos ya está en la hoja Ayudantes.']);
+      const wsadl = XLSX.utils.aoa_to_sheet([['Fecha','Ayudante','Tipo','Monto $','Forma','Nota'],...radl]);
+      wsadl['!cols']=[{wch:12},{wch:24},{wch:20},{wch:11},{wch:20},{wch:50}];
+      XLSX.utils.book_append_sheet(wb, wsadl, 'Adelantos');
+    }
   }
 
   if(tipo === 'completo') {
@@ -9322,9 +9391,9 @@ initDarkMode();
         </label>
         <div id="t-pago2-wrap" style="display:none">
           <label style="font-size:12px;color:#b0c4d8;font-weight:600">Monto pagado con método 1 ($)</label>
-          <input id="t-monto-pago1" type="number" placeholder="0.00" step="0.01" min="0" oninput="actualizarTotalCampo()" style="margin-bottom:8px">
+          <input id="t-monto-pago1" type="number" placeholder="0.00" step="0.01" min="0" oninput="autoPago2();actualizarTotalCampo()" style="margin-bottom:8px">
           <label style="font-size:12px;color:#b0c4d8;font-weight:600">Segunda forma de pago</label>
-          <select id="t-pago2" style="margin-bottom:8px" onchange="mostrarQRZelle2()">
+          <select id="t-pago2" style="margin-bottom:8px" onchange="mostrarQRZelle2();actualizarTotalCampo()">
             <option>Efectivo</option>
             <option>Zelle</option>
             <option>Tarjeta</option>
@@ -9334,7 +9403,7 @@ initDarkMode();
             <div style="font-size:12px;font-weight:700;color:#6B21A8;margin-bottom:6px">Zelle: (323) 946-2008</div>
           </div>
           <label style="font-size:12px;color:#b0c4d8;font-weight:600">Monto pagado con método 2 ($)</label>
-          <input id="t-monto-pago2" type="number" placeholder="0.00" step="0.01" min="0" oninput="actualizarTotalCampo()" style="margin-bottom:8px">
+          <input id="t-monto-pago2" type="number" placeholder="0.00" step="0.01" min="0" oninput="this.dataset.auto='';actualizarTotalCampo()" style="margin-bottom:8px">
           <label style="font-size:12px;color:#b0c4d8;font-weight:600">Referencia pago 2 (opcional)</label>
           <input id="t-ref2" type="text" placeholder="Ref del segundo pago">
           <div id="t-resumen-pago" style="display:none;background:#eafaf1;border-radius:8px;padding:10px;margin-top:8px;font-size:13px;color:#1a7a4a;font-weight:700;text-align:center"></div>
@@ -10307,6 +10376,7 @@ function mostrarQRZelle() {
 function togglePago2() {
   const activo = document.getElementById('t-pago2-activo').checked;
   document.getElementById('t-pago2-wrap').style.display = activo ? '' : 'none';
+  if(activo) { const e1 = document.getElementById('t-monto-pago1'); if(e1 && !e1.value) e1.focus(); }
   actualizarTotalCampo();
 }
 
@@ -10316,12 +10386,29 @@ function mostrarQRZelle2() {
   if(qrBlock) qrBlock.style.display = pago === 'Zelle' ? '' : 'none';
 }
 
+// v13.28: al escribir el monto 1, el monto 2 se llena solo con lo que falta (se puede cambiar)
+function autoPago2() {
+  const e2 = document.getElementById('t-monto-pago2'); if(!e2) return;
+  if(e2.value && e2.dataset.auto !== '1') return;
+  const total = (parseFloat(document.getElementById('t-monto').value) || 0) + (parseFloat(document.getElementById('t-propina').value) || 0);
+  const m1 = parseFloat(document.getElementById('t-monto-pago1').value) || 0;
+  const resta = Math.max(0, total - m1);
+  e2.value = m1 > 0 ? resta.toFixed(2) : ''; e2.dataset.auto = '1';
+}
 function actualizarTotalCampo() {
   const monto = parseFloat(document.getElementById('t-monto').value) || 0;
   const propina = parseFloat(document.getElementById('t-propina').value) || 0;
   const total = monto + propina;
   const totalDisplay = document.getElementById('t-total-display');
-  if(propina > 0) {
+  const _p2 = document.getElementById('t-pago2-activo') && document.getElementById('t-pago2-activo').checked;
+  if(_p2) {
+    try { autoPago2(); } catch(e) {}
+    const a = parseFloat(document.getElementById('t-monto-pago1').value) || 0, b = parseFloat(document.getElementById('t-monto-pago2').value) || 0;
+    totalDisplay.style.display = '';
+    totalDisplay.innerHTML = '💵 TOTAL PAGADO: <span style="font-size:20px">$' + (a + b).toFixed(2) + '</span><br><span style="font-size:12px;font-weight:600">'
+      + escH(document.getElementById('t-pago').value) + ' $' + a.toFixed(2) + ' + ' + escH(document.getElementById('t-pago2').value) + ' $' + b.toFixed(2)
+      + (propina > 0 ? ' · incluye propina $' + propina.toFixed(2) : '') + '</span>';
+  } else if(propina > 0) {
     totalDisplay.style.display = '';
     totalDisplay.textContent = '🎁 Total con propina: $' + total.toFixed(2);
   } else {
@@ -10359,6 +10446,20 @@ async function enviarTerminado() {
   const pago = document.getElementById('t-pago').value;
 
   if(!cotId) { mostrarEstado('terminar-status', '⚠️ No hay un trabajo asignado para terminar todavía.', 'error'); return; }
+  // v13.28: con dos formas de pago, la suma debe dar el total
+  if(document.getElementById('t-pago2-activo') && document.getElementById('t-pago2-activo').checked) {
+    const a = parseFloat(document.getElementById('t-monto-pago1').value) || 0, b = parseFloat(document.getElementById('t-monto-pago2').value) || 0;
+    const debe = monto + propina, diff = +(a + b - debe).toFixed(2);
+    if(!(a > 0 && b > 0)) { alert('⚠️ Escribe cuánto pagó con cada forma de pago (las dos).'); return; }
+    if(diff > 0.009) {
+      if(confirm('💵 Entre los dos pagos recibiste $' + (a + b).toFixed(2) + ', o sea $' + diff.toFixed(2) + ' más de lo que se cobra.\n\n¿Lo registro como PROPINA?')) {
+        const tp = document.getElementById('t-propina'); tp.value = (propina + diff).toFixed(2); actualizarTotalCampo();
+        return enviarTerminado();
+      }
+      return;
+    }
+    if(diff < -0.009 && !confirm('⚠️ Entre los dos pagos faltan $' + Math.abs(diff).toFixed(2) + ' para el total ($' + debe.toFixed(2) + ').\n\n¿Terminar de todos modos?')) return;
+  }
   if(pago === 'Zelle' && !document.getElementById('t-ref').value.trim()) {
     if(!confirm('ℹ️ No pusiste la referencia de Zelle.\n\nNo pasa nada: la puedes agregar después desde la computadora (Fase 2).\n\n¿Continuar?')) return;
   }
@@ -10889,6 +10990,7 @@ async function reciboCampoPDF(idioma) {
     articulosDetalle: arts, articulos: typeof t.articulos === 'string' ? t.articulos : '',
     notas: t.notas || '', obsFinales: obsCampoFinal(),
     pagoFinal: p2 ? pago + ' + ' + g('t-pago2') : pago, refPago: g('t-ref'),
+    formaPago1: p2 ? pago : '', formaPago2: p2 ? g('t-pago2') : '', montoPago1: p2 ? (parseFloat(g('t-monto-pago1')) || 0) : 0, montoPago2: p2 ? (parseFloat(g('t-monto-pago2')) || 0) : 0,
     descuentoFinal: descuentoCampo(), firmaCliente: obtenerFirmaBase64(),
     horasTrabajadas: parseFloat(g('campo-crono-horas')) || 0
   };
@@ -11787,6 +11889,136 @@ function pedirHorarioRecibo(id, seguir) {
   document.getElementById('hr-ok').onclick = () => guardar(false);
   document.getElementById('hr-sin').onclick = () => guardar(true);
   document.getElementById('hr-x').onclick = () => m.remove();
+}
+</script>
+<script>
+// ===================== v13.29: ADELANTOS A AYUDANTES =====================
+function adlSaldos() {
+  const r = {}; (getData().adelantos || []).slice().sort((a, b) => (a.fecha + a.id) > (b.fecha + b.id) ? 1 : -1).forEach(a => { const k = ayNormNombre(a.nombre); if(!r[k]) r[k] = { k, nombre: a.nombre, saldo: 0, semanal: 0 }; r[k].saldo += (a.tipo === 'abono' ? -1 : 1) * (+a.monto || 0); if(a.tipo !== 'abono' && +a.descSemanal > 0) r[k].semanal = +a.descSemanal; });
+  Object.values(r).forEach(x => x.saldo = +x.saldo.toFixed(2)); return r;
+}
+function adelantosAviso() {
+  const pend = Object.values(adlSaldos()).filter(x => x.saldo > 0.009);
+  if(!pend.length) return '';
+  return '<div style="background:#EF9F2718;border:1px solid #EF9F27;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px">💸 <b>Adelanto pendiente:</b> '
+    + pend.map(x => escH(x.nombre) + ' debe <b>$' + x.saldo.toFixed(2) + '</b>' + (x.semanal > 0 ? ' · acordado: $' + x.semanal.toFixed(2) + ' por domingo' : '')
+      + ' <button class="btn btn-sm" style="margin-left:6px;background:#1D9E75;color:#fff;border-color:#1D9E75" onclick="adlDescontarHoy(\'' + x.k + '\')">✅ Descontar hoy</button>').join('<br>')
+    + '<br><span style="font-size:11px;color:var(--ink-faint)">El descuento sale en el comprobante de pago de la semana.</span></div>';
+}
+function adlDescontarHoy(k) {
+  const x = adlSaldos()[k]; if(!x || x.saldo <= 0) return;
+  const sug = Math.min(x.saldo, x.semanal > 0 ? x.semanal : x.saldo);
+  const v = prompt('¿Cuánto le descuentas hoy a ' + x.nombre + ' del adelanto?\n\nDebe: $' + x.saldo.toFixed(2) + (x.semanal > 0 ? '\nAcordado: $' + x.semanal.toFixed(2) + ' por domingo' : ''), sug.toFixed(2));
+  if(v === null) return;
+  const m = parseFloat(v) || 0; if(!(m > 0)) return;
+  if(m > x.saldo + 0.009 && !confirm('Solo debe $' + x.saldo.toFixed(2) + '. ¿Guardar $' + m.toFixed(2) + ' de todos modos?')) return;
+  const d = getData(); if(!d.adelantos) d.adelantos = [];
+  d.adelantos.push({ id: 'ADL-' + Date.now(), nombre: x.nombre, tipo: 'abono', fecha: hoyLocal(), monto: +m.toFixed(2), forma: 'Descontado de su pago', nota: '' });
+  saveData(d); renderAdelantos(); try { renderAyHistorial(); } catch(e) {}
+  try { toastV('✅ Descuento de $' + m.toFixed(2) + ' guardado. Queda: $' + Math.max(0, x.saldo - m).toFixed(2)); } catch(e) {}
+}
+function renderAdelantos() {
+  const el = document.getElementById('adl-lista'); if(!el) return;
+  const f = document.getElementById('adl-fecha'); if(f && !f.value) f.value = hoyLocal();
+  const lista = (getData().adelantos || []).slice().sort((a, b) => (b.fecha + b.id) > (a.fecha + a.id) ? 1 : -1);
+  const sal = Object.values(adlSaldos());
+  if(!lista.length) { el.innerHTML = '<div style="font-size:12px;color:var(--ink-faint)">Sin adelantos registrados.</div>'; return; }
+  el.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">'
+    + sal.map(x => '<div style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 12px"><div style="font-size:11px;color:var(--ink-faint)">' + escH(x.nombre) + '</div><div style="font-size:18px;font-weight:900;color:' + (x.saldo > 0.009 ? '#EF9F27' : '#1D9E75') + '">' + (x.saldo > 0.009 ? 'Debe $' + x.saldo.toFixed(2) : '✅ $0 — pagado') + '</div></div>').join('')
+    + '</div><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="text-align:left;color:var(--ink-faint)"><th>Fecha</th><th>Ayudante</th><th>Tipo</th><th style="text-align:right">Monto</th><th>Forma / nota</th><th></th></tr></thead><tbody>'
+    + lista.map(a => '<tr style="border-top:1px solid var(--line-soft)"><td style="padding:6px 4px">' + escH(a.fecha) + '</td><td>' + escH(a.nombre) + '</td><td>' + (a.tipo === 'abono' ? '✅ Abono' : '💸 Adelanto') + '</td>'
+      + '<td style="text-align:right;font-weight:700;color:' + (a.tipo === 'abono' ? '#1D9E75' : '#EF9F27') + '">' + (a.tipo === 'abono' ? '−' : '') + '$' + (+a.monto).toFixed(2) + '</td>'
+      + '<td style="font-size:11px">' + escH(a.forma || '') + (a.nota ? ' · ' + escH(a.nota) : '') + '</td>'
+      + '<td style="white-space:nowrap"><button class="btn btn-sm" onclick="comprobanteAdelanto(\'' + a.id + '\')">📄 PDF</button> <button class="btn btn-sm" onclick="borrarAdelanto(\'' + a.id + '\')" style="color:#E24B4A">🗑</button></td></tr>').join('')
+    + '</tbody></table>';
+}
+function guardarAdelanto() {
+  const g = id => (document.getElementById(id) || {}).value || '';
+  const nombre = g('adl-nombre').trim().toUpperCase(), monto = parseFloat(g('adl-monto')) || 0, tipo = g('adl-tipo');
+  if(!nombre) { alert('⚠️ Escribe el nombre del ayudante'); return; }
+  if(!(monto > 0)) { alert('⚠️ Escribe el monto'); return; }
+  const saldoAntes = (adlSaldos()[ayNormNombre(nombre)] || {}).saldo || 0;
+  if(tipo === 'abono' && monto > saldoAntes + 0.009 && !confirm('⚠️ ' + nombre + ' solo debe $' + saldoAntes.toFixed(2) + '. ¿Guardar el abono de $' + monto.toFixed(2) + ' de todos modos?')) return;
+  const d = getData(); if(!d.adelantos) d.adelantos = [];
+  const a = { id: 'ADL-' + Date.now(), nombre, tipo, fecha: g('adl-fecha') || hoyLocal(), monto: +monto.toFixed(2), forma: g('adl-forma'), nota: g('adl-nota').trim() };
+  if(tipo === 'adelanto') a.descSemanal = +(parseFloat(g('adl-semanal')) || 0).toFixed(2);
+  d.adelantos.push(a); saveData(d);
+  ['adl-monto', 'adl-nota', 'adl-semanal'].forEach(id => { const e = document.getElementById(id); if(e) e.value = ''; });
+  renderAdelantos(); try { renderAyHistorial(); } catch(e) {}
+  comprobanteAdelanto(a.id);
+}
+function borrarAdelanto(id) {
+  if(!confirm('¿Borrar este registro de adelanto/abono?')) return;
+  const d = getData(); d.adelantos = (d.adelantos || []).filter(a => a.id !== id); saveData(d);
+  renderAdelantos(); try { renderAyHistorial(); } catch(e) {}
+}
+function comprobanteAdelanto(id) {
+  const d = getData(); const a = (d.adelantos || []).find(x => x.id === id); if(!a) return;
+  const k = ayNormNombre(a.nombre);
+  const movs = (d.adelantos || []).filter(x => ayNormNombre(x.nombre) === k).sort((x, y) => (x.fecha + x.id) > (y.fecha + y.id) ? 1 : -1);
+  let saldo = 0, saldoDespues = 0;
+  movs.forEach(x => { saldo += (x.tipo === 'abono' ? -1 : 1) * (+x.monto || 0); if(x.id === a.id) saldoDespues = saldo; });
+  const {jsPDF} = window.jspdf; const doc = new jsPDF();
+  const NAVY = [20,63,116], GRIS = [100,108,118], AMB = [239,159,39], VER = [29,158,117];
+  const esAb = a.tipo === 'abono';
+  doc.setFillColor(...NAVY); doc.rect(0, 0, 210, 4, 'F');
+  doc.setTextColor(...NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(19); doc.text('MUDANZAS EXPRESS LA', 14, 20);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GRIS);
+  doc.text('Los Angeles, CA • (323) 946-2008 • mudanzasexpressla@gmail.com', 14, 27);
+  doc.setFillColor(237,243,251); doc.roundedRect(130, 9, 66, 22, 2, 2, 'F');
+  doc.setTextColor(...NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5);
+  doc.text(esAb ? 'COMPROBANTE DE ABONO' : 'COMPROBANTE DE ADELANTO', 163, 17, {align:'center'});
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GRIS);
+  doc.text('Folio: ' + a.id + '   ·   Fecha: ' + a.fecha, 163, 24, {align:'center'});
+  let y = 46;
+  doc.setFillColor(246,249,252); doc.rect(12, y - 6, 186, 34, 'F');
+  doc.setFontSize(9); doc.setTextColor(...GRIS); doc.text(esAb ? 'RECIBIDO DE / DESCONTADO A' : 'ENTREGADO A', 16, y);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(25,30,38); doc.text(a.nombre, 16, y + 7);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...GRIS);
+  doc.text('Forma: ' + (a.forma || '—') + (a.nota ? '   ·   Nota: ' + a.nota : ''), 16, y + 15, {maxWidth: 120});
+  doc.text(esAb ? 'MONTO ABONADO' : 'MONTO DEL ADELANTO', 193, y, {align:'right'});
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.setTextColor(...(esAb ? VER : AMB)); doc.text('$' + (+a.monto).toFixed(2), 193, y + 10, {align:'right'});
+  y += 40;
+  doc.setFillColor(...NAVY); doc.rect(12, y - 5, 186, 8, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(255,255,255);
+  doc.text('HISTORIAL DEL ADELANTO', 16, y); doc.text('MONTO', 150, y, {align:'right'}); doc.text('SALDO', 193, y, {align:'right'}); y += 8;
+  let s2 = 0; doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+  movs.forEach((x, i) => {
+    s2 += (x.tipo === 'abono' ? -1 : 1) * (+x.monto || 0);
+    if(i % 2 === 0) { doc.setFillColor(246,249,252); doc.rect(12, y - 4, 186, 6.5, 'F'); }
+    doc.setTextColor(25,30,38); doc.setFont('helvetica', x.id === a.id ? 'bold' : 'normal');
+    doc.text(x.fecha + '   ' + (x.tipo === 'abono' ? 'Abono / descuento' : 'Adelanto') + (x.forma ? ' (' + x.forma + ')' : ''), 16, y);
+    doc.text((x.tipo === 'abono' ? '−$' : '$') + (+x.monto).toFixed(2), 150, y, {align:'right'});
+    doc.text('$' + s2.toFixed(2), 193, y, {align:'right'}); y += 6.5;
+    if(y > 230) { doc.addPage(); y = 20; }
+  });
+  y += 4;
+  doc.setFillColor(...(saldoDespues > 0.009 ? AMB : VER)); doc.roundedRect(118, y - 4, 80, 14, 2, 2, 'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+  doc.text(saldoDespues > 0.009 ? 'SALDO PENDIENTE:' : 'ADELANTO PAGADO:', 122, y + 4.5);
+  doc.setFontSize(13); doc.text('$' + Math.max(0, saldoDespues).toFixed(2), 194, y + 5, {align:'right'});
+  y += 22;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(60,66,74);
+  const acuerdo = esAb
+    ? 'Se descontó/recibió la cantidad indicada como abono al adelanto otorgado por Mudanzas Express LA. El saldo pendiente se muestra arriba.'
+    : 'El trabajador recibe esta cantidad como ADELANTO de pagos futuros (no es un pago por trabajo realizado). Acepta que se descuente de sus pagos de las siguientes semanas' + (+a.descSemanal > 0 ? ' ($' + (+a.descSemanal).toFixed(2) + ' cada domingo)' : '') + ' hasta cubrir el total. Si deja de trabajar con la empresa, el saldo pendiente sigue siendo una deuda a favor de Mudanzas Express LA.';
+  const al = doc.splitTextToSize(acuerdo, 182); doc.text(al, 14, y); y += al.length * 4.5 + 10;
+  if(y > 235) { doc.addPage(); y = 30; }
+  doc.setDrawColor(...NAVY); doc.setLineWidth(0.3); doc.rect(15, y, 85, 28); doc.setFillColor(237,243,251); doc.rect(110, y, 85, 28, 'F'); doc.rect(110, y, 85, 28);
+  doc.setDrawColor(170,170,170); doc.line(21, y + 20, 94, y + 20);
+  pdfFirmaEmpresa(doc, 152.5, y + 16, 26);
+  doc.setDrawColor(150,165,185); doc.line(120, y + 19, 185, y + 19);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...GRIS);
+  doc.text('Firma del trabajador', 57.5, y + 34, {align:'center'}); doc.text(a.nombre, 57.5, y + 38, {align:'center'});
+  doc.text('Representante autorizado · (323) 946-2008', 152.5, y + 24, {align:'center'});
+  doc.setDrawColor(170,190,215); for(let px = 14; px < 196; px += 3) doc.line(px, 279, px + 1.4, 279);
+  doc.setFontSize(7); doc.setTextColor(120,128,138);
+  doc.text('Mudanzas Express LA · (323) 946-2008 · mudanzasexpressla@gmail.com · Documento interno: adelanto a cuenta de pagos futuros', 105, 285, {align:'center'});
+  doc.save((esAb ? 'Abono_' : 'Adelanto_') + a.nombre.replace(/\s+/g, '_') + '_' + a.fecha + '.pdf');
+  if(!esAb && confirm('¿Quieres mandarle a ' + a.nombre + ' el acuerdo por WhatsApp para que conteste "sí"?')) {
+    const msg = 'Hola ' + a.nombre.split(' ')[0] + ', te mandé $' + (+a.monto).toFixed(2) + ' de ADELANTO (' + a.fecha + '). Se te va a descontar de tus pagos de los próximos domingos' + (+a.descSemanal > 0 ? ' ($' + (+a.descSemanal).toFixed(2) + ' cada domingo)' : '') + (a.nota ? ' (' + a.nota + ')' : '') + ' hasta completarlo. Saldo pendiente: $' + Math.max(0, saldoDespues).toFixed(2) + '. ¿De acuerdo? — Mudanzas Express LA';
+    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+  }
 }
 </script>
 </body>
