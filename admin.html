@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.29</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.30</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -3075,9 +3075,18 @@ async function vjTerminarDia() {
   const odometros = {};
   for(const k of Object.keys(res)) {
     if(k === 'uhaul') continue;
-    const m = prompt('🚗 ' + gasVehTexto(k) + ': ' + res[k].millas.toFixed(1) + ' millas hoy.\n\nSi quieres, escribe el número del ODÓMETRO ahorita (opcional, ayuda a que el control de mantenimiento sea exacto):', '');
+    // v13.30: mostrar el odómetro COMPLETO estimado (último conocido + millas desde entonces)
+    let ult = null; try { ult = JSON.parse(localStorage.getItem('vj_odo_' + k) || 'null'); } catch(e) {}
+    const est = ult && ult.odo > 0 ? Math.round(ult.odo + (ult.pend || 0) + res[k].millas) : 0;
+    const msg = '🚗 ' + gasVehTexto(k) + ': ' + res[k].millas.toFixed(1) + ' millas hoy.\n\n'
+      + (est ? 'Odómetro estimado: ' + est.toLocaleString('en-US') + ' (último ' + Math.round(ult.odo).toLocaleString('en-US') + ' del ' + ult.fecha + ' + millas registradas).\n\nSi el tablero dice otro número, escríbelo COMPLETO para que coincidan. Si coincide, solo toca Aceptar.'
+             : 'Escribe el número COMPLETO del odómetro del tablero (ej: 259532). Así la app lo recuerda y desde mañana te muestra el estimado.\n\nSi ahorita no lo puedes ver, déjalo vacío.');
+    let m = prompt(msg, est ? String(est) : '');
     if(m === null) return;
-    const v = parseFloat(String(m).replace(/[^0-9.]/g, '')); if(v > 0) odometros[k] = v;
+    let v = parseFloat(String(m).replace(/[^0-9.]/g, ''));
+    if(v > 0 && v < 1000 && !confirm('Escribiste ' + v + '. ¿De verdad es el odómetro completo del tablero?\n\n(Las millas del día ya se cuentan solas. Aquí va el número grande del tablero.)\n\nAceptar = sí es el número\nCancelar = no guardarlo')) v = 0;
+    if(v > 0) { odometros[k] = v; try { localStorage.setItem('vj_odo_' + k, JSON.stringify({ odo: v, pend: 0, fecha: hoyLocal() })); } catch(e) {} }
+    else if(ult && ult.odo > 0) { try { ult.pend = (ult.pend || 0) + res[k].millas; localStorage.setItem('vj_odo_' + k, JSON.stringify(ult)); } catch(e) {} }
   }
   const dia = { id: 'VIAJE-' + s.fecha + '-' + Date.now(), fecha: s.fecha, tramos: s.tramos.map(t => ({ vehiculo: t.vehiculo, inicio: t.inicio, fin: t.fin, millas: t.millas, fuente: t.fuente, hacia: { tipo: t.hacia.tipo, cotId: t.hacia.cotId || '', etiqueta: t.hacia.etiqueta, txt: t.hacia.txt } })), resumen: res, odometros, cancelados: s.cancelados || [] };
   const q = vjCola(); q.push(dia); localStorage.setItem(VJ_QKEY, JSON.stringify(q));
@@ -4134,6 +4143,32 @@ function eliminarGas(idx) {
   try { renderGastos(); } catch(e) {}
   try { calcTotal(); } catch(e) {}
 }
+// v13.30: corregir un gasto general (fecha, categoría, descripción, monto, recibo, tarjeta)
+function editarGG(idx) {
+  const d = getData(); const g = (d.gg||[]).slice().reverse()[idx]; if(!g) return;
+  const cats = Array.from(document.querySelectorAll('#gg-cat option')).map(o => o.value); const ca = g.cat && g.cat !== 'undefined' ? g.cat : (g.categoria || 'Otro'); if(!cats.includes(ca)) cats.push(ca);
+  const prev = document.getElementById('gg-edit-ov'); if(prev) prev.remove();
+  const m = document.createElement('div'); m.id = 'gg-edit-ov';
+  m.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:100002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto';
+  const inp = 'width:100%;padding:10px;border-radius:8px;font-size:15px;margin-top:4px';
+  m.innerHTML = '<div class="card" style="width:100%;max-width:480px;margin-top:30px"><div class="card-title">✏️ Corregir gasto</div>'
+    + '<label>Fecha</label><input type="date" id="gge-fecha" value="' + escH(g.fecha||'') + '" style="' + inp + '">'
+    + '<label>Categoría</label><select id="gge-cat" style="' + inp + '">' + cats.map(c => '<option' + (c === ca ? ' selected' : '') + '>' + escH(c) + '</option>').join('') + '</select>'
+    + '<label>Descripción</label><input id="gge-desc" value="' + escH(g.desc||'') + '" style="' + inp + '">'
+    + '<label>Monto ($)</label><input type="number" step="0.01" id="gge-monto" value="' + (+g.monto||0) + '" style="' + inp + '">'
+    + '<label>Recibo / referencia</label><input id="gge-recibo" value="' + escH(g.recibo||'') + '" style="' + inp + '">'
+    + '<label>Pagado con</label><select id="gge-tarjeta" style="' + inp + '">' + opcionesTarjeta(g.tarjeta||'') + '</select>'
+    + '<div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" id="gge-ok">💾 Guardar</button><button class="btn" onclick="document.getElementById(\'gg-edit-ov\').remove()">Cancelar</button></div></div>';
+  document.body.appendChild(m);
+  document.getElementById('gge-ok').onclick = () => {
+    const monto = parseFloat(document.getElementById('gge-monto').value);
+    if(!(monto > 0)) { alert('Monto no válido.'); return; }
+    g.fecha = document.getElementById('gge-fecha').value || g.fecha; g.cat = document.getElementById('gge-cat').value; delete g.categoria;
+    g.desc = document.getElementById('gge-desc').value.trim(); g.monto = Math.round(monto * 100) / 100;
+    g.recibo = document.getElementById('gge-recibo').value.trim(); g.tarjeta = document.getElementById('gge-tarjeta').value;
+    saveData(d); m.remove(); try { renderGastos(); } catch(e) {} try { calcTotal(); } catch(e) {}
+  };
+}
 function eliminarGastoGG(idx) {
   if(!confirm('¿Eliminar este gasto?')) return;
   const d = getData();
@@ -4183,7 +4218,7 @@ function renderGastos() {
           <tbody>${gg.slice().reverse().map((g,i)=>`<tr>
             <td>${g.fecha}${g.hora ? '<div style="font-size:11px;color:#b0c4d8">' + hora12(g.hora) + '</div>' : ''}</td><td>${ggSelectCat(i, g.cat&&g.cat!=='undefined'?g.cat:(g.categoria||'Otro'))}</td><td>${g.desc||'—'}</td>
             <td><strong style="color:#E24B4A">$${g.monto.toFixed(2)}</strong></td><td>${g.recibo||'—'}</td><td>${escH(tarjetaSegura(g.tarjeta)||'—')}</td><td>${celdaFotoGasto('gg', i, g)}</td>
-            <td><button onclick="eliminarGastoGG(${i})" style="background:#E24B4A;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🗑️</button></td>
+            <td style="white-space:nowrap"><button class="btn btn-sm" title="Corregir" onclick="editarGG(${i})">✏️</button> <button onclick="eliminarGastoGG(${i})" style="background:#E24B4A;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🗑️</button></td>
           </tr>`).join('')}</tbody>
         </table>
       </div>` : '<div class="empty-state" style="padding:30px"><p>Sin gastos generales registrados</p></div>';
@@ -7485,6 +7520,31 @@ function exportarExcel(tipo) {
       wsadl['!cols']=[{wch:12},{wch:24},{wch:20},{wch:11},{wch:20},{wch:50}];
       XLSX.utils.book_append_sheet(wb, wsadl, 'Adelantos');
     }
+
+    // v13.30: Millas (registro de millas de la app de campo — sirve como bitácora para el IRS)
+    const vjs = (d.viajes||[]).slice().sort((a,b)=>a.fecha<b.fecha?-1:1);
+    if(vjs.length) {
+      const hm = x => { try { return x ? new Date(x).toLocaleTimeString('es-US',{hour:'numeric',minute:'2-digit'}) : ''; } catch(e) { return ''; } };
+      const rmi = []; const tot = {}; const porMes = {};
+      vjs.forEach(v => {
+        (v.tramos||[]).forEach(t => {
+          const veh = (typeof gasVehTexto === 'function' ? gasVehTexto(t.vehiculo) : t.vehiculo) || t.vehiculo || '';
+          const h = t.hacia || {};
+          const cot = h.cotId ? (d.cots||[]).find(c => c.id === h.cotId) : null;
+          rmi.push([v.fecha, veh, hm(t.inicio), hm(t.fin), h.etiqueta || '', h.txt || '', h.cotId || '', cot && cot.cliente ? cot.cliente.nombre : '', +(+t.millas||0).toFixed(1), t.fuente === 'maps' ? 'Google Maps' : t.fuente === 'aprox' ? 'GPS aprox.' : t.fuente === 'manual' ? 'Escrito a mano' : (t.fuente||''), (v.odometros||{})[t.vehiculo] || '']);
+          tot[veh] = (tot[veh]||0) + (+t.millas||0);
+          const mk = v.fecha.slice(0,7) + ' · ' + veh; porMes[mk] = (porMes[mk]||0) + (+t.millas||0);
+        });
+      });
+      rmi.push([]);
+      Object.keys(porMes).sort().forEach(k => rmi.push(['', 'TOTAL ' + k, '', '', '', '', '', '', +porMes[k].toFixed(1), '', '']));
+      Object.keys(tot).forEach(k => rmi.push(['', 'TOTAL GENERAL ' + k, '', '', '', '', '', '', +tot[k].toFixed(1), '', '']));
+      rmi.push(['', '', '', '', '', '', '', '', '', '', '']);
+      rmi.push(['', 'Nota: millas de trabajo registradas con 🚗 Viajes. Pregunta al contador si usas la tarifa estándar por milla (no se descuenta también la gasolina de ese vehículo).']);
+      const wsmi = XLSX.utils.aoa_to_sheet([['Fecha','Vehículo','Salida','Llegada','Hacia','Dirección','Trabajo','Cliente','Millas','Cómo se midió','Odómetro fin del día'],...rmi]);
+      wsmi['!cols']=[{wch:11},{wch:18},{wch:9},{wch:9},{wch:28},{wch:40},{wch:10},{wch:22},{wch:8},{wch:14},{wch:12}];
+      XLSX.utils.book_append_sheet(wb, wsmi, 'Millas');
+    }
   }
 
   if(tipo === 'completo') {
@@ -9358,6 +9418,9 @@ initDarkMode();
       <label>🤝 Descuento acordado al cobrar ($) — opcional</label>
       <input id="t-descuento" type="number" placeholder="0.00" step="0.01" min="0" oninput="aplicarDescuentoCampo()">
       <div id="t-descuento-info" style="display:none;font-size:12px;color:#EF9F27;font-weight:700;margin:-6px 0 12px"></div>
+      <label>➕ Cobro extra acordado ($) — si el cliente pagó más por algo adicional</label>
+      <input id="t-extra" type="number" placeholder="0.00" step="0.01" min="0" oninput="aplicarDescuentoCampo()">
+      <input id="t-extra-motivo" type="text" placeholder="¿Por qué? Ej: escaleras, más cosas, otra parada" style="margin-top:-4px">
       <label>🎁 Propina recibida ($) — si el cliente da propina</label>
       <input id="t-propina" type="number" placeholder="0.00" step="0.01" min="0" oninput="actualizarTotalCampo()">
       <div id="t-total-display" style="display:none;background:#EF9F2720;border-radius:8px;padding:8px;margin-bottom:8px;font-size:14px;color:#996600;font-weight:700;text-align:center"></div>
@@ -10386,6 +10449,15 @@ function mostrarQRZelle2() {
   if(qrBlock) qrBlock.style.display = pago === 'Zelle' ? '' : 'none';
 }
 
+// v13.30: lo que sobra entre las dos formas de pago se vuelve cobro extra o propina
+function pagoSobranteComo(tipo) {
+  const a = parseFloat(document.getElementById('t-monto-pago1').value) || 0, b = parseFloat(document.getElementById('t-monto-pago2').value) || 0;
+  const total = (parseFloat(document.getElementById('t-monto').value) || 0) + (parseFloat(document.getElementById('t-propina').value) || 0);
+  const diff = +(a + b - total).toFixed(2); if(diff <= 0) return;
+  const id = tipo === 'extra' ? 't-extra' : 't-propina';
+  const e = document.getElementById(id); e.value = ((parseFloat(e.value) || 0) + diff).toFixed(2);
+  if(tipo === 'extra') { const mo = document.getElementById('t-extra-motivo'); if(mo && !mo.value) mo.focus(); aplicarDescuentoCampo(); } else actualizarTotalCampo();
+}
 // v13.28: al escribir el monto 1, el monto 2 se llena solo con lo que falta (se puede cambiar)
 function autoPago2() {
   const e2 = document.getElementById('t-monto-pago2'); if(!e2) return;
@@ -10431,8 +10503,10 @@ function actualizarTotalCampo() {
       resumenPago.textContent = '⚠️ Falta recibir: $' + diff.toFixed(2) + ' (suma: $' + sumaPagos.toFixed(2) + ' de $' + total.toFixed(2) + ')';
       resumenPago.style.background = '#fdf3f3'; resumenPago.style.color = '#922b21';
     } else {
-      resumenPago.textContent = '⚠️ Ya superaste el total por $' + Math.abs(diff).toFixed(2);
-      resumenPago.style.background = '#fdf3f3'; resumenPago.style.color = '#922b21';
+      resumenPago.innerHTML = '💵 Recibiste $' + Math.abs(diff).toFixed(2) + ' más que el total ($' + total.toFixed(2) + '). ¿Qué es?<br>'
+        + '<button type="button" onclick="pagoSobranteComo(\'extra\')" style="margin:6px 4px 0;padding:8px 10px;border:none;border-radius:8px;background:#1F5EA8;color:#fff;font-weight:700">➕ Cobro extra (sube el precio)</button>'
+        + '<button type="button" onclick="pagoSobranteComo(\'propina\')" style="margin:6px 4px 0;padding:8px 10px;border:none;border-radius:8px;background:#EF9F27;color:#fff;font-weight:700">🎁 Es propina</button>';
+      resumenPago.style.background = '#EAF2FC'; resumenPago.style.color = '#143F74';
     }
   } else if(resumenPago) {
     resumenPago.style.display = 'none';
@@ -10452,10 +10526,8 @@ async function enviarTerminado() {
     const debe = monto + propina, diff = +(a + b - debe).toFixed(2);
     if(!(a > 0 && b > 0)) { alert('⚠️ Escribe cuánto pagó con cada forma de pago (las dos).'); return; }
     if(diff > 0.009) {
-      if(confirm('💵 Entre los dos pagos recibiste $' + (a + b).toFixed(2) + ', o sea $' + diff.toFixed(2) + ' más de lo que se cobra.\n\n¿Lo registro como PROPINA?')) {
-        const tp = document.getElementById('t-propina'); tp.value = (propina + diff).toFixed(2); actualizarTotalCampo();
-        return enviarTerminado();
-      }
+      if(confirm('💵 Entre los dos pagos recibiste $' + (a + b).toFixed(2) + ', o sea $' + diff.toFixed(2) + ' más de lo que se cobra.\n\nAceptar = es COBRO EXTRA (sube el precio del trabajo)\nCancelar = elegir otra cosa')) { pagoSobranteComo('extra'); return enviarTerminado(); }
+      if(confirm('¿Entonces es PROPINA?\n\nAceptar = propina\nCancelar = no terminar todavía (para corregir los montos)')) { pagoSobranteComo('propina'); return enviarTerminado(); }
       return;
     }
     if(diff < -0.009 && !confirm('⚠️ Entre los dos pagos faltan $' + Math.abs(diff).toFixed(2) + ' para el total ($' + debe.toFixed(2) + ').\n\n¿Terminar de todos modos?')) return;
@@ -10504,6 +10576,7 @@ async function enviarTerminado() {
     refPago2: ref2,
     observaciones: obsCampoFinal(),
     descuentoFinal: descuentoCampo(),
+    cobroExtra: extraCampo(),
     detallesTrabajo: leerDetalles('campo-detalles'),
     firmaCliente: obtenerFirmaBase64(),
     horasTrabajadas,
@@ -10630,6 +10703,7 @@ async function enviarTerminado() {
     document.getElementById('t-cotid').value = '';
     document.getElementById('t-monto').value = 0;
     document.getElementById('t-monto-display').textContent = '$0.00';
+    ['t-extra','t-extra-motivo'].forEach(i => { const e = document.getElementById(i); if(e) e.value = ''; });
     { const _td = document.getElementById('t-descuento'); if(_td) _td.value = ''; const _ti = document.getElementById('t-descuento-info'); if(_ti) _ti.style.display = 'none'; window._montoBaseCampo = null; }
     document.getElementById('t-propina').value = '';
     document.getElementById('t-total-display').style.display = 'none';
@@ -11022,7 +11096,7 @@ function abrirReciboAparte(html) {
 
 // ===================== v12.4: BORRADOR DEL CIERRE (no perder lo capturado) =====================
 const BORRADOR_KEY = 'campo_borrador_terminar';
-const BORRADOR_CAMPOS = ['t-descuento','t-propina','t-pago','t-ref','t-monto-pago1','t-pago2','t-monto-pago2','t-ref2','t-obs','campo-crono-horas'];
+const BORRADOR_CAMPOS = ['t-extra','t-extra-motivo','t-descuento','t-propina','t-pago','t-ref','t-monto-pago1','t-pago2','t-monto-pago2','t-ref2','t-obs','campo-crono-horas'];
 const BORRADOR_CHECKS = ['t-pago2-activo','campo-crono-dificil'];
 let _restaurandoBorrador = false;
 function guardarBorradorCampo() {
@@ -11053,7 +11127,7 @@ function restaurarBorradorCampo() {
     Object.keys(b.valores||{}).forEach(id => { const e = document.getElementById(id); if(e && b.valores[id] !== '' && b.valores[id] != null) e.value = b.valores[id]; });
     try { if((b.detalles||[]).length) marcarDetalles('campo-detalles', b.detalles); } catch(e) {}
     Object.keys(b.checks||{}).forEach(id => { const e = document.getElementById(id); if(e) e.checked = b.checks[id]; });
-    try { togglePago2(); mostrarQRZelle(); mostrarQRZelle2(); actualizarTotalCampo(); } catch(e) {}
+    try { togglePago2(); mostrarQRZelle(); mostrarQRZelle2(); aplicarDescuentoCampo(); } catch(e) {}
     if(b.firma) {
       window._firmaHecha = true;
       initFirma();
@@ -11131,14 +11205,16 @@ function recalcLaborCampo() {
 }
 // v13.11: descuento acordado al momento de cobrar
 function descuentoCampo() { return parseFloat((document.getElementById('t-descuento')||{}).value) || 0; }
+function extraCampo() { return parseFloat((document.getElementById('t-extra')||{}).value) || 0; }
 function aplicarDescuentoCampo() {
   const base = (window._montoBaseCampo != null) ? window._montoBaseCampo : (trabajoActivo ? (+trabajoActivo.monto||0) : 0);
   const desc = Math.min(base, descuentoCampo());
-  const monto = Math.max(0, base - desc);
+  const extra = extraCampo();
+  const monto = Math.max(0, base - desc + extra);
   const mEl = document.getElementById('t-monto'); if(mEl) mEl.value = monto.toFixed(2);
   const md = document.getElementById('t-monto-display'); if(md) md.textContent = '$' + monto.toFixed(2);
   const info = document.getElementById('t-descuento-info');
-  if(info) { if(desc > 0) { info.style.display = 'block'; info.textContent = 'Precio $' + base.toFixed(2) + ' − descuento $' + desc.toFixed(2) + ' = $' + monto.toFixed(2); } else info.style.display = 'none'; }
+  if(info) { if(desc > 0 || extra > 0) { info.style.display = 'block'; info.textContent = 'Precio $' + base.toFixed(2) + (desc > 0 ? ' − descuento $' + desc.toFixed(2) : '') + (extra > 0 ? ' + cobro extra $' + extra.toFixed(2) : '') + ' = $' + monto.toFixed(2); } else info.style.display = 'none'; }
   try { actualizarTotalCampo(); } catch(e) {}
 }
 function obsCampoFinal() {
@@ -11146,6 +11222,8 @@ function obsCampoFinal() {
   const base = (window._montoBaseCampo != null) ? window._montoBaseCampo : (trabajoActivo ? (+trabajoActivo.monto||0) : 0);
   let o = obsConDetalles('campo-detalles', document.getElementById('t-obs').value);
   if(d > 0) o = 'Descuento acordado: $' + d.toFixed(2) + ' (precio antes $' + (+base).toFixed(2) + ').' + (o ? '\n' + o : '');
+  const ex = extraCampo();
+  if(ex > 0) { const mot = ((document.getElementById('t-extra-motivo')||{}).value || '').trim(); o = 'Cobro extra acordado: $' + ex.toFixed(2) + (mot ? ' (' + mot + ')' : '') + ' — precio original $' + (+base).toFixed(2) + '.' + (o ? '\n' + o : ''); }
   return o;
 }
 document.addEventListener('input', e => { if(e.target && e.target.id === 'campo-crono-horas') { try { recalcLaborCampo(); } catch(x) {} } });
