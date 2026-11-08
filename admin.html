@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.30</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.31</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -551,7 +551,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   </div>
 
   <div class="btn-row">
-    <button class="btn btn-primary" onclick="guardarCotizacion()">💾 Guardar Cotización</button>
+    <button class="btn btn-primary" onclick="Promise.resolve().then(guardarCotizacion).catch(e => { if(!(e && e.name === 'QuotaExceededError')) alert('⚠️ No se pudo guardar la cotización.\n\nDetalle: ' + (e && e.message || e) + '\n\nMándale una captura de este mensaje a Claude.'); })">💾 Guardar Cotización</button>
     <button class="btn" onclick="previewCotizacion()">👁️ Vista previa PDF</button>
     <button class="btn" onclick="limpiarForm()">🗑️ Limpiar formulario</button>
   </div>
@@ -1385,9 +1385,53 @@ function hoyLocal() { return fechaLocal(new Date()); }
 const KEY = 'mudanzas_express_la_v3';
 let CFG = { pin: '1234', nombre: 'Mudanzas Express LA', tel: '(323) 946-2008', email: 'mudanzasexpressla@gmail.com', tarifaMilla: 2.50, dirCasa: '', tarifaAyudanteHr: 22.50 };
 
+// ===================== v13.31: FOTOS Y FIRMAS FUERA DE localStorage =====================
+// El navegador solo deja ~5 MB en localStorage. Las fotos del inventario, "fotos ANTES" y
+// firmas llenaban ese espacio y "Guardar cotización" fallaba sin avisar. Ahora cada imagen
+// grande se guarda en IndexedDB (mucho más espacio) y en localStorage solo queda "idb:clave".
+const IMGDB_NOMBRE = 'mx_datos_img_v1';
+const imgCache = new Map(), imgClave = new Map(), imgPendientes = new Map();
+let imgCacheListo = false;
+function imgDb() { return new Promise((res, rej) => { const r = indexedDB.open(IMGDB_NOMBRE, 1); r.onupgradeneeded = () => r.result.createObjectStore('img'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+function imgHash(str) { let h = 0x811c9dc5; for(let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+function imgGuardarPendientes() {
+  if(!imgPendientes.size) return;
+  const lote = Array.from(imgPendientes.entries()); imgPendientes.clear();
+  imgDb().then(db => { const tx = db.transaction('img', 'readwrite'); const st = tx.objectStore('img'); lote.forEach(([k, v]) => st.put(v, k)); })
+    .catch(e => { console.error('No se pudieron guardar las fotos en IndexedDB', e); lote.forEach(([k, v]) => imgPendientes.set(k, v)); });
+}
+function imgApartar(v) {
+  let k = imgClave.get(v);
+  if(!k) { k = 'i' + imgHash(v) + '_' + v.length; imgClave.set(v, k); if(!imgCache.has(k)) { imgCache.set(k, v); imgPendientes.set(k, v); } }
+  return 'idb:' + k;
+}
+function serializarDatos(d) {
+  const out = JSON.stringify(d, (k, v) => (typeof v === 'string' && v.length > 4000 && v.startsWith('data:')) ? imgApartar(v) : v);
+  imgGuardarPendientes();
+  return out;
+}
+function leerDatosCrudos(txt) { return JSON.parse(txt, (k, v) => (typeof v === 'string' && v.startsWith('idb:')) ? (imgCache.get(v.slice(4)) || v) : v); }
+function imgCargarCache() {
+  return imgDb().then(db => new Promise(res => {
+    const tx = db.transaction('img', 'readonly'); const cur = tx.objectStore('img').openCursor();
+    cur.onsuccess = e => { const c = e.target.result; if(c) { imgCache.set(c.key, c.value); imgClave.set(c.value, c.key); c.continue(); } else res(); };
+    cur.onerror = () => res();
+  })).catch(() => {}).then(() => {
+    imgCacheListo = true;
+    try {
+      if((localStorage.getItem(KEY) || '').indexOf('"idb:') >= 0) {
+        const act = document.querySelector('.tab-content.active'); const t = act ? act.id.replace('tab-', '') : '';
+        if(t && t !== 'cotizar' && typeof showTab === 'function') showTab(t);
+      }
+    } catch(e) {}
+  });
+}
+imgCargarCache();
+function espacioUsadoMB() { let n = 0; try { for(let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); n += k.length + (localStorage.getItem(k) || '').length; } } catch(e) {} return (n * 2 / 1048576).toFixed(1); }
+
 function getData() {
   try {
-    const d = JSON.parse(localStorage.getItem(KEY) || '{"cots":[],"gas":[],"gg":[],"ay":[],"counter":1}');
+    const d = leerDatosCrudos(localStorage.getItem(KEY) || '{"cots":[],"gas":[],"gg":[],"ay":[],"counter":1}');
     if(!d.campo) d.campo = [];
     if(!d.campoImportados) d.campoImportados = [];
     if(!d.sl) d.sl = [];
@@ -1401,13 +1445,20 @@ function getData() {
     // Migración única: los trabajos terminados de antes reciben su folio REC
     // en orden de fecha (el más viejo primero). El contador NO se reinicia:
     // sigue contando desde donde va, así los nuevos continúan la secuencia.
-    if(migrarFoliosTerminadosViejos(d)) localStorage.setItem(KEY, JSON.stringify(d));
-    if(!d._mig1315 && (d.cots||[]).length) { migrarCanales1315(d); d._mig1315 = true; localStorage.setItem(KEY, JSON.stringify(d)); }
+    if(migrarFoliosTerminadosViejos(d)) localStorage.setItem(KEY, serializarDatos(d));
+    if(!d._mig1315 && (d.cots||[]).length) { migrarCanales1315(d); d._mig1315 = true; localStorage.setItem(KEY, serializarDatos(d)); }
     return d;
   }
   catch(e) { return {cots:[], gas:[], gg:[], ay:[], counter:1, counterTerminado:1, campo:[], campoImportados:[], sl:[], gigs:[], odometros:[], mantenimientos:[], capital:[], cancelados:[]}; }
 }
-function saveData(d) { localStorage.setItem(KEY, JSON.stringify(d)); programarRespaldoAutomatico(); }
+function saveData(d) {
+  try { localStorage.setItem(KEY, serializarDatos(d)); }
+  catch(e) {
+    alert('⚠️ NO SE PUDO GUARDAR: el navegador se quedó sin espacio (' + espacioUsadoMB() + ' MB usados de ~5 MB).\n\nNo cierres esta página. Descarga un respaldo (Configuración → 📥 Descargar respaldo) y avísale a Claude.\n\nDetalle: ' + (e && e.name || e));
+    throw e;
+  }
+  programarRespaldoAutomatico();
+}
 
 // ===================== FOLIO DE RECIBO PARA TERMINADOS =====================
 // Cuando un trabajo se marca como terminado, recibe un folio de recibo propio
@@ -7644,7 +7695,7 @@ function restaurarBackup(event) {
   reader.onload = function(e) {
     try {
       const backup = JSON.parse(e.target.result);
-      if(backup.data) { localStorage.setItem(KEY, JSON.stringify(backup.data)); }
+      if(backup.data) { localStorage.setItem(KEY, serializarDatos(backup.data)); }
       if(backup.config) { CFG = backup.config; saveCfg(); }
       alert('✅ Datos restaurados exitosamente. La página se recargará.');
       location.reload();
@@ -7926,7 +7977,7 @@ async function restaurarDesdeDriveEjecutar() {
       headers: { Authorization: 'Bearer ' + driveAccessToken }
     });
     const backup = await resJson.json();
-    if(backup.data) localStorage.setItem(KEY, JSON.stringify(backup.data));
+    if(backup.data) localStorage.setItem(KEY, serializarDatos(backup.data));
     if(backup.config) { CFG = backup.config; saveCfg(); }
     alert('✅ Datos restaurados desde Google Drive (respaldo del ' + new Date(backup.fecha).toLocaleString('es-US') + '). La página se recargará.');
     location.reload();
