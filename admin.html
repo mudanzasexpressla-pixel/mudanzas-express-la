@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.31</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.32</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -4669,8 +4669,16 @@ function ayEstadoPagoSemana(pagos, semKey, nombre, regsSemana) {
                        .reduce((s,r) => s + (r.monto||0), 0);
   }
   pagado = +pagado.toFixed(2);
-  const pendiente = Math.max(0, +(total - pagado).toFixed(2));
-  return { total, pagado, pendiente, isPagado: pagado > 0 && pendiente < 0.01, parcial: pagado > 0 && pendiente >= 0.01, metodo: pagos[k + '_metodo'] || '' };
+  // v13.32: lo que se le descuenta del adelanto esa semana también cuenta como pagado
+  let abono = 0;
+  try {
+    const lun = semKey, dom = (() => { const x = new Date(semKey + 'T12:00:00'); x.setDate(x.getDate() + 6); return x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0'); })();
+    const nk = ayNormNombre(nombre);
+    abono = (getData().adelantos || []).filter(a => a.tipo === 'abono' && ayNormNombre(a.nombre) === nk && a.fecha >= lun && a.fecha <= dom).reduce((t, a) => t + (+a.monto || 0), 0);
+  } catch(e) {}
+  abono = +abono.toFixed(2);
+  const pendiente = Math.max(0, +(total - pagado - abono).toFixed(2));
+  return { total, pagado, abono, pendiente, isPagado: (pagado + abono) > 0 && pendiente < 0.01, parcial: pagado > 0 && pendiente >= 0.01, metodo: pagos[k + '_metodo'] || '' };
 }
 function ayMarcarPagado(nombre, semKey, metodo, monto) {
   metodo = (metodo || 'Efectivo').trim();
@@ -4860,7 +4868,8 @@ function renderAyHistorial() {
           <div style="text-align:right">
             <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:${isPagado?'#1D9E75':'#EF9F27'}">${isPagado?'✅ PAGADO':(_est.parcial?'FALTA POR PAGAR':'POR PAGAR')}</div>
             <div style="font-size:22px;font-weight:900;color:${isPagado?'var(--ink-faint)':'#EF9F27'}">$${(isPagado?_est.total:_est.pendiente).toFixed(2)}</div>
-            ${_est.parcial?`<div style="font-size:11px;color:#1D9E75;font-weight:700">✅ Ya pagado: $${_est.pagado.toFixed(2)} de $${_est.total.toFixed(2)}</div>`:''}
+            ${_est.abono>0?`<div style="font-size:11px;color:#EF9F27;font-weight:700">Trabajo $${_est.total.toFixed(2)} − 💸 adelanto $${_est.abono.toFixed(2)}</div>`:''}
+            ${_est.parcial?`<div style="font-size:11px;color:#1D9E75;font-weight:700">✅ Ya pagado: $${_est.pagado.toFixed(2)} de $${(_est.total-_est.abono).toFixed(2)}</div>`:''}
           ${isPagado
             ? (function(){ const _n2=nombre.replace(/'/g,"\\'"); return `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div style="font-size:11px;color:#1D9E75;font-weight:700">✅ PAGADO</div><button onclick="ayDeshacerPago('${_n2}','${semKey}')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:11px;cursor:pointer">↩ Deshacer</button></div>`; })()
             : (function(){
