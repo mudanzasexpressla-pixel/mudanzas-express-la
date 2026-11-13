@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.34</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.37</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -681,7 +681,38 @@ table.data-table tr:hover td{background:#1A2A42!important}
     <button class="tab-inner-btn" onclick="showGTab('ayudantes',this)">👷 Ayudantes</button>
     <button class="tab-inner-btn" onclick="showGTab('sueldos',this)">🧑‍💼 Sueldos / Retiros</button>
     <button class="tab-inner-btn" onclick="showGTab('capital',this)">🏦 Capital aportado</button>
+    <button class="tab-inner-btn" onclick="showGTab('tarjetas',this)">💳 Tarjetas personales</button>
     <button class="tab-inner-btn" onclick="showGTab('resumen',this)">📊 Resumen anual</button>
+  </div>
+
+  <div id="gt-tarjetas" style="display:none">
+    <div class="card" style="border-left:4px solid #EF9F27">
+      <div class="card-title">💳 ¿Cuánto le debe el negocio a tus tarjetas personales?</div>
+      <div style="font-size:12px;color:var(--ink-soft);line-height:1.6;margin-bottom:10px">
+        Cuando pagas gastos del negocio con tu tarjeta personal, el negocio te debe ese dinero. Aquí ves <b>cuánto pagar desde la cuenta del negocio</b> a cada tarjeta.<br>
+        • Ese pago <b>NO es gasto</b> (cada compra ya se contó) <b>ni retiro/sueldo</b>.<br>
+        • Paga <b>solo lo pendiente</b>. Si de la cuenta del negocio pagas también compras personales, esa diferencia sí es <b>retiro</b>.
+      </div>
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px">¿Cuáles son tus tarjetas PERSONALES?</div>
+      <div id="tp-marcas" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div><label style="font-size:11px">Contar gastos desde (opcional)</label><input type="date" id="tp-desde" onchange="tpGuardarDesde()" style="padding:6px"></div>
+        <div style="font-size:11px;color:var(--ink-faint);max-width:420px">Si ya habías pagado lo de antes, pon aquí la fecha desde la que empiezas a llevar la cuenta.</div>
+      </div>
+    </div>
+    <div id="tp-resumen"></div>
+    <div class="card">
+      <div class="card-title">✅ Registrar pago a la tarjeta (desde la cuenta del negocio)</div>
+      <div class="form-row four">
+        <div><label>Tarjeta</label><select id="tp-tarjeta" onchange="tpLlenarMeses();tpLlenarPendiente(true)"></select></div>
+        <div><label>¿De qué mes?</label><select id="tp-mes" onchange="tpLlenarPendiente(true)"></select></div>
+        <div><label>Fecha</label><input type="date" id="tp-fecha"></div>
+        <div><label>Monto ($)</label><input type="number" step="0.01" id="tp-monto"></div>
+        <div><label>Nota</label><input type="text" id="tp-nota" placeholder="Ej: pago de estado de cuenta"></div>
+      </div>
+      <div class="btn-row"><button class="btn btn-primary" onclick="tpRegistrarPago()">💾 Guardar pago</button><button class="btn" onclick="tpLlenarPendiente(true)">Poner todo lo pendiente</button></div>
+      <div id="tp-pagos" style="margin-top:12px"></div>
+    </div>
   </div>
 
   <div id="gt-gasolina">
@@ -4559,10 +4590,11 @@ function renderGastos() {
 }
 
 function showGTab(t, btn) {
-  ['gasolina','general','ayudantes','sueldos','capital','resumen'].forEach(x => { const e=document.getElementById('gt-'+x); if(e) e.style.display=x===t?'block':'none'; });
+  ['gasolina','general','ayudantes','sueldos','capital','resumen','tarjetas'].forEach(x => { const e=document.getElementById('gt-'+x); if(e) e.style.display=x===t?'block':'none'; });
   document.querySelectorAll('.tab-inner-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   if(t==='resumen') renderResumen();
+  if(t==='tarjetas') { try { renderTarjetasPersonales(); } catch(e) { console.error(e); } }
   if(t==='ayudantes') { const tHr=document.getElementById('ay-tarifa-hr'); if(tHr&&!tHr.value) tHr.value=(getCfg().tarifaAyudanteHr||22.50); const fec=document.getElementById('ay-fecha'); if(fec&&!fec.value) fec.value=hoyLocal(); renderAyHistorial(); renderAyPendientes(); try { renderAdelantos(); } catch(e) {} }
 }
 
@@ -5534,6 +5566,7 @@ function abrirTerminar(id) {
         + (dc.propina > 0 ? ' + Propina $'+dc.propina.toFixed(2) : '')
         + ' · Pago: <strong>'+(dc.formaPago1||dc.formaPago)+'</strong>'+pago2txt+refTxt+'<br>'
         + (dc.horasTrabajadas > 0 ? '⏱️ Horas del cronómetro: <strong>'+dc.horasTrabajadas.toFixed(2)+' hrs</strong><br>' : '⚠️ Sin horas de cronómetro — ajusta abajo si trabajó con ayudante.<br>')
+        + '<button type="button" class="btn btn-sm" style="margin:6px 0" onclick="corregirPagoFase1()">💳 Corregir forma de pago</button><br>'
         + '<span style="color:var(--money-dark);font-weight:700">→ Solo completa: Vehículo · Ayudante · Camión rentado</span>';
     } else {
       datosBanner.style.display = 'none';
@@ -7607,6 +7640,17 @@ function exportarExcel(tipo) {
       wsmi['!cols']=[{wch:11},{wch:18},{wch:9},{wch:9},{wch:28},{wch:40},{wch:10},{wch:22},{wch:8},{wch:14},{wch:12}];
       XLSX.utils.book_append_sheet(wb, wsmi, 'Millas');
     }
+    // v13.36: tarjetas personales (cuánto le debe el negocio)
+    try {
+      const tpR = tpCalcular(d); const filasTp = [];
+      Object.values(tpR.porTarjeta).forEach(x => { filasTp.push([x.nombre, x.cargos, x.pagos, +(x.cargos - x.pagos).toFixed(2), x.n]); Object.keys(x.meses).sort().forEach(m => filasTp.push(['   ' + m, +x.meses[m].toFixed(2), +(((x.pagosMes || {})[m]) || 0).toFixed(2), +(x.meses[m] - (((x.pagosMes || {})[m]) || 0)).toFixed(2), ''])); });
+      if(filasTp.length) {
+        const movs = []; tpR.movs.forEach(m => movs.push([m.fecha, m.tarjeta, m.tipo, m.det, m.monto]));
+        const wstp = XLSX.utils.aoa_to_sheet([['Tarjeta personal','Gastos del negocio cargados','Pagado desde el negocio','PENDIENTE','# gastos'], ...filasTp, [], ['Fecha','Tarjeta','Tipo','Detalle','Monto'], ...movs, [], ['Nota: el pago a la tarjeta desde la cuenta del negocio NO es gasto ni retiro; reembolsa gastos del negocio pagados con tarjeta personal.']]);
+        wstp['!cols'] = [{wch:12},{wch:28},{wch:22},{wch:40},{wch:12}];
+        XLSX.utils.book_append_sheet(wb, wstp, 'Tarjetas personales');
+      }
+    } catch(e) {}
   }
 
   if(tipo === 'completo') {
@@ -12220,26 +12264,64 @@ function diagnosticoVelocidad() {
 // ===================== v13.34: CORREGIR LA FORMA DE PAGO DE UN TRABAJO TERMINADO =====================
 function corregirPagoTerminado(id) {
   const d = getData(); const c = (d.cots || []).find(x => x.id === id); if(!c) return;
-  const total = +(((+c.montoFinal || +c.total || 0) + (+c.propina || 0)).toFixed(2));
+  abrirCorrectorPago({
+    titulo: (c.folioTerminado || c.id) + ' · ' + ((c.cliente && c.cliente.nombre) || ''),
+    total: +(((+c.montoFinal || +c.total || 0) + (+c.propina || 0)).toFixed(2)), propina: +c.propina || 0,
+    actual: { pagoFinal: c.pagoFinal, f1: c.formaPago1, f2: c.formaPago2, m1: c.montoPago1, m2: c.montoPago2, ref: c.refPago },
+    guardar: v => {
+      const dd = getData(); const cc = (dd.cots || []).find(x => x.id === id); if(!cc) return;
+      const antes = cc.pagoFinal || '';
+      cc.pagoFinal = v.pagoFinal; cc.formaPago1 = v.f1; cc.formaPago2 = v.f2; cc.montoPago1 = v.m1; cc.montoPago2 = v.m2; cc.refPago = v.ref;
+      if(!cc.historialPago) cc.historialPago = []; cc.historialPago.push({ fecha: new Date().toISOString(), antes, despues: cc.pagoFinal });
+      saveData(dd); try { renderTerminados(); } catch(e) {} try { renderDashboard(); } catch(e) {}
+      try { toastV('💳 Forma de pago corregida: ' + cc.pagoFinal); } catch(e) {}
+    }
+  });
+}
+// v13.35: también se puede corregir ANTES de cerrar (Fase 2), lo que mandó el celular
+function corregirPagoFase1() {
+  const d = getData(); const c = (d.cots || []).find(x => x.id === currentId); if(!c || !c.datosCampo) return;
+  const dc = c.datosCampo;
+  abrirCorrectorPago({
+    titulo: c.id + ' · ' + ((c.cliente && c.cliente.nombre) || '') + ' (lo que mandó el celular)',
+    total: +((+dc.montoFinal || 0) + (+dc.propina || 0)).toFixed(2), propina: +dc.propina || 0,
+    actual: { pagoFinal: dc.formaPago, f1: dc.formaPago1, f2: dc.formaPago2, m1: dc.montoPago1, m2: dc.montoPago2, ref: dc.refPago },
+    guardar: v => {
+      const ids = ['tm-vehiculo','tm-ayudante','tm-ayudante-nombre','tm-rento-vehiculo','tm-renta-tipo','tm-renta-costo','tm-obs','crono-horas','tm-descuento'];
+      const vals = {}; ids.forEach(i => { const e = document.getElementById(i); if(e) vals[i] = e.type === 'checkbox' ? e.checked : e.value; });
+      const dd = getData(); const cc = (dd.cots || []).find(x => x.id === currentId); if(!cc || !cc.datosCampo) return;
+      const x = cc.datosCampo; const antes = x.formaPago || '';
+      x.formaPago = v.pagoFinal; x.formaPago1 = v.f1; x.formaPago2 = v.f2; x.montoPago1 = v.m1; x.montoPago2 = v.m2; x.refPago = v.ref;
+      if(!cc.historialPago) cc.historialPago = []; cc.historialPago.push({ fecha: new Date().toISOString(), antes, despues: v.pagoFinal, fase: 1 });
+      saveData(dd);
+      try { abrirTerminar(currentId); } catch(e) {}
+      ids.forEach(i => { const e = document.getElementById(i); if(e && vals[i] !== undefined) { if(e.type === 'checkbox') e.checked = vals[i]; else e.value = vals[i]; e.dispatchEvent(new Event('change')); e.dispatchEvent(new Event('input')); } });
+      const r = document.getElementById('tm-ref'); if(r) r.value = v.ref;
+      try { toastV('💳 Forma de pago corregida: ' + v.pagoFinal); } catch(e) {}
+    }
+  });
+}
+function abrirCorrectorPago(o) {
+  const total = o.total, a0 = o.actual || {};
   const formas = ['Efectivo', 'Zelle', 'Tarjeta', 'Cheque', 'Venmo', 'Cash App', 'Otro'];
-  const actual1 = c.formaPago1 || String(c.pagoFinal || 'Efectivo').split(' + ')[0];
-  const dividido = !!(c.formaPago2 && +c.montoPago2 > 0) || String(c.pagoFinal || '').includes(' + ');
-  const actual2 = c.formaPago2 || (String(c.pagoFinal || '').split(' + ')[1] || 'Zelle');
+  const actual1 = a0.f1 || String(a0.pagoFinal || 'Efectivo').split(' + ')[0];
+  const dividido = !!(a0.f2 && +a0.m2 > 0) || String(a0.pagoFinal || '').includes(' + ');
+  const actual2 = a0.f2 || (String(a0.pagoFinal || '').split(' + ')[1] || 'Zelle');
   const opt = v => formas.concat(formas.includes(v) ? [] : [v]).map(f => '<option' + (f === v ? ' selected' : '') + '>' + escH(f) + '</option>').join('');
   const inp = 'width:100%;padding:10px;border-radius:8px;font-size:15px;margin-top:4px';
   const prev = document.getElementById('cp-ov'); if(prev) prev.remove();
   const m = document.createElement('div'); m.id = 'cp-ov';
-  m.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:100002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto';
+  m.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:100005;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto';
   m.innerHTML = '<div class="card" style="width:100%;max-width:460px;margin-top:30px"><div class="card-title">💳 Corregir forma de pago</div>'
-    + '<div style="font-size:12px;color:var(--ink-faint);margin-bottom:8px">' + escH(c.folioTerminado || c.id) + ' · ' + escH((c.cliente && c.cliente.nombre) || '') + ' · Total cobrado <b>$' + total.toFixed(2) + '</b>' + (+c.propina > 0 ? ' (incluye propina $' + (+c.propina).toFixed(2) + ')' : '') + '<br>Ahora dice: <b>' + escH(c.pagoFinal || '—') + '</b></div>'
+    + '<div style="font-size:12px;color:var(--ink-faint);margin-bottom:8px">' + escH(o.titulo) + ' · Total cobrado <b>$' + total.toFixed(2) + '</b>' + (o.propina > 0 ? ' (incluye propina $' + o.propina.toFixed(2) + ')' : '') + '<br>Ahora dice: <b>' + escH(a0.pagoFinal || '—') + '</b></div>'
     + '<label>Forma de pago</label><select id="cp-f1" style="' + inp + '">' + opt(actual1) + '</select>'
     + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="cp-div"' + (dividido ? ' checked' : '') + ' style="width:auto"> Pagó con dos formas</label>'
     + '<div id="cp-dw" style="' + (dividido ? '' : 'display:none') + '">'
-    + '<label>Monto con la primera ($)</label><input type="number" step="0.01" id="cp-m1" value="' + (dividido ? (+c.montoPago1 || '') : '') + '" style="' + inp + '">'
+    + '<label>Monto con la primera ($)</label><input type="number" step="0.01" id="cp-m1" value="' + (dividido ? (+a0.m1 || '') : '') + '" style="' + inp + '">'
     + '<label>Segunda forma</label><select id="cp-f2" style="' + inp + '">' + opt(actual2) + '</select>'
-    + '<label>Monto con la segunda ($)</label><input type="number" step="0.01" id="cp-m2" value="' + (dividido ? (+c.montoPago2 || '') : '') + '" style="' + inp + '">'
+    + '<label>Monto con la segunda ($)</label><input type="number" step="0.01" id="cp-m2" value="' + (dividido ? (+a0.m2 || '') : '') + '" style="' + inp + '">'
     + '<div id="cp-sum" style="font-size:12px;margin-top:6px"></div></div>'
-    + '<label>Referencia (Zelle / tarjeta)</label><input id="cp-ref" value="' + escH(c.refPago || '') + '" style="' + inp + '">'
+    + '<label>Referencia (Zelle / tarjeta)</label><input id="cp-ref" value="' + escH(a0.ref || '') + '" style="' + inp + '">'
     + '<div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" id="cp-ok">💾 Guardar</button><button class="btn" onclick="document.getElementById(\'cp-ov\').remove()">Cancelar</button></div></div>';
   document.body.appendChild(m);
   const $ = i => document.getElementById(i);
@@ -12250,26 +12332,97 @@ function corregirPagoTerminado(id) {
   $('cp-div').onchange = () => { $('cp-dw').style.display = $('cp-div').checked ? '' : 'none'; suma(); };
   suma();
   $('cp-ok').onclick = () => {
-    const f1 = $('cp-f1').value, div = $('cp-div').checked;
-    const dd = getData(); const cc = (dd.cots || []).find(x => x.id === id); if(!cc) return;
-    const antes = cc.pagoFinal || '';
+    const f1 = $('cp-f1').value, div = $('cp-div').checked, ref = $('cp-ref').value.trim();
+    let v;
     if(div) {
       const a = parseFloat($('cp-m1').value) || 0, b = parseFloat($('cp-m2').value) || 0, f2 = $('cp-f2').value;
       if(!(a > 0 && b > 0)) { alert('Escribe los dos montos.'); return; }
       if(f1 === f2) { alert('Las dos formas de pago son iguales. Quita la casilla "dos formas".'); return; }
       if(Math.abs(a + b - total) >= 0.01 && !confirm('Los dos montos suman $' + (a + b).toFixed(2) + ' y el total es $' + total.toFixed(2) + '. ¿Guardar así?')) return;
-      cc.pagoFinal = f1 + ' + ' + f2; cc.formaPago1 = f1; cc.formaPago2 = f2; cc.montoPago1 = +a.toFixed(2); cc.montoPago2 = +b.toFixed(2);
-    } else {
-      cc.pagoFinal = f1; cc.formaPago1 = ''; cc.formaPago2 = ''; cc.montoPago1 = 0; cc.montoPago2 = 0;
-    }
-    cc.refPago = $('cp-ref').value.trim();
-    if(!cc.historialPago) cc.historialPago = [];
-    cc.historialPago.push({ fecha: new Date().toISOString(), antes, despues: cc.pagoFinal });
-    saveData(dd); m.remove();
-    try { renderTerminados(); } catch(e) {} try { renderDashboard(); } catch(e) {}
-    try { toastV('💳 Forma de pago corregida: ' + cc.pagoFinal); } catch(e) {}
+      v = { pagoFinal: f1 + ' + ' + f2, f1, f2, m1: +a.toFixed(2), m2: +b.toFixed(2), ref };
+    } else v = { pagoFinal: f1, f1: '', f2: '', m1: 0, m2: 0, ref };
+    m.remove(); o.guardar(v);
   };
 }
+</script>
+<script>
+// ===================== v13.36: TARJETAS PERSONALES (cuánto le debe el negocio) =====================
+function tpTodas(d) {
+  const set = new Set(tarjetasLista());
+  (d.gas || []).concat(d.gg || []).forEach(g => { if(g.tarjeta) set.add(g.tarjeta); });
+  ['Efectivo', 'Zelle'].forEach(x => set.delete(x));
+  return Array.from(set).filter(Boolean);
+}
+function tpPersonales(d) {
+  const c = getCfg();
+  if(Array.isArray(c.tarjetasPersonales)) return c.tarjetasPersonales;
+  return tpTodas(d).filter(t => /personal|prime|freedom|sapphire|discover|capital one|amex|american express/i.test(t) && !/negocio|business/i.test(t));
+}
+function tpCalcular(d) {
+  d = d || getData();
+  const pers = tpPersonales(d), desde = getCfg().tarjetasDesde || '';
+  const porTarjeta = {}, movs = [];
+  pers.forEach(t => porTarjeta[t] = { nombre: t, cargos: 0, pagos: 0, n: 0, meses: {} });
+  (d.gas || []).forEach(g => { if(porTarjeta[g.tarjeta] && (!desde || (g.fecha || '') >= desde)) { const x = porTarjeta[g.tarjeta]; x.cargos += +g.monto || 0; x.n++; const mm = (g.fecha || '').slice(0, 7); x.meses[mm] = (x.meses[mm] || 0) + (+g.monto || 0); movs.push({ fecha: g.fecha, tarjeta: tarjetaSegura(g.tarjeta), tipo: 'Gasolina', det: (gasVehTexto(g.vehiculo) || '') + (g.estacion ? ' · ' + g.estacion : ''), monto: +(+g.monto || 0).toFixed(2) }); } });
+  (d.gg || []).forEach(g => { if(porTarjeta[g.tarjeta] && (!desde || (g.fecha || '') >= desde)) { const x = porTarjeta[g.tarjeta]; x.cargos += +g.monto || 0; x.n++; const mm = (g.fecha || '').slice(0, 7); x.meses[mm] = (x.meses[mm] || 0) + (+g.monto || 0); movs.push({ fecha: g.fecha, tarjeta: tarjetaSegura(g.tarjeta), tipo: g.cat || g.categoria || 'Otro', det: g.desc || '', monto: +(+g.monto || 0).toFixed(2) }); } });
+  (d.pagosTarjeta || []).forEach(p => { const x = porTarjeta[p.tarjeta]; if(!x) return; x.pagos += +p.monto || 0; if(p.mes) { x.pagosMes = x.pagosMes || {}; x.pagosMes[p.mes] = (x.pagosMes[p.mes] || 0) + (+p.monto || 0); } });
+  Object.values(porTarjeta).forEach(x => { x.cargos = +x.cargos.toFixed(2); x.pagos = +x.pagos.toFixed(2); });
+  movs.sort((a, b) => (b.fecha || '') > (a.fecha || '') ? 1 : -1);
+  return { porTarjeta, movs };
+}
+function renderTarjetasPersonales() {
+  const d = getData(); const todas = tpTodas(d), pers = tpPersonales(d);
+  document.getElementById('tp-marcas').innerHTML = todas.length ? todas.map(t => '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" style="width:auto" ' + (pers.includes(t) ? 'checked' : '') + ' onchange="tpMarcar(this.dataset.t,this.checked)" data-t="' + escH(t) + '"> ' + escH(tarjetaSegura(t)) + '</label>').join('') : '<span style="font-size:12px;color:var(--ink-faint)">Agrega tus tarjetas en ⚙️ Configuración → Tarjetas.</span>';
+  const desdeEl = document.getElementById('tp-desde'); if(desdeEl && !desdeEl.value) desdeEl.value = getCfg().tarjetasDesde || '';
+  const r = tpCalcular(d); const arr = Object.values(r.porTarjeta);
+  const tot = arr.reduce((a, x) => a + x.cargos - x.pagos, 0);
+  document.getElementById('tp-resumen').innerHTML = arr.length ? '<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:center"><div class="card-title" style="margin:0">Pendiente de pagar a tus tarjetas</div><div style="font-size:26px;font-weight:900;color:' + (tot > 0.009 ? '#EF9F27' : '#1D9E75') + '">$' + Math.max(0, tot).toFixed(2) + '</div></div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px">' + arr.map(x => { const p = +(x.cargos - x.pagos).toFixed(2); const meses = Object.keys(x.meses).sort().reverse().slice(0, 4).map(m => m + ': $' + x.meses[m].toFixed(2)).join(' · ');
+      const nomMes = m => { const [y, mo] = m.split('-'); return ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][+mo - 1] + ' ' + y; };
+      const tabla = Object.keys(x.meses).sort().reverse().map(m => { const g = x.meses[m], pg = (x.pagosMes || {})[m] || 0, f = +(g - pg).toFixed(2);
+        return '<tr><td style="padding:3px 4px">' + nomMes(m) + '</td><td style="text-align:right">$' + g.toFixed(2) + '</td><td style="text-align:right;color:#1D9E75">' + (pg ? '$' + pg.toFixed(2) : '—') + '</td><td style="text-align:right;font-weight:700;color:' + (f > 0.009 ? '#EF9F27' : '#1D9E75') + '">' + (f > 0.009 ? '$' + f.toFixed(2) : '✅') + '</td></tr>'; }).join('');
+      return '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px"><div style="font-weight:700">' + escH(tarjetaSegura(x.nombre)) + '</div><div style="font-size:12px;color:var(--ink-soft);margin-top:4px">Gastos del negocio: <b>$' + x.cargos.toFixed(2) + '</b> (' + x.n + ')<br>Ya pagado desde el negocio: <b>$' + x.pagos.toFixed(2) + '</b></div><div style="font-size:20px;font-weight:900;margin-top:6px;color:' + (p > 0.009 ? '#EF9F27' : '#1D9E75') + '">' + (p > 0.009 ? 'Pagar $' + p.toFixed(2) : (p < -0.009 ? 'Pagaste $' + (-p).toFixed(2) + ' de más' : '✅ Al corriente')) + '</div>'
+        + (tabla ? '<table style="width:100%;font-size:12px;margin-top:8px"><tr style="color:var(--ink-faint);font-size:10.5px"><td>MES</td><td style="text-align:right">GASTOS</td><td style="text-align:right">PAGADO</td><td style="text-align:right">FALTA</td></tr>' + tabla + '</table>' : '') + '</div>'; }).join('') + '</div>'
+    + '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:var(--brand)">Ver los gastos cargados (' + r.movs.length + ')</summary><table style="width:100%;font-size:12px;margin-top:6px">' + r.movs.slice(0, 200).map(m => '<tr><td style="padding:3px 6px">' + escH(m.fecha) + '</td><td>' + escH(m.tarjeta) + '</td><td>' + escH(m.tipo) + '</td><td>' + escH(m.det) + '</td><td style="text-align:right;font-weight:700">$' + m.monto.toFixed(2) + '</td></tr>').join('') + '</table></details></div>'
+    : '<div class="card"><div style="font-size:13px;color:var(--ink-soft)">Marca arriba cuáles tarjetas son personales.</div></div>';
+  const sel = document.getElementById('tp-tarjeta'); const v = sel.value;
+  sel.innerHTML = arr.map(x => '<option value="' + escH(x.nombre) + '">' + escH(tarjetaSegura(x.nombre)) + '</option>').join(''); if(v) sel.value = v;
+  tpLlenarMeses();
+  const f = document.getElementById('tp-fecha'); if(f && !f.value) f.value = hoyLocal();
+  const pagos = (d.pagosTarjeta || []).slice().sort((a, b) => (b.fecha || '') > (a.fecha || '') ? 1 : -1);
+  document.getElementById('tp-pagos').innerHTML = pagos.length ? '<table style="width:100%;font-size:12.5px">' + pagos.map(p => '<tr style="border-top:1px solid var(--line-soft)"><td style="padding:5px">' + escH(p.fecha) + '</td><td>' + escH(tarjetaSegura(p.tarjeta)) + '</td><td>' + (p.mes ? 'Mes ' + escH(p.mes) + ' · ' : '') + escH(p.nota || '') + '</td><td style="text-align:right;font-weight:700;color:#1D9E75">$' + (+p.monto).toFixed(2) + '</td><td style="text-align:right"><button class="btn btn-sm" onclick="tpBorrarPago(\'' + p.id + '\')" style="color:#E24B4A">🗑</button></td></tr>').join('') + '</table>' : '<div style="font-size:12px;color:var(--ink-faint)">Todavía no registras pagos a tarjetas.</div>';
+}
+function tpMarcar(t, on) {
+  const d = getData(); const c = getCfg(); let l = tpPersonales(d).slice();
+  if(on && !l.includes(t)) l.push(t); if(!on) l = l.filter(x => x !== t);
+  c.tarjetasPersonales = l; saveCfg(); renderTarjetasPersonales();
+}
+function tpGuardarDesde() { const c = getCfg(); c.tarjetasDesde = document.getElementById('tp-desde').value || ''; saveCfg(); renderTarjetasPersonales(); }
+function tpLlenarMeses() {
+  const t = document.getElementById('tp-tarjeta').value; const x = tpCalcular().porTarjeta[t]; const sel = document.getElementById('tp-mes'); if(!sel) return;
+  const v = sel.value; const nomMes = m => { const [y, mo] = m.split('-'); return ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][+mo - 1] + ' ' + y; };
+  const ms = x ? Object.keys(x.meses).sort().reverse() : [];
+  sel.innerHTML = '<option value="">Todo lo pendiente</option>' + ms.map(m => { const f = x.meses[m] - ((x.pagosMes || {})[m] || 0); return '<option value="' + m + '">' + nomMes(m) + (f > 0.009 ? ' — falta $' + f.toFixed(2) : ' ✅') + '</option>'; }).join('');
+  if(v && ms.includes(v)) sel.value = v;
+}
+function tpLlenarPendiente(forzar) {
+  const t = document.getElementById('tp-tarjeta').value; const x = tpCalcular().porTarjeta[t]; const m = document.getElementById('tp-monto');
+  const mes = (document.getElementById('tp-mes') || {}).value || '';
+  if(!x || !(forzar || !m.value)) return;
+  m.value = mes ? Math.max(0, x.meses[mes] - ((x.pagosMes || {})[mes] || 0)).toFixed(2) : Math.max(0, x.cargos - x.pagos).toFixed(2);
+}
+function tpRegistrarPago() {
+  const t = document.getElementById('tp-tarjeta').value, monto = parseFloat(document.getElementById('tp-monto').value) || 0;
+  if(!t) { alert('Elige la tarjeta.'); return; }
+  if(!(monto > 0)) { alert('Escribe el monto.'); return; }
+  const x = tpCalcular().porTarjeta[t]; const pend = x ? +(x.cargos - x.pagos).toFixed(2) : 0;
+  if(monto > pend + 0.009 && !confirm('Lo pendiente de esa tarjeta es $' + pend.toFixed(2) + ' y vas a registrar $' + monto.toFixed(2) + '.\n\nSi pagaste más desde la cuenta del negocio, los $' + (monto - pend).toFixed(2) + ' de diferencia son compras PERSONALES: regístralos como Retiro en 🧑‍💼 Sueldos / Retiros.\n\n¿Guardar este pago de todos modos?')) return;
+  const d = getData(); if(!d.pagosTarjeta) d.pagosTarjeta = [];
+  d.pagosTarjeta.push({ id: 'PT-' + Date.now(), tarjeta: t, mes: (document.getElementById('tp-mes') || {}).value || '', fecha: document.getElementById('tp-fecha').value || hoyLocal(), monto: +monto.toFixed(2), nota: document.getElementById('tp-nota').value.trim() });
+  saveData(d); document.getElementById('tp-monto').value = ''; document.getElementById('tp-nota').value = '';
+  renderTarjetasPersonales(); try { toastV('✅ Pago a la tarjeta guardado (no cuenta como gasto ni retiro)'); } catch(e) {}
+}
+function tpBorrarPago(id) { if(!confirm('¿Borrar este pago a la tarjeta?')) return; const d = getData(); d.pagosTarjeta = (d.pagosTarjeta || []).filter(p => p.id !== id); saveData(d); renderTarjetasPersonales(); }
 </script>
 </body>
 </html>
