@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.39</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.40</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -695,7 +695,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
       <details><summary style="cursor:pointer;font-size:12px;color:var(--brand);font-weight:700">⚙️ Elegir tarjetas personales y fecha de inicio</summary>
         <div id="tp-marcas" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:10px 0"></div>
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-          <div><label style="font-size:11px">Contar gastos desde</label><input type="date" id="tp-desde" onchange="tpGuardarDesde()" style="padding:6px"></div>
+          <div><label style="font-size:11px">Fecha general (para tarjetas sin fecha propia)</label><input type="date" id="tp-desde" onchange="tpGuardarDesde()" style="padding:6px"></div>
           <div style="font-size:11px;color:var(--ink-faint);max-width:420px">Si lo de antes ya lo pagaste, pon aquí desde cuándo empiezas a llevar la cuenta.</div>
         </div>
       </details>
@@ -12365,6 +12365,7 @@ function tpPersonalesKeys(d) {
   return Object.values(g).filter(x => x.nombres.some(t => /personal|prime|freedom|sapphire|discover|capital one|amex|american express/i.test(t) && !/negocio|business/i.test(t))).map(x => x.k);
 }
 function tpDia(k) { return +((getCfg().tarjetasDiaPago || {})[k]) || 0; }
+function tpDesde(k) { const c = getCfg(); return (c.tarjetasDesdeK || {})[k] || c.tarjetasDesde || ''; }
 function tpCierre(k) { return +((getCfg().tarjetasCierre || {})[k]) || 0; }
 // A qué pago pertenece una compra: con día de pago D, lo del D de un mes al D-1 del siguiente se paga el día D del siguiente mes.
 function tpCiclo(fecha, dia, cierre) {
@@ -12388,7 +12389,7 @@ function tpCalcular(d) {
   const porTarjeta = {}, movs = [];
   keys.forEach(k => porTarjeta[k] = { k, nombre: g[k].nombre, dia: tpDia(k), cierre: tpCierre(k), cargos: 0, pagos: 0, n: 0, ciclos: {} });
   const cargar = (x, tipo, det) => {
-    const T = porTarjeta[tpKey(x.tarjeta)]; if(!T || (desde && (x.fecha || '') < desde)) return;
+    const T = porTarjeta[tpKey(x.tarjeta)]; if(!T) return; const dK = tpDesde(T.k); if(dK && (x.fecha || '') < dK) return;
     const c = tpCiclo(x.fecha, T.dia, T.cierre); if(!c) return;
     const C = T.ciclos[c.vence] || (T.ciclos[c.vence] = Object.assign({ gastos: 0, pagado: 0, n: 0 }, c));
     C.gastos += +x.monto || 0; C.n++; T.cargos += +x.monto || 0; T.n++;
@@ -12422,7 +12423,8 @@ function renderTarjetasPersonales() {
     const vencidos = T.dia ? pend.filter(C => C.vence <= hoy) : [];
     const futuros = T.dia ? cic.filter(C => C.vence > hoy) : [];
     vencidos.forEach(C => totalHoy += C.gastos - C.pagado);
-    const diaInput = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);margin-top:4px">Cierra el día <input type="number" min="1" max="31" value="' + (T.cierre || '') + '" placeholder="¿?" style="width:52px;padding:4px 6px" onchange="tpGuardarCierre(\'' + escH(T.k) + '\',this.value)"> · Se paga el día <input type="number" min="1" max="31" value="' + (T.dia || '') + '" placeholder="¿?" style="width:52px;padding:4px 6px" onchange="tpGuardarDia(\'' + escH(T.k) + '\',this.value)"></div>';
+    const diaInput = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);margin-top:4px">Cierra el día <input type="number" min="1" max="31" value="' + (T.cierre || '') + '" placeholder="¿?" style="width:52px;padding:4px 6px" onchange="tpGuardarCierre(\'' + escH(T.k) + '\',this.value)"> · Se paga el día <input type="number" min="1" max="31" value="' + (T.dia || '') + '" placeholder="¿?" style="width:52px;padding:4px 6px" onchange="tpGuardarDia(\'' + escH(T.k) + '\',this.value)"></div>'
+      + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);margin-top:4px">Contar gastos desde <input type="date" value="' + escH(tpDesde(T.k)) + '" style="width:auto;padding:4px 6px" onchange="tpGuardarDesdeK(\'' + escH(T.k) + '\',this.value)"></div>';
     let cuerpo = '';
     if(!T.dia) {
       const f = +(T.cargos - T.pagos).toFixed(2);
@@ -12451,8 +12453,9 @@ function renderTarjetasPersonales() {
   const pagos = (d.pagosTarjeta || []).slice().sort((a, b) => (b.fecha || '') > (a.fecha || '') ? 1 : -1);
   document.getElementById('tp-pagos').innerHTML = pagos.length ? '<div style="font-size:12px;font-weight:700;margin-bottom:4px">Pagos registrados</div><table style="width:100%;font-size:12.5px">' + pagos.map(p => { const T = r.porTarjeta[tpKey(p.tarjeta)]; return '<tr style="border-top:1px solid var(--line-soft)"><td style="padding:5px">' + escH(p.fecha) + '</td><td>' + escH(T ? T.nombre : tarjetaSegura(p.tarjeta)) + '</td><td>' + (p.ciclo ? 'Pago del ' + tpFmt(p.ciclo) : (p.mes ? 'Mes ' + escH(p.mes) : 'General')) + (p.nota ? ' · ' + escH(p.nota) : '') + '</td><td style="text-align:right;font-weight:700;color:#1D9E75">$' + (+p.monto).toFixed(2) + '</td><td style="text-align:right"><button class="btn btn-sm" onclick="tpBorrarPago(\'' + p.id + '\')" style="color:#E24B4A">🗑</button></td></tr>'; }).join('') + '</table>' : '';
 }
-function tpMarcar(k, on) { const d = getData(); const c = getCfg(); let l = tpPersonalesKeys(d).slice(); if(on && !l.includes(k)) l.push(k); if(!on) l = l.filter(x => x !== k); c.tarjetasPersonales = l; saveCfg(); renderTarjetasPersonales(); }
+function tpMarcar(k, on) { const d = getData(); let l = tpPersonalesKeys(d).slice(); if(on && !l.includes(k)) l.push(k); if(!on) l = l.filter(x => x !== k); const c = getCfg(); c.tarjetasPersonales = l; saveCfg(); renderTarjetasPersonales(); }
 function tpGuardarDesde() { const c = getCfg(); c.tarjetasDesde = document.getElementById('tp-desde').value || ''; saveCfg(); renderTarjetasPersonales(); }
+function tpGuardarDesdeK(k, v) { const c = getCfg(); c.tarjetasDesdeK = c.tarjetasDesdeK || {}; if(v) c.tarjetasDesdeK[k] = v; else delete c.tarjetasDesdeK[k]; saveCfg(); renderTarjetasPersonales(); }
 function tpGuardarCierre(k, v) { const c = getCfg(); c.tarjetasCierre = c.tarjetasCierre || {}; const n = parseInt(v); if(n >= 1 && n <= 31) c.tarjetasCierre[k] = n; else delete c.tarjetasCierre[k]; saveCfg(); renderTarjetasPersonales(); }
 function tpGuardarDia(k, v) { const c = getCfg(); c.tarjetasDiaPago = c.tarjetasDiaPago || {}; const n = parseInt(v); if(n >= 1 && n <= 31) c.tarjetasDiaPago[k] = n; else delete c.tarjetasDiaPago[k]; saveCfg(); renderTarjetasPersonales(); }
 function tpLlenarCiclos() {
