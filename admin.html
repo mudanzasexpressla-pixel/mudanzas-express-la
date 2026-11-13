@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.37</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.38</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -687,30 +687,30 @@ table.data-table tr:hover td{background:#1A2A42!important}
 
   <div id="gt-tarjetas" style="display:none">
     <div class="card" style="border-left:4px solid #EF9F27">
-      <div class="card-title">💳 ¿Cuánto le debe el negocio a tus tarjetas personales?</div>
+      <div class="card-title">💳 Pagos a tus tarjetas personales</div>
       <div style="font-size:12px;color:var(--ink-soft);line-height:1.6;margin-bottom:10px">
-        Cuando pagas gastos del negocio con tu tarjeta personal, el negocio te debe ese dinero. Aquí ves <b>cuánto pagar desde la cuenta del negocio</b> a cada tarjeta.<br>
-        • Ese pago <b>NO es gasto</b> (cada compra ya se contó) <b>ni retiro/sueldo</b>.<br>
-        • Paga <b>solo lo pendiente</b>. Si de la cuenta del negocio pagas también compras personales, esa diferencia sí es <b>retiro</b>.
+        Lo que pagas del negocio con tu tarjeta personal, el negocio te lo debe. Aquí ves <b>cuánto pagar y para cuándo</b>, desde la cuenta del negocio.
+        Ese pago <b>NO es gasto ni retiro</b>. Solo si pagas de más (compras tuyas) esa diferencia es retiro.
       </div>
-      <div style="font-weight:700;font-size:13px;margin-bottom:6px">¿Cuáles son tus tarjetas PERSONALES?</div>
-      <div id="tp-marcas" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-bottom:10px"></div>
-      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-        <div><label style="font-size:11px">Contar gastos desde (opcional)</label><input type="date" id="tp-desde" onchange="tpGuardarDesde()" style="padding:6px"></div>
-        <div style="font-size:11px;color:var(--ink-faint);max-width:420px">Si ya habías pagado lo de antes, pon aquí la fecha desde la que empiezas a llevar la cuenta.</div>
-      </div>
+      <details><summary style="cursor:pointer;font-size:12px;color:var(--brand);font-weight:700">⚙️ Elegir tarjetas personales y fecha de inicio</summary>
+        <div id="tp-marcas" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:10px 0"></div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <div><label style="font-size:11px">Contar gastos desde</label><input type="date" id="tp-desde" onchange="tpGuardarDesde()" style="padding:6px"></div>
+          <div style="font-size:11px;color:var(--ink-faint);max-width:420px">Si lo de antes ya lo pagaste, pon aquí desde cuándo empiezas a llevar la cuenta.</div>
+        </div>
+      </details>
     </div>
     <div id="tp-resumen"></div>
     <div class="card">
-      <div class="card-title">✅ Registrar pago a la tarjeta (desde la cuenta del negocio)</div>
+      <div class="card-title">✅ Registrar un pago a la tarjeta</div>
       <div class="form-row four">
-        <div><label>Tarjeta</label><select id="tp-tarjeta" onchange="tpLlenarMeses();tpLlenarPendiente(true)"></select></div>
-        <div><label>¿De qué mes?</label><select id="tp-mes" onchange="tpLlenarPendiente(true)"></select></div>
-        <div><label>Fecha</label><input type="date" id="tp-fecha"></div>
+        <div><label>Tarjeta</label><select id="tp-tarjeta" onchange="tpLlenarCiclos();tpLlenarPendiente(true)"></select></div>
+        <div><label>¿Qué pago es?</label><select id="tp-ciclo" onchange="tpLlenarPendiente(true)"></select></div>
+        <div><label>Fecha en que pagaste</label><input type="date" id="tp-fecha"></div>
         <div><label>Monto ($)</label><input type="number" step="0.01" id="tp-monto"></div>
-        <div><label>Nota</label><input type="text" id="tp-nota" placeholder="Ej: pago de estado de cuenta"></div>
       </div>
-      <div class="btn-row"><button class="btn btn-primary" onclick="tpRegistrarPago()">💾 Guardar pago</button><button class="btn" onclick="tpLlenarPendiente(true)">Poner todo lo pendiente</button></div>
+      <div><label>Nota (opcional)</label><input type="text" id="tp-nota" placeholder="Ej: pagado desde Chase negocio"></div>
+      <div class="btn-row" style="margin-top:8px"><button class="btn btn-primary" onclick="tpRegistrarPago()">💾 Guardar pago</button></div>
       <div id="tp-pagos" style="margin-top:12px"></div>
     </div>
   </div>
@@ -7643,7 +7643,7 @@ function exportarExcel(tipo) {
     // v13.36: tarjetas personales (cuánto le debe el negocio)
     try {
       const tpR = tpCalcular(d); const filasTp = [];
-      Object.values(tpR.porTarjeta).forEach(x => { filasTp.push([x.nombre, x.cargos, x.pagos, +(x.cargos - x.pagos).toFixed(2), x.n]); Object.keys(x.meses).sort().forEach(m => filasTp.push(['   ' + m, +x.meses[m].toFixed(2), +(((x.pagosMes || {})[m]) || 0).toFixed(2), +(x.meses[m] - (((x.pagosMes || {})[m]) || 0)).toFixed(2), ''])); });
+      Object.values(tpR.porTarjeta).forEach(x => { filasTp.push([x.nombre, x.cargos, x.pagos, +(x.cargos - x.pagos).toFixed(2), x.n]); Object.values(x.ciclos).sort((p, q) => p.vence < q.vence ? -1 : 1).forEach(C => filasTp.push(['   ' + (C.sinDia ? C.etiqueta : 'Vence ' + C.vence + ' (' + C.desde + ' a ' + C.hasta + ')'), +C.gastos.toFixed(2), +C.pagado.toFixed(2), +(C.gastos - C.pagado).toFixed(2), C.n])); });
       if(filasTp.length) {
         const movs = []; tpR.movs.forEach(m => movs.push([m.fecha, m.tarjeta, m.tipo, m.det, m.monto]));
         const wstp = XLSX.utils.aoa_to_sheet([['Tarjeta personal','Gastos del negocio cargados','Pagado desde el negocio','PENDIENTE','# gastos'], ...filasTp, [], ['Fecha','Tarjeta','Tipo','Detalle','Monto'], ...movs, [], ['Nota: el pago a la tarjeta desde la cuenta del negocio NO es gasto ni retiro; reembolsa gastos del negocio pagados con tarjeta personal.']]);
@@ -12346,79 +12346,125 @@ function abrirCorrectorPago(o) {
 }
 </script>
 <script>
-// ===================== v13.36: TARJETAS PERSONALES (cuánto le debe el negocio) =====================
-function tpTodas(d) {
-  const set = new Set(tarjetasLista());
-  (d.gas || []).concat(d.gg || []).forEach(g => { if(g.tarjeta) set.add(g.tarjeta); });
-  ['Efectivo', 'Zelle'].forEach(x => set.delete(x));
-  return Array.from(set).filter(Boolean);
+// ===================== v13.38: TARJETAS PERSONALES (por día de pago) =====================
+// Las tarjetas se agrupan por sus últimos 4 números (así "PRIME VISA 6693" y "PRIME VISA (••••6693)" son la misma).
+const MESES_TP = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function tpKey(t) { const m = String(t || '').match(/(\d{4})\D*$/); return m ? m[1] : String(t || '').trim().toUpperCase(); }
+function tpISO(y, m, d) { const x = new Date(y, m, d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); }
+function tpFmt(iso) { const [y, m, d] = iso.split('-'); return (+d) + ' ' + MESES_TP[+m - 1] + ' ' + y; }
+function tpGrupos(d) {
+  const g = {};
+  const add = t => { if(!t || /^(efectivo|zelle)$/i.test(t)) return; const k = tpKey(t); if(!g[k]) g[k] = { k, nombres: [] }; if(!g[k].nombres.includes(t)) g[k].nombres.push(t); };
+  tarjetasLista().forEach(add); (d.gas || []).concat(d.gg || []).forEach(x => add(x.tarjeta));
+  Object.values(g).forEach(x => { const base = tarjetaSegura(x.nombres.slice().sort((a, b) => a.length - b.length)[0]); x.nombre = /^\d{4}$/.test(x.k) ? base.replace(/[\(\)•\d\s-]+$/, '').trim() + ' (••••' + x.k + ')' : base; });
+  return g;
 }
-function tpPersonales(d) {
-  const c = getCfg();
-  if(Array.isArray(c.tarjetasPersonales)) return c.tarjetasPersonales;
-  return tpTodas(d).filter(t => /personal|prime|freedom|sapphire|discover|capital one|amex|american express/i.test(t) && !/negocio|business/i.test(t));
+function tpPersonalesKeys(d) {
+  const c = getCfg(); const g = tpGrupos(d);
+  if(Array.isArray(c.tarjetasPersonales)) return [...new Set(c.tarjetasPersonales.map(tpKey))].filter(k => g[k]);
+  return Object.values(g).filter(x => x.nombres.some(t => /personal|prime|freedom|sapphire|discover|capital one|amex|american express/i.test(t) && !/negocio|business/i.test(t))).map(x => x.k);
+}
+function tpDia(k) { return +((getCfg().tarjetasDiaPago || {})[k]) || 0; }
+// A qué pago pertenece una compra: con día de pago D, lo del D de un mes al D-1 del siguiente se paga el día D del siguiente mes.
+function tpCiclo(fecha, dia) {
+  const [y, m, d] = String(fecha || '').split('-').map(Number); if(!y) return null;
+  if(!dia) return { vence: tpISO(y, m - 1, 1), etiqueta: MESES_TP[m - 1] + ' ' + y, desde: tpISO(y, m - 1, 1), hasta: tpISO(y, m, 0), sinDia: true };
+  const v = d >= dia ? new Date(y, m, dia) : new Date(y, m - 1, dia);
+  const venc = tpISO(v.getFullYear(), v.getMonth(), dia);
+  return { vence: venc, desde: tpISO(v.getFullYear(), v.getMonth() - 1, dia), hasta: tpISO(v.getFullYear(), v.getMonth(), dia - 1) };
 }
 function tpCalcular(d) {
   d = d || getData();
-  const pers = tpPersonales(d), desde = getCfg().tarjetasDesde || '';
+  const g = tpGrupos(d), keys = tpPersonalesKeys(d), desde = getCfg().tarjetasDesde || '';
   const porTarjeta = {}, movs = [];
-  pers.forEach(t => porTarjeta[t] = { nombre: t, cargos: 0, pagos: 0, n: 0, meses: {} });
-  (d.gas || []).forEach(g => { if(porTarjeta[g.tarjeta] && (!desde || (g.fecha || '') >= desde)) { const x = porTarjeta[g.tarjeta]; x.cargos += +g.monto || 0; x.n++; const mm = (g.fecha || '').slice(0, 7); x.meses[mm] = (x.meses[mm] || 0) + (+g.monto || 0); movs.push({ fecha: g.fecha, tarjeta: tarjetaSegura(g.tarjeta), tipo: 'Gasolina', det: (gasVehTexto(g.vehiculo) || '') + (g.estacion ? ' · ' + g.estacion : ''), monto: +(+g.monto || 0).toFixed(2) }); } });
-  (d.gg || []).forEach(g => { if(porTarjeta[g.tarjeta] && (!desde || (g.fecha || '') >= desde)) { const x = porTarjeta[g.tarjeta]; x.cargos += +g.monto || 0; x.n++; const mm = (g.fecha || '').slice(0, 7); x.meses[mm] = (x.meses[mm] || 0) + (+g.monto || 0); movs.push({ fecha: g.fecha, tarjeta: tarjetaSegura(g.tarjeta), tipo: g.cat || g.categoria || 'Otro', det: g.desc || '', monto: +(+g.monto || 0).toFixed(2) }); } });
-  (d.pagosTarjeta || []).forEach(p => { const x = porTarjeta[p.tarjeta]; if(!x) return; x.pagos += +p.monto || 0; if(p.mes) { x.pagosMes = x.pagosMes || {}; x.pagosMes[p.mes] = (x.pagosMes[p.mes] || 0) + (+p.monto || 0); } });
-  Object.values(porTarjeta).forEach(x => { x.cargos = +x.cargos.toFixed(2); x.pagos = +x.pagos.toFixed(2); });
+  keys.forEach(k => porTarjeta[k] = { k, nombre: g[k].nombre, dia: tpDia(k), cargos: 0, pagos: 0, n: 0, ciclos: {} });
+  const cargar = (x, tipo, det) => {
+    const T = porTarjeta[tpKey(x.tarjeta)]; if(!T || (desde && (x.fecha || '') < desde)) return;
+    const c = tpCiclo(x.fecha, T.dia); if(!c) return;
+    const C = T.ciclos[c.vence] || (T.ciclos[c.vence] = Object.assign({ gastos: 0, pagado: 0, n: 0 }, c));
+    C.gastos += +x.monto || 0; C.n++; T.cargos += +x.monto || 0; T.n++;
+    movs.push({ fecha: x.fecha, tarjeta: T.nombre, tipo, det, monto: +(+x.monto || 0).toFixed(2), vence: c.vence });
+  };
+  (d.gas || []).forEach(x => cargar(x, 'Gasolina', (gasVehTexto(x.vehiculo) || '') + (x.estacion ? ' · ' + x.estacion : '')));
+  (d.gg || []).forEach(x => cargar(x, x.cat || x.categoria || 'Otro', x.desc || ''));
+  (d.pagosTarjeta || []).forEach(p => {
+    const T = porTarjeta[tpKey(p.tarjeta)]; if(!T) return; T.pagos += +p.monto || 0;
+    let ref = p.ciclo || '';
+    if(!ref && p.mes) { const c = tpCiclo(p.mes + '-01', T.dia); ref = c && c.vence; }
+    if(!ref || !T.ciclos[ref]) { // pago general: se aplica a los más viejos primero
+      let resto = +p.monto || 0;
+      Object.keys(T.ciclos).sort().forEach(v => { const C = T.ciclos[v]; const f = C.gastos - C.pagado; if(resto > 0 && f > 0) { const a = Math.min(f, resto); C.pagado += a; resto -= a; } });
+    } else T.ciclos[ref].pagado += +p.monto || 0;
+  });
+  Object.values(porTarjeta).forEach(T => { T.cargos = +T.cargos.toFixed(2); T.pagos = +T.pagos.toFixed(2); });
   movs.sort((a, b) => (b.fecha || '') > (a.fecha || '') ? 1 : -1);
   return { porTarjeta, movs };
 }
+function tpCicloTxt(C) { return C.sinDia ? 'Gastos de ' + C.etiqueta : 'Gastos del ' + tpFmt(C.desde) + ' al ' + tpFmt(C.hasta); }
 function renderTarjetasPersonales() {
-  const d = getData(); const todas = tpTodas(d), pers = tpPersonales(d);
-  document.getElementById('tp-marcas').innerHTML = todas.length ? todas.map(t => '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" style="width:auto" ' + (pers.includes(t) ? 'checked' : '') + ' onchange="tpMarcar(this.dataset.t,this.checked)" data-t="' + escH(t) + '"> ' + escH(tarjetaSegura(t)) + '</label>').join('') : '<span style="font-size:12px;color:var(--ink-faint)">Agrega tus tarjetas en ⚙️ Configuración → Tarjetas.</span>';
-  const desdeEl = document.getElementById('tp-desde'); if(desdeEl && !desdeEl.value) desdeEl.value = getCfg().tarjetasDesde || '';
+  const d = getData(); const g = tpGrupos(d), pers = tpPersonalesKeys(d), hoy = hoyLocal();
+  document.getElementById('tp-marcas').innerHTML = Object.values(g).map(x => '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" style="width:auto" ' + (pers.includes(x.k) ? 'checked' : '') + ' onchange="tpMarcar(this.dataset.k,this.checked)" data-k="' + escH(x.k) + '"> ' + escH(x.nombre) + '</label>').join('') || '<span style="font-size:12px;color:var(--ink-faint)">Agrega tus tarjetas en ⚙️ Configuración → Tarjetas.</span>';
+  const desdeEl = document.getElementById('tp-desde'); if(desdeEl) desdeEl.value = getCfg().tarjetasDesde || '';
   const r = tpCalcular(d); const arr = Object.values(r.porTarjeta);
-  const tot = arr.reduce((a, x) => a + x.cargos - x.pagos, 0);
-  document.getElementById('tp-resumen').innerHTML = arr.length ? '<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:center"><div class="card-title" style="margin:0">Pendiente de pagar a tus tarjetas</div><div style="font-size:26px;font-weight:900;color:' + (tot > 0.009 ? '#EF9F27' : '#1D9E75') + '">$' + Math.max(0, tot).toFixed(2) + '</div></div>'
-    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px">' + arr.map(x => { const p = +(x.cargos - x.pagos).toFixed(2); const meses = Object.keys(x.meses).sort().reverse().slice(0, 4).map(m => m + ': $' + x.meses[m].toFixed(2)).join(' · ');
-      const nomMes = m => { const [y, mo] = m.split('-'); return ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][+mo - 1] + ' ' + y; };
-      const tabla = Object.keys(x.meses).sort().reverse().map(m => { const g = x.meses[m], pg = (x.pagosMes || {})[m] || 0, f = +(g - pg).toFixed(2);
-        return '<tr><td style="padding:3px 4px">' + nomMes(m) + '</td><td style="text-align:right">$' + g.toFixed(2) + '</td><td style="text-align:right;color:#1D9E75">' + (pg ? '$' + pg.toFixed(2) : '—') + '</td><td style="text-align:right;font-weight:700;color:' + (f > 0.009 ? '#EF9F27' : '#1D9E75') + '">' + (f > 0.009 ? '$' + f.toFixed(2) : '✅') + '</td></tr>'; }).join('');
-      return '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px"><div style="font-weight:700">' + escH(tarjetaSegura(x.nombre)) + '</div><div style="font-size:12px;color:var(--ink-soft);margin-top:4px">Gastos del negocio: <b>$' + x.cargos.toFixed(2) + '</b> (' + x.n + ')<br>Ya pagado desde el negocio: <b>$' + x.pagos.toFixed(2) + '</b></div><div style="font-size:20px;font-weight:900;margin-top:6px;color:' + (p > 0.009 ? '#EF9F27' : '#1D9E75') + '">' + (p > 0.009 ? 'Pagar $' + p.toFixed(2) : (p < -0.009 ? 'Pagaste $' + (-p).toFixed(2) + ' de más' : '✅ Al corriente')) + '</div>'
-        + (tabla ? '<table style="width:100%;font-size:12px;margin-top:8px"><tr style="color:var(--ink-faint);font-size:10.5px"><td>MES</td><td style="text-align:right">GASTOS</td><td style="text-align:right">PAGADO</td><td style="text-align:right">FALTA</td></tr>' + tabla + '</table>' : '') + '</div>'; }).join('') + '</div>'
-    + '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:var(--brand)">Ver los gastos cargados (' + r.movs.length + ')</summary><table style="width:100%;font-size:12px;margin-top:6px">' + r.movs.slice(0, 200).map(m => '<tr><td style="padding:3px 6px">' + escH(m.fecha) + '</td><td>' + escH(m.tarjeta) + '</td><td>' + escH(m.tipo) + '</td><td>' + escH(m.det) + '</td><td style="text-align:right;font-weight:700">$' + m.monto.toFixed(2) + '</td></tr>').join('') + '</table></details></div>'
-    : '<div class="card"><div style="font-size:13px;color:var(--ink-soft)">Marca arriba cuáles tarjetas son personales.</div></div>';
+  let totalHoy = 0;
+  const cards = arr.map(T => {
+    const cic = Object.values(T.ciclos).sort((a, b) => a.vence < b.vence ? -1 : 1);
+    const pend = cic.filter(C => C.gastos - C.pagado > 0.009);
+    const vencidos = T.dia ? pend.filter(C => C.vence <= hoy) : [];
+    const proximo = T.dia ? cic.find(C => C.vence > hoy) : null;
+    vencidos.forEach(C => totalHoy += C.gastos - C.pagado);
+    const diaInput = '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);margin-top:4px">Se paga el día <input type="number" min="1" max="31" value="' + (T.dia || '') + '" placeholder="¿?" style="width:56px;padding:4px 6px" onchange="tpGuardarDia(\'' + escH(T.k) + '\',this.value)"> de cada mes</div>';
+    let cuerpo = '';
+    if(!T.dia) {
+      const f = +(T.cargos - T.pagos).toFixed(2);
+      cuerpo = '<div style="font-size:12px;color:#EF9F27;margin:8px 0">👆 Escribe el día de pago para ver cuánto pagar y para cuándo.</div>'
+        + '<div style="font-size:18px;font-weight:900;color:' + (f > 0.009 ? '#EF9F27' : '#1D9E75') + '">' + (f > 0.009 ? 'Pendiente total: $' + f.toFixed(2) : '✅ Al corriente') + '</div>';
+    } else {
+      cuerpo = vencidos.map(C => '<div style="background:#E24B4A1f;border:1px solid #E24B4A;border-radius:10px;padding:8px 10px;margin-top:8px"><div style="font-size:12px;font-weight:800;color:#E24B4A">⚠️ PAGAR YA — venció el ' + tpFmt(C.vence) + '</div><div style="font-size:22px;font-weight:900;color:#E24B4A">$' + (C.gastos - C.pagado).toFixed(2) + '</div><div style="font-size:11px;color:var(--ink-soft)">' + tpCicloTxt(C) + (C.pagado > 0 ? ' · ya pagaste $' + C.pagado.toFixed(2) : '') + '</div></div>').join('')
+        + (proximo ? '<div style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px"><div style="font-size:12px;font-weight:800;color:var(--ink-soft)">📅 Próximo pago: ' + tpFmt(proximo.vence) + '</div><div style="font-size:20px;font-weight:900;color:' + (proximo.gastos - proximo.pagado > 0.009 ? '#EF9F27' : '#1D9E75') + '">$' + Math.max(0, proximo.gastos - proximo.pagado).toFixed(2) + ' <span style="font-size:11px;font-weight:600;color:var(--ink-faint)">hasta hoy</span></div><div style="font-size:11px;color:var(--ink-soft)">' + tpCicloTxt(proximo) + '</div></div>'
+                  : '<div style="font-size:12px;color:var(--ink-faint);margin-top:8px">📅 Próximo pago: sin gastos todavía.</div>')
+        + (!vencidos.length ? '<div style="font-size:13px;font-weight:700;color:#1D9E75;margin-top:8px">✅ Nada vencido</div>' : '');
+    }
+    return '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px"><div style="font-weight:800;font-size:14px">' + escH(T.nombre) + '</div>' + diaInput + cuerpo + '</div>';
+  }).join('');
+  document.getElementById('tp-resumen').innerHTML = arr.length ? '<div class="card">'
+    + (totalHoy > 0.009 ? '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px"><div class="card-title" style="margin:0">Pagar ya desde la cuenta del negocio</div><div style="font-size:26px;font-weight:900;color:#E24B4A">$' + totalHoy.toFixed(2) + '</div></div>' : '')
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px">' + cards + '</div>'
+    + '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:var(--brand)">Ver los gastos cargados (' + r.movs.length + ')</summary><table style="width:100%;font-size:12px;margin-top:6px">' + r.movs.slice(0, 300).map(m => '<tr><td style="padding:3px 6px">' + escH(m.fecha) + '</td><td>' + escH(m.tarjeta) + '</td><td>' + escH(m.tipo) + '</td><td>' + escH(m.det) + '</td><td style="text-align:right;font-weight:700">$' + m.monto.toFixed(2) + '</td></tr>').join('') + '</table></details></div>'
+    : '<div class="card"><div style="font-size:13px;color:var(--ink-soft)">Abre "⚙️ Elegir tarjetas personales" y marca las tuyas.</div></div>';
   const sel = document.getElementById('tp-tarjeta'); const v = sel.value;
-  sel.innerHTML = arr.map(x => '<option value="' + escH(x.nombre) + '">' + escH(tarjetaSegura(x.nombre)) + '</option>').join(''); if(v) sel.value = v;
-  tpLlenarMeses();
+  sel.innerHTML = arr.map(T => '<option value="' + escH(T.k) + '">' + escH(T.nombre) + '</option>').join('');
+  const conDeuda = arr.slice().sort((a, b) => (b.cargos - b.pagos) - (a.cargos - a.pagos)).find(T => T.cargos - T.pagos > 0.009);
+  sel.value = v || (conDeuda ? conDeuda.k : (arr[0] || {}).k || '');
+  tpLlenarCiclos(); tpLlenarPendiente(true);
   const f = document.getElementById('tp-fecha'); if(f && !f.value) f.value = hoyLocal();
   const pagos = (d.pagosTarjeta || []).slice().sort((a, b) => (b.fecha || '') > (a.fecha || '') ? 1 : -1);
-  document.getElementById('tp-pagos').innerHTML = pagos.length ? '<table style="width:100%;font-size:12.5px">' + pagos.map(p => '<tr style="border-top:1px solid var(--line-soft)"><td style="padding:5px">' + escH(p.fecha) + '</td><td>' + escH(tarjetaSegura(p.tarjeta)) + '</td><td>' + (p.mes ? 'Mes ' + escH(p.mes) + ' · ' : '') + escH(p.nota || '') + '</td><td style="text-align:right;font-weight:700;color:#1D9E75">$' + (+p.monto).toFixed(2) + '</td><td style="text-align:right"><button class="btn btn-sm" onclick="tpBorrarPago(\'' + p.id + '\')" style="color:#E24B4A">🗑</button></td></tr>').join('') + '</table>' : '<div style="font-size:12px;color:var(--ink-faint)">Todavía no registras pagos a tarjetas.</div>';
+  document.getElementById('tp-pagos').innerHTML = pagos.length ? '<div style="font-size:12px;font-weight:700;margin-bottom:4px">Pagos registrados</div><table style="width:100%;font-size:12.5px">' + pagos.map(p => { const T = r.porTarjeta[tpKey(p.tarjeta)]; return '<tr style="border-top:1px solid var(--line-soft)"><td style="padding:5px">' + escH(p.fecha) + '</td><td>' + escH(T ? T.nombre : tarjetaSegura(p.tarjeta)) + '</td><td>' + (p.ciclo ? 'Pago del ' + tpFmt(p.ciclo) : (p.mes ? 'Mes ' + escH(p.mes) : 'General')) + (p.nota ? ' · ' + escH(p.nota) : '') + '</td><td style="text-align:right;font-weight:700;color:#1D9E75">$' + (+p.monto).toFixed(2) + '</td><td style="text-align:right"><button class="btn btn-sm" onclick="tpBorrarPago(\'' + p.id + '\')" style="color:#E24B4A">🗑</button></td></tr>'; }).join('') + '</table>' : '';
 }
-function tpMarcar(t, on) {
-  const d = getData(); const c = getCfg(); let l = tpPersonales(d).slice();
-  if(on && !l.includes(t)) l.push(t); if(!on) l = l.filter(x => x !== t);
-  c.tarjetasPersonales = l; saveCfg(); renderTarjetasPersonales();
-}
+function tpMarcar(k, on) { const d = getData(); const c = getCfg(); let l = tpPersonalesKeys(d).slice(); if(on && !l.includes(k)) l.push(k); if(!on) l = l.filter(x => x !== k); c.tarjetasPersonales = l; saveCfg(); renderTarjetasPersonales(); }
 function tpGuardarDesde() { const c = getCfg(); c.tarjetasDesde = document.getElementById('tp-desde').value || ''; saveCfg(); renderTarjetasPersonales(); }
-function tpLlenarMeses() {
-  const t = document.getElementById('tp-tarjeta').value; const x = tpCalcular().porTarjeta[t]; const sel = document.getElementById('tp-mes'); if(!sel) return;
-  const v = sel.value; const nomMes = m => { const [y, mo] = m.split('-'); return ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][+mo - 1] + ' ' + y; };
-  const ms = x ? Object.keys(x.meses).sort().reverse() : [];
-  sel.innerHTML = '<option value="">Todo lo pendiente</option>' + ms.map(m => { const f = x.meses[m] - ((x.pagosMes || {})[m] || 0); return '<option value="' + m + '">' + nomMes(m) + (f > 0.009 ? ' — falta $' + f.toFixed(2) : ' ✅') + '</option>'; }).join('');
-  if(v && ms.includes(v)) sel.value = v;
+function tpGuardarDia(k, v) { const c = getCfg(); c.tarjetasDiaPago = c.tarjetasDiaPago || {}; const n = parseInt(v); if(n >= 1 && n <= 31) c.tarjetasDiaPago[k] = n; else delete c.tarjetasDiaPago[k]; saveCfg(); renderTarjetasPersonales(); }
+function tpLlenarCiclos() {
+  const k = document.getElementById('tp-tarjeta').value; const T = tpCalcular().porTarjeta[k]; const sel = document.getElementById('tp-ciclo'); if(!sel) return;
+  const v = sel.value; const hoy = hoyLocal();
+  const cic = T ? Object.values(T.ciclos).filter(C => C.gastos - C.pagado > 0.009).sort((a, b) => a.vence < b.vence ? -1 : 1) : [];
+  sel.innerHTML = cic.map(C => '<option value="' + C.vence + '">' + (C.sinDia ? C.etiqueta : (C.vence <= hoy ? '⚠️ Vencido ' : 'Vence ') + tpFmt(C.vence)) + ' — $' + (C.gastos - C.pagado).toFixed(2) + '</option>').join('') + '<option value="">Todo lo pendiente</option>';
+  if(v && [...sel.options].some(o => o.value === v)) sel.value = v;
 }
 function tpLlenarPendiente(forzar) {
-  const t = document.getElementById('tp-tarjeta').value; const x = tpCalcular().porTarjeta[t]; const m = document.getElementById('tp-monto');
-  const mes = (document.getElementById('tp-mes') || {}).value || '';
-  if(!x || !(forzar || !m.value)) return;
-  m.value = mes ? Math.max(0, x.meses[mes] - ((x.pagosMes || {})[mes] || 0)).toFixed(2) : Math.max(0, x.cargos - x.pagos).toFixed(2);
+  const k = document.getElementById('tp-tarjeta').value; const T = tpCalcular().porTarjeta[k]; const m = document.getElementById('tp-monto');
+  const ci = (document.getElementById('tp-ciclo') || {}).value || '';
+  if(!T || !(forzar || !m.value)) return;
+  m.value = ci && T.ciclos[ci] ? Math.max(0, T.ciclos[ci].gastos - T.ciclos[ci].pagado).toFixed(2) : Math.max(0, T.cargos - T.pagos).toFixed(2);
 }
 function tpRegistrarPago() {
-  const t = document.getElementById('tp-tarjeta').value, monto = parseFloat(document.getElementById('tp-monto').value) || 0;
-  if(!t) { alert('Elige la tarjeta.'); return; }
+  const k = document.getElementById('tp-tarjeta').value, monto = parseFloat(document.getElementById('tp-monto').value) || 0, ci = (document.getElementById('tp-ciclo') || {}).value || '';
+  if(!k) { alert('Elige la tarjeta.'); return; }
   if(!(monto > 0)) { alert('Escribe el monto.'); return; }
-  const x = tpCalcular().porTarjeta[t]; const pend = x ? +(x.cargos - x.pagos).toFixed(2) : 0;
-  if(monto > pend + 0.009 && !confirm('Lo pendiente de esa tarjeta es $' + pend.toFixed(2) + ' y vas a registrar $' + monto.toFixed(2) + '.\n\nSi pagaste más desde la cuenta del negocio, los $' + (monto - pend).toFixed(2) + ' de diferencia son compras PERSONALES: regístralos como Retiro en 🧑‍💼 Sueldos / Retiros.\n\n¿Guardar este pago de todos modos?')) return;
+  const T = tpCalcular().porTarjeta[k]; const pend = T ? +((ci && T.ciclos[ci]) ? T.ciclos[ci].gastos - T.ciclos[ci].pagado : T.cargos - T.pagos).toFixed(2) : 0;
+  if(monto > pend + 0.009 && !confirm('Lo que falta de ese pago es $' + pend.toFixed(2) + ' y vas a registrar $' + monto.toFixed(2) + '.\n\nSi desde la cuenta del negocio pagaste también compras PERSONALES, los $' + (monto - pend).toFixed(2) + ' de diferencia regístralos como Retiro en 🧑‍💼 Sueldos / Retiros.\n\n¿Guardar este pago de todos modos?')) return;
   const d = getData(); if(!d.pagosTarjeta) d.pagosTarjeta = [];
-  d.pagosTarjeta.push({ id: 'PT-' + Date.now(), tarjeta: t, mes: (document.getElementById('tp-mes') || {}).value || '', fecha: document.getElementById('tp-fecha').value || hoyLocal(), monto: +monto.toFixed(2), nota: document.getElementById('tp-nota').value.trim() });
+  d.pagosTarjeta.push({ id: 'PT-' + Date.now(), tarjeta: k, ciclo: ci, fecha: document.getElementById('tp-fecha').value || hoyLocal(), monto: +monto.toFixed(2), nota: document.getElementById('tp-nota').value.trim() });
   saveData(d); document.getElementById('tp-monto').value = ''; document.getElementById('tp-nota').value = '';
   renderTarjetasPersonales(); try { toastV('✅ Pago a la tarjeta guardado (no cuenta como gasto ni retiro)'); } catch(e) {}
 }
