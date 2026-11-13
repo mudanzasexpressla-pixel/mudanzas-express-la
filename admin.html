@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.32</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.33</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -1140,6 +1140,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
     <div class="btn-row">
       <button class="btn btn-primary" onclick="exportarBackup()">📥 Descargar respaldo completo (.json)</button>
       <button class="btn" onclick="document.getElementById('file-restore').click()">📤 Restaurar desde respaldo</button>
+      <button class="btn" onclick="diagnosticoVelocidad()">🩺 Diagnóstico de velocidad</button>
       <input type="file" id="file-restore" accept=".json" style="display:none" onchange="restaurarBackup(event)">
     </div>
   </div>
@@ -7850,10 +7851,13 @@ let respaldoEnCurso = false;
 
 // Espera 3 segundos después del último cambio antes de subir, para no
 // disparar una subida por cada tecla/clic si el usuario guarda varias cosas seguidas.
+let respaldoUltimo = 0;
 function programarRespaldoAutomatico() {
   if(!driveAccessToken) return; // si no está conectado a Drive, no hace nada (no bloquea el guardado normal)
   if(respaldoTimeoutId) clearTimeout(respaldoTimeoutId);
-  respaldoTimeoutId = setTimeout(ejecutarRespaldoAutomatico, 3000);
+  // v13.33: máximo un respaldo cada 10 minutos (antes era a los 3 s de CADA guardado y trababa la página)
+  const espera = Math.max(5000, 600000 - (Date.now() - respaldoUltimo));
+  respaldoTimeoutId = setTimeout(() => { respaldoUltimo = Date.now(); ejecutarRespaldoAutomatico(); }, espera);
 }
 
 async function ejecutarRespaldoAutomatico() {
@@ -7864,7 +7868,7 @@ async function ejecutarRespaldoAutomatico() {
     if(!folderId) { respaldoEnCurso = false; return; }
 
     const backup = { data: getData(), config: getCfg(), fecha: new Date().toISOString(), version: 'v3' };
-    const contenido = JSON.stringify(backup, null, 2);
+    const contenido = JSON.stringify(backup);
 
     // 1. Actualizar (o crear) el archivo principal, siempre el mismo
     await subirOActualizarArchivoRespaldo(folderId, BACKUP_FILE_NAME, contenido, true);
@@ -12157,6 +12161,58 @@ function comprobanteAdelanto(id) {
     const msg = 'Hola ' + a.nombre.split(' ')[0] + ', te mandé $' + (+a.monto).toFixed(2) + ' de ADELANTO (' + a.fecha + '). Se te va a descontar de tus pagos de los próximos domingos' + (+a.descSemanal > 0 ? ' ($' + (+a.descSemanal).toFixed(2) + ' cada domingo)' : '') + (a.nota ? ' (' + a.nota + ')' : '') + ' hasta completarlo. Saldo pendiente: $' + Math.max(0, saldoDespues).toFixed(2) + '. ¿De acuerdo? — Mudanzas Express LA';
     window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
   }
+}
+</script>
+<script>
+// ===================== v13.33: DIAGNÓSTICO DE VELOCIDAD =====================
+// Mide qué funciones tardan y cuándo se traba la página, para encontrar la causa.
+const DIAG = { eventos: [], lentos: [], trabas: [] };
+(function() {
+  try {
+    if('PerformanceObserver' in window) new PerformanceObserver(l => l.getEntries().forEach(e => {
+      if(e.duration < 300) return;
+      const ini = e.startTime, ant = DIAG.eventos.filter(x => x.t <= ini + 5 && x.t >= ini - 2000).map(x => x.n);
+      DIAG.trabas.push({ cuando: new Date(performance.timeOrigin + ini).toLocaleTimeString(), ms: Math.round(e.duration), antes: [...new Set(ant)].slice(-6).join(', ') || '¿?' });
+      if(DIAG.trabas.length > 40) DIAG.trabas.shift();
+    })).observe({ entryTypes: ['longtask'] });
+  } catch(e) {}
+  const nombres = ['getData','saveData','showTab','renderDashboard','renderCotizaciones','renderAgenda','renderTrabajos','renderTerminados','renderGastos','renderVehiculos','renderAyHistorial','renderAyPendientes','renderAdelantos','calcTotal','ejecutarRespaldoAutomatico','sincronizarRegistrosCampoSilencioso','verificarTerminadosCampo','barrerTerminadosCampo','importarRegistroDesdeScript','importarRegistroEspecial','renderViajesCompu','renderGaleria','exportarExcel','exportarBackup','generarPDF','generarRecibo'];
+  window.addEventListener('load', () => setTimeout(() => {
+    nombres.forEach(n => {
+      const f = window[n]; if(typeof f !== 'function' || f.__diag) return;
+      const w = function() {
+        const t0 = performance.now(); DIAG.eventos.push({ n, t: t0 }); if(DIAG.eventos.length > 300) DIAG.eventos.splice(0, 100);
+        const r = f.apply(this, arguments); const ms = performance.now() - t0;
+        if(ms > 150) { DIAG.lentos.push({ n, ms: Math.round(ms), cuando: new Date().toLocaleTimeString() }); if(DIAG.lentos.length > 40) DIAG.lentos.shift(); }
+        return r;
+      };
+      w.__diag = true; try { window[n] = w; } catch(e) {}
+    });
+  }, 1500));
+})();
+function diagnosticoVelocidad() {
+  const mb = n => (n * 2 / 1048576).toFixed(2) + ' MB';
+  const raw = localStorage.getItem(KEY) || '';
+  const t0 = performance.now(); const d = getData(); const tGet = (performance.now() - t0).toFixed(1);
+  let imgN = 0, imgTam = 0; imgCache.forEach(v => { imgN++; imgTam += v.length; });
+  const porLista = Object.keys(d).filter(k => Array.isArray(d[k])).map(k => {
+    let ch = 0; try { ch = JSON.stringify(d[k]).length; } catch(e) {}
+    return { k, n: d[k].length, ch };
+  }).sort((a, b) => b.ch - a.ch).slice(0, 10);
+  let lsTot = 0; try { for(let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); lsTot += k.length + (localStorage.getItem(k) || '').length; } } catch(e) {}
+  const t1 = performance.now(); let tStr = 0; try { JSON.stringify(d); tStr = (performance.now() - t1).toFixed(0); } catch(e) {}
+  const fila = (a, b) => '<tr><td style="padding:3px 8px;color:var(--ink-soft)">' + a + '</td><td style="padding:3px 8px;font-weight:700">' + b + '</td></tr>';
+  const html = '<div style="font-size:12.5px"><b>Datos</b><table>'
+    + fila('Datos principales (localStorage)', mb(raw.length)) + fila('Todo el localStorage', mb(lsTot))
+    + fila('Fotos/firmas guardadas aparte', imgN + ' (' + mb(imgTam) + ')') + fila('Leer los datos (getData)', tGet + ' ms')
+    + fila('Convertir todo con fotos (respaldo)', tStr + ' ms') + fila('Conectado a Drive (respaldo automático)', driveAccessToken ? 'Sí' : 'No') + '</table>'
+    + '<br><b>Listas más pesadas</b><table>' + porLista.map(x => fila(x.k + ' (' + x.n + ')', mb(x.ch))).join('') + '</table>'
+    + '<br><b>Trabas de la página (más de 0.3 s)</b><table>' + (DIAG.trabas.length ? DIAG.trabas.slice(-12).reverse().map(x => fila(x.cuando + ' · ' + (x.ms / 1000).toFixed(1) + ' s', x.antes)).join('') : fila('—', 'Ninguna desde que abriste la página')) + '</table>'
+    + '<br><b>Funciones lentas (más de 0.15 s)</b><table>' + (DIAG.lentos.length ? DIAG.lentos.slice(-12).reverse().map(x => fila(x.cuando + ' · ' + x.n, x.ms + ' ms')).join('') : fila('—', 'Ninguna')) + '</table>'
+    + '<div style="margin-top:10px;color:var(--ink-faint)">Usa la app normal hasta que se trabe, luego abre esto y mándale una captura a Claude.</div></div>';
+  const m = document.createElement('div'); m.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:100003;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto';
+  m.innerHTML = '<div class="card" style="width:100%;max-width:620px;margin-top:20px"><div class="card-title">🩺 Diagnóstico de velocidad</div>' + html + '<div class="btn-row" style="margin-top:12px"><button class="btn" onclick="this.closest(\'div[style*=fixed]\').remove()">Cerrar</button></div></div>';
+  document.body.appendChild(m);
 }
 </script>
 </body>
