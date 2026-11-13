@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.33</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.34</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -4095,6 +4095,7 @@ function renderTerminados() {
       <div class="btn-row">
         <button class="btn btn-primary btn-sm" onclick="generarRecibo('${c.id}')">📄 Recibo PDF oficial</button>
         <button class="btn btn-sm" onclick="waCliente('${c.id}')">💬 Enviar recibo WhatsApp</button>
+        <button class="btn btn-sm" onclick="corregirPagoTerminado('${c.id}')">💳 Corregir forma de pago</button>
         <button class="btn btn-sm" onclick="generarPDF('${c.id}')">🖨️ Imprimir cotización</button>
         <button class="btn btn-sm" onclick="verFotosCampo('${c.id}')">📸 Fotos de campo${registrosCampoDe(c.id).length ? ' ('+registrosCampoDe(c.id).length+')' : ''}</button>
         <button class="btn btn-sm" style="${c.resenaPedida?'':'background:#EF9F27;color:#fff;border-color:#EF9F27'}" onclick="pedirResena('${c.id}','es')">⭐ ${c.resenaPedida?'Reseña pedida ✓':'Pedir reseña'}</button>
@@ -12213,6 +12214,61 @@ function diagnosticoVelocidad() {
   const m = document.createElement('div'); m.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:100003;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto';
   m.innerHTML = '<div class="card" style="width:100%;max-width:620px;margin-top:20px"><div class="card-title">🩺 Diagnóstico de velocidad</div>' + html + '<div class="btn-row" style="margin-top:12px"><button class="btn" onclick="this.closest(\'div[style*=fixed]\').remove()">Cerrar</button></div></div>';
   document.body.appendChild(m);
+}
+</script>
+<script>
+// ===================== v13.34: CORREGIR LA FORMA DE PAGO DE UN TRABAJO TERMINADO =====================
+function corregirPagoTerminado(id) {
+  const d = getData(); const c = (d.cots || []).find(x => x.id === id); if(!c) return;
+  const total = +(((+c.montoFinal || +c.total || 0) + (+c.propina || 0)).toFixed(2));
+  const formas = ['Efectivo', 'Zelle', 'Tarjeta', 'Cheque', 'Venmo', 'Cash App', 'Otro'];
+  const actual1 = c.formaPago1 || String(c.pagoFinal || 'Efectivo').split(' + ')[0];
+  const dividido = !!(c.formaPago2 && +c.montoPago2 > 0) || String(c.pagoFinal || '').includes(' + ');
+  const actual2 = c.formaPago2 || (String(c.pagoFinal || '').split(' + ')[1] || 'Zelle');
+  const opt = v => formas.concat(formas.includes(v) ? [] : [v]).map(f => '<option' + (f === v ? ' selected' : '') + '>' + escH(f) + '</option>').join('');
+  const inp = 'width:100%;padding:10px;border-radius:8px;font-size:15px;margin-top:4px';
+  const prev = document.getElementById('cp-ov'); if(prev) prev.remove();
+  const m = document.createElement('div'); m.id = 'cp-ov';
+  m.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:100002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto';
+  m.innerHTML = '<div class="card" style="width:100%;max-width:460px;margin-top:30px"><div class="card-title">💳 Corregir forma de pago</div>'
+    + '<div style="font-size:12px;color:var(--ink-faint);margin-bottom:8px">' + escH(c.folioTerminado || c.id) + ' · ' + escH((c.cliente && c.cliente.nombre) || '') + ' · Total cobrado <b>$' + total.toFixed(2) + '</b>' + (+c.propina > 0 ? ' (incluye propina $' + (+c.propina).toFixed(2) + ')' : '') + '<br>Ahora dice: <b>' + escH(c.pagoFinal || '—') + '</b></div>'
+    + '<label>Forma de pago</label><select id="cp-f1" style="' + inp + '">' + opt(actual1) + '</select>'
+    + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="cp-div"' + (dividido ? ' checked' : '') + ' style="width:auto"> Pagó con dos formas</label>'
+    + '<div id="cp-dw" style="' + (dividido ? '' : 'display:none') + '">'
+    + '<label>Monto con la primera ($)</label><input type="number" step="0.01" id="cp-m1" value="' + (dividido ? (+c.montoPago1 || '') : '') + '" style="' + inp + '">'
+    + '<label>Segunda forma</label><select id="cp-f2" style="' + inp + '">' + opt(actual2) + '</select>'
+    + '<label>Monto con la segunda ($)</label><input type="number" step="0.01" id="cp-m2" value="' + (dividido ? (+c.montoPago2 || '') : '') + '" style="' + inp + '">'
+    + '<div id="cp-sum" style="font-size:12px;margin-top:6px"></div></div>'
+    + '<label>Referencia (Zelle / tarjeta)</label><input id="cp-ref" value="' + escH(c.refPago || '') + '" style="' + inp + '">'
+    + '<div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" id="cp-ok">💾 Guardar</button><button class="btn" onclick="document.getElementById(\'cp-ov\').remove()">Cancelar</button></div></div>';
+  document.body.appendChild(m);
+  const $ = i => document.getElementById(i);
+  const suma = () => { const a = parseFloat($('cp-m1').value) || 0, b = parseFloat($('cp-m2').value) || 0, df = +(a + b - total).toFixed(2);
+    $('cp-sum').innerHTML = 'Suma: <b>$' + (a + b).toFixed(2) + '</b> de $' + total.toFixed(2) + (Math.abs(df) < 0.01 ? ' ✅' : ' <span style="color:#E24B4A">(' + (df > 0 ? 'sobran' : 'faltan') + ' $' + Math.abs(df).toFixed(2) + ')</span>'); };
+  $('cp-m1').oninput = () => { const a = parseFloat($('cp-m1').value) || 0; $('cp-m2').value = a > 0 ? Math.max(0, total - a).toFixed(2) : ''; suma(); };
+  $('cp-m2').oninput = suma;
+  $('cp-div').onchange = () => { $('cp-dw').style.display = $('cp-div').checked ? '' : 'none'; suma(); };
+  suma();
+  $('cp-ok').onclick = () => {
+    const f1 = $('cp-f1').value, div = $('cp-div').checked;
+    const dd = getData(); const cc = (dd.cots || []).find(x => x.id === id); if(!cc) return;
+    const antes = cc.pagoFinal || '';
+    if(div) {
+      const a = parseFloat($('cp-m1').value) || 0, b = parseFloat($('cp-m2').value) || 0, f2 = $('cp-f2').value;
+      if(!(a > 0 && b > 0)) { alert('Escribe los dos montos.'); return; }
+      if(f1 === f2) { alert('Las dos formas de pago son iguales. Quita la casilla "dos formas".'); return; }
+      if(Math.abs(a + b - total) >= 0.01 && !confirm('Los dos montos suman $' + (a + b).toFixed(2) + ' y el total es $' + total.toFixed(2) + '. ¿Guardar así?')) return;
+      cc.pagoFinal = f1 + ' + ' + f2; cc.formaPago1 = f1; cc.formaPago2 = f2; cc.montoPago1 = +a.toFixed(2); cc.montoPago2 = +b.toFixed(2);
+    } else {
+      cc.pagoFinal = f1; cc.formaPago1 = ''; cc.formaPago2 = ''; cc.montoPago1 = 0; cc.montoPago2 = 0;
+    }
+    cc.refPago = $('cp-ref').value.trim();
+    if(!cc.historialPago) cc.historialPago = [];
+    cc.historialPago.push({ fecha: new Date().toISOString(), antes, despues: cc.pagoFinal });
+    saveData(dd); m.remove();
+    try { renderTerminados(); } catch(e) {} try { renderDashboard(); } catch(e) {}
+    try { toastV('💳 Forma de pago corregida: ' + cc.pagoFinal); } catch(e) {}
+  };
 }
 </script>
 </body>
