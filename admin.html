@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.42</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.43</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -12532,6 +12532,14 @@ async function rsCalcular(c, cfg) {
   const llegar = rsMin(hora) - (+cfg.antes || 0);
   const r = { fecha: String(fecha).slice(0, 10), hora, llegar: rsHHMM(llegar), pasar: !!cfg.pasar, nombre: cfg.nombre || 'AYUDANTE', antes: +cfg.antes || 0, espera: +cfg.espera || 0, calc: new Date().toISOString() };
   const piso5 = m => Math.floor(m / 5) * 5;
+  r.v = 2;
+  // v13.43: si ese día hay otro trabajo antes, ya van juntos: se sale del trabajo anterior
+  const prev = (getData().cots || []).filter(x => x.id !== c.id && (x.estatus === 'agendado' || x.estatus === 'en_trabajo') && String(x.fechaAgendada || '').slice(0, 10) === r.fecha && x.horaAgendada && rsMin(x.horaAgendada) < rsMin(hora)).sort((a, b) => rsMin(b.horaAgendada) - rsMin(a.horaAgendada))[0];
+  if(prev && (prev.destino || prev.origen)) {
+    const t = await rsTramoLlegando(prev.destino || prev.origen, c.origen, fecha, llegar);
+    Object.assign(r, { pasar: false, desdeAnterior: ((prev.cliente || {}).nombre || prev.id), salida: rsHHMM(piso5(llegar - t.min)), recoger: '', min1: Math.round(t.min), min2: 0, mi: +t.mi.toFixed(1), trafico: t.trafico });
+    return r;
+  }
   if(cfg.pasar) {
     const t2 = await rsTramoLlegando(cfg.dir, c.origen, fecha, llegar);
     const recoger = piso5(llegar - t2.min);
@@ -12548,6 +12556,7 @@ function rsVigente(r, fecha, hora) { return !!(r && r.salida && (!fecha || r.fec
 function rsLinea(c) {
   const r = c.recogida; if(!r) return '';
   if(!rsVigente(r, c.fechaAgendada, c.horaAgendada)) return '<div class="list-item-detail" style="color:#EF9F27">🕐 Cambió la fecha u hora — vuelve a calcular la hora de salida</div>';
+  if(r.desdeAnterior) return '<div class="list-item-detail" style="color:#1D9E75;font-weight:700">🕐 Salir del trabajo de ' + escH(r.desdeAnterior) + ' a las ' + hora12(r.salida) + ' (ya van juntos)</div>';
   return '<div class="list-item-detail" style="color:#1D9E75;font-weight:700">🕐 Salir de la base ' + hora12(r.salida) + (r.pasar ? ' · 🧑 Pasar por ' + escH(r.nombre) + ' ' + hora12(r.recoger) : '') + '</div>';
 }
 function rsFechaTxt(f) { const p = String(f).slice(0, 10).split('-').map(Number); const d = new Date(p[0], p[1] - 1, p[2]); const hoy = new Date(); hoy.setHours(0, 0, 0, 0); const dif = Math.round((d - hoy) / 86400000); const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']; return (dif === 0 ? 'hoy ' : dif === 1 ? 'mañana ' : 'el ') + dias[d.getDay()] + ' ' + p[2] + ' de ' + ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][p[1] - 1]; }
@@ -12582,7 +12591,7 @@ function rsAbrir(cotId) {
   const mostrar = r => {
     const p = '<div style="background:var(--bg);border:1px solid #1D9E75;border-radius:12px;padding:12px;font-size:14px;line-height:1.7">'
       + '<div style="font-size:12px;color:var(--ink-soft)">' + escH(rsFechaTxt(r.fecha)) + '</div>'
-      + '<div>🅿️ Sal de la base: <b style="font-size:20px;color:#1D9E75">' + hora12(r.salida) + '</b>' + (r.pasar ? ' <span style="font-size:11px;color:var(--ink-faint)">(' + r.min1 + ' min de camino + ' + r.espera + ' de espera)</span>' : '') + '</div>'
+      + '<div>' + (r.desdeAnterior ? '🚚 Sal del trabajo de ' + escH(r.desdeAnterior) + ' (ya van juntos): ' : '🅿️ Sal de la base: ') + '<b style="font-size:20px;color:#1D9E75">' + hora12(r.salida) + '</b>' + (r.pasar ? ' <span style="font-size:11px;color:var(--ink-faint)">(' + r.min1 + ' min de camino + ' + r.espera + ' de espera)</span>' : '') + '</div>'
       + (r.pasar ? '<div>🧑 Pasa por ' + escH(r.nombre) + ': <b style="font-size:18px">' + hora12(r.recoger) + '</b></div>' : '')
       + '<div>📦 Llegas con el cliente: <b>' + hora12(r.llegar) + '</b> <span style="font-size:11px;color:var(--ink-faint)">(' + (r.pasar ? r.min2 : r.min1) + ' min · el trabajo es a las ' + hora12(r.hora) + ')</span></div>'
       + '<div style="font-size:11px;color:var(--ink-faint);margin-top:4px">' + (r.trafico ? '🚦 Con el tráfico que Google calcula para ese día y hora.' : '⚠️ Sin tráfico (la hora ya pasó o Google no lo dio). Sal un poco antes.') + ' ' + r.mi + ' millas hasta el cliente.</div></div>';
@@ -12623,6 +12632,7 @@ function rsCampoHtml(t, corto) {
     return corto ? '🚚 Pasan por ' + (yo ? 'ti' : escH(r.nombre)) + ': ' + hora12(r.recoger) : '<div style="font-size:16px">🚚 Pasan por ' + (yo ? 'ti' : escH(r.nombre)) + ' a las <b style="font-size:22px;color:#1D9E75">' + hora12(r.recoger) + '</b></div><div style="font-size:11.5px;color:#b0c4d8">Por favor está listo afuera unos minutos antes.</div>';
   }
   if(esAyudante) return '';
+  if(r.desdeAnterior) return corto ? '🕐 Salir del trabajo anterior ' + hora12(r.salida) : '<div>🚚 Sal del trabajo de ' + escH(r.desdeAnterior) + ': <b style="font-size:20px;color:#1D9E75">' + hora12(r.salida) + '</b></div><div>📦 Llegas con el cliente: <b>' + hora12(r.llegar) + '</b></div>';
   if(corto) return '🕐 Salir ' + hora12(r.salida) + (r.pasar ? ' · 🧑 ' + escH(r.nombre) + ' ' + hora12(r.recoger) : '');
   return '<div>🅿️ Sal de la base: <b style="font-size:20px;color:#1D9E75">' + hora12(r.salida) + '</b></div>'
     + (r.pasar ? '<div>🧑 Pasa por ' + escH(r.nombre) + ': <b style="font-size:17px">' + hora12(r.recoger) + '</b></div>' : '')
@@ -12652,7 +12662,7 @@ async function rsAuto() {
       const r = c.recogida;
       const inicio = rsFecha(c.fechaAgendada, rsMin(c.horaAgendada)).getTime();
       if(inicio < Date.now()) continue;
-      const falta = !rsVigente(r, c.fechaAgendada, c.horaAgendada);
+      const falta = !rsVigente(r, c.fechaAgendada, c.horaAgendada) || r.v !== 2;
       const refrescar = !falta && inicio - Date.now() < 36 * 3600e3 && Date.now() - new Date(r.calc || 0).getTime() > 6 * 3600e3;
       if(!falta && !refrescar) continue;
       try {
