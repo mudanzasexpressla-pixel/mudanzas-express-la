@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.41</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.42</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -12590,6 +12590,7 @@ function rsAbrir(cotId) {
     $('rs-wa').style.display = r.pasar ? '' : 'none';
   };
   if(rsVigente(c.recogida, c.fechaAgendada, c.horaAgendada)) mostrar(c.recogida);
+  else if(cfg.base && (!cfg.pasar || cfg.dir)) setTimeout(() => $('rs-calc').click(), 50);
   $('rs-calc').onclick = async () => {
     const nc = { base: $('rs-base').value.trim(), pasar: $('rs-pasar').checked, nombre: rsNorm($('rs-nombre').value) || 'AYUDANTE', tel: $('rs-tel').value.trim(), dir: $('rs-dir').value.trim(), espera: Math.max(0, +$('rs-espera').value || 0), antes: Math.max(0, +$('rs-antes').value || 0) };
     const C = getCfg(); C.recogidaCfg = nc; saveCfg();
@@ -12632,6 +12633,44 @@ function rsPintarCampo(t) {
   const el = document.getElementById('campo-recogida'); if(!el) return;
   const h = rsCampoHtml(t, false); el.innerHTML = h; el.style.display = h ? '' : 'none';
 }
+</script>
+<script>
+// ===================== v13.42: HORA DE SALIDA AUTOMÁTICA =====================
+// Con la base y la dirección del ayudante ya guardadas, calcula sola la hora de salida de los trabajos de los próximos 7 días.
+// Recalcula si cambió la fecha/hora, o si el trabajo es en menos de 36 h y el cálculo tiene más de 6 h (tráfico más fresco).
+let rsAutoCorriendo = false, rsAutoUlt = 0;
+async function rsAuto() {
+  if(rsAutoCorriendo || Date.now() - rsAutoUlt < 60000) return;
+  const cfg = rsCfg(); if(!cfg.base || (cfg.pasar && !cfg.dir)) return;
+  if(typeof google === 'undefined' || !google.maps || !google.maps.DistanceMatrixService) return;
+  rsAutoCorriendo = true; rsAutoUlt = Date.now();
+  let cambio = false;
+  try {
+    const hoy = hoyLocal(); const l = new Date(); l.setDate(l.getDate() + 7); const lim = tpISO(l.getFullYear(), l.getMonth(), l.getDate());
+    const lista = (getData().cots || []).filter(c => (c.estatus === 'agendado' || c.estatus === 'en_trabajo') && c.fechaAgendada && c.horaAgendada && c.origen && String(c.fechaAgendada).slice(0, 10) >= hoy && String(c.fechaAgendada).slice(0, 10) <= lim);
+    for(const c of lista) {
+      const r = c.recogida;
+      const inicio = rsFecha(c.fechaAgendada, rsMin(c.horaAgendada)).getTime();
+      if(inicio < Date.now()) continue;
+      const falta = !rsVigente(r, c.fechaAgendada, c.horaAgendada);
+      const refrescar = !falta && inicio - Date.now() < 36 * 3600e3 && Date.now() - new Date(r.calc || 0).getTime() > 6 * 3600e3;
+      if(!falta && !refrescar) continue;
+      try {
+        const nr = await rsCalcular(c, cfg); nr.auto = true;
+        const dx = getData(); const cx = dx.cots.find(x => x.id === c.id);
+        if(cx) { cx.recogida = nr; saveData(dx); cambio = true; if(cx.enviadoCampo) { try { enviarTrabajoCampoDesdeTrabajos(cx.id, true); } catch(e) {} } }
+      } catch(e) {}
+    }
+  } finally { rsAutoCorriendo = false; }
+  if(cambio) { try { renderAgenda(); } catch(e) {} try { renderTrabajos(); } catch(e) {} }
+}
+(function() {
+  const rA = renderAgenda, rT = renderTrabajos;
+  renderAgenda = function() { const x = rA.apply(this, arguments); setTimeout(rsAuto, 800); return x; };
+  renderTrabajos = function() { const x = rT.apply(this, arguments); setTimeout(rsAuto, 800); return x; };
+  setTimeout(rsAuto, 8000);
+  setInterval(() => { if(document.visibilityState === 'visible') rsAuto(); }, 30 * 60000);
+})();
 </script>
 </body>
 </html>
