@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.40</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.41</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -3936,6 +3936,7 @@ function renderAgenda() {
         <div>
           <div class="list-item-title">${c.id} — ${c.cliente.nombre}</div>
           <div class="list-item-detail" style="color:#1F5EA8;font-weight:700">📅 ${c.fechaAgendada} &nbsp;⏰ ${c.horaAgendada}</div>
+          ${rsLinea(c)}
           <div class="list-item-detail">📍 ${rutaTxt(c)}</div>
           <div class="list-item-detail">📱 ${c.cliente.tel} ${c.cliente.email?'· '+c.cliente.email:''}</div>
           ${c.notasAgenda?'<div class="list-item-detail">📝 '+c.notasAgenda+'</div>':''}
@@ -3949,6 +3950,7 @@ function renderAgenda() {
       <div class="btn-row">
         <button class="btn btn-primary btn-sm" onclick="iniciarTrabajo('${c.id}')">🚛 Iniciar trabajo</button>
         <button class="btn btn-blue btn-sm" onclick="abrirAsignarEquipo('${c.id}')">👥 Equipo</button>
+        <button class="btn btn-blue btn-sm" onclick="rsAbrir('${c.id}')">🕐 Hora de salida</button>
         <button class="btn btn-orange btn-sm" onclick="abrirCambiarFecha('${c.id}')">📅 Cambiar fecha/hora</button>
         <button class="btn btn-sm" onclick="editarCot('${c.id}')">✏️ Editar datos</button>
         <button class="btn btn-sm" onclick="waCliente('${c.id}')">💬 Notificar cliente (WhatsApp)</button>
@@ -3979,6 +3981,7 @@ function renderTrabajos() {
           <div class="list-item-title">${c.id} — ${c.cliente.nombre} ${enviado}${campoListo}${salidaOk}</div>
           <div class="list-item-detail">📍 ${rutaTxt(c)}</div>
           <div class="list-item-detail">📅 ${c.fechaAgendada} &nbsp;⏰ ${c.horaAgendada} &nbsp;|&nbsp; 📱 ${c.cliente.tel}</div>
+          ${rsLinea(c)}
           ${veh ? '<div class="list-item-detail">🚛 Vehículo: <strong>'+veh.nombre+'</strong></div>' : ''}
           ${(c.choferId || (c.acompanantes||[]).length) ? equipoLineaCot(c) : (c.usaAyudante==='si' && c.nombreAyudante ? '<div class="list-item-detail">👷 Ayudante: <strong>'+c.nombreAyudante+'</strong></div>' : equipoLineaCot(c))}
           ${c.pagoFinal ? '<div class="list-item-detail">💳 Forma de pago: <strong>'+c.pagoFinal+'</strong></div>' : ''}
@@ -3994,6 +3997,7 @@ function renderTrabajos() {
         <button class="btn btn-primary btn-sm" onclick="abrirTerminar('${c.id}')">✅ Marcar como TERMINADO</button>
         <button class="btn btn-blue btn-sm" onclick="abrirAsignarEquipo('${c.id}')">👥 Equipo</button>
         <button class="btn btn-blue btn-sm" onclick="enviarTrabajoCampoDesdeTrabajos('${c.id}')">📲 Enviar a app de campo</button>
+        <button class="btn btn-blue btn-sm" onclick="rsAbrir('${c.id}')">🕐 Hora de salida</button>
         <button class="btn btn-orange btn-sm" onclick="abrirCambiarFecha('${c.id}')">📅 Cambiar fecha/hora</button>
         <button class="btn btn-sm" onclick="editarCot('${c.id}')">✏️ Editar datos</button>
         <button class="btn btn-sm" onclick="waCliente('${c.id}')">💬 WhatsApp cliente</button>
@@ -4029,6 +4033,7 @@ function enviarTrabajoCampoDesdeTrabajos(cotId, silencioso) {
     choferId: cot.choferId || '',
     choferNombre: cot.choferNombre || '',
     acompanantes: cot.acompanantes || [],
+    recogida: cot.recogida || null,
     // v13.8: Labor Only por hora (el cobro final se calcula con el cronómetro)
     laborOnly: !!cot.laborOnly,
     tarifaHora: cot.tarifaHora || 0,
@@ -9185,7 +9190,7 @@ function enviarTrabajoCampo(cotId) {
   var notas = cot.notas || '';
   var fotosInventario = cot.fotosInventario || [];
   // BUG 4 FIX: Use fechaAgendada/horaAgendada (the confirmed scheduled date), not cot.fecha (creation date)
-  var trabajoCampo = { cotId:cotId, nombre:nombre, tel:tel, origen:origen, paradas: cot.paradas||[], destino:destino, fecha: cot.fechaAgendada||fecha, hora: cot.horaAgendada||hora, notas:notas, fotos:fotosInventario, monto: cot.total||0, puedeCobrar: !!getCfg().ayudantePuedeCobrar, choferId: cot.choferId||'', choferNombre: cot.choferNombre||'', acompanantes: cot.acompanantes||[], enviado:new Date().toISOString(), ayudanteId:'default' };
+  var trabajoCampo = { cotId:cotId, nombre:nombre, tel:tel, origen:origen, paradas: cot.paradas||[], destino:destino, fecha: cot.fechaAgendada||fecha, hora: cot.horaAgendada||hora, notas:notas, fotos:fotosInventario, monto: cot.total||0, puedeCobrar: !!getCfg().ayudantePuedeCobrar, choferId: cot.choferId||'', choferNombre: cot.choferNombre||'', acompanantes: cot.acompanantes||[], recogida: cot.recogida||null, enviado:new Date().toISOString(), ayudanteId:'default' };
   try { localStorage.setItem('trabajoActivoCampo', JSON.stringify(trabajoCampo)); } catch(e) {}
   if(APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes('PEGA_AQUI')) {
     fetch(APPS_SCRIPT_URL, { method:'POST', body:JSON.stringify(Object.assign({action:'enviarTrabajoCampo'}, trabajoCampo)) })
@@ -9388,6 +9393,7 @@ initDarkMode();
         <button id="campo-btn-dir" onclick="abrirEditarDirecciones()" style="display:none;width:100%;padding:12px;margin:4px 0 8px;border-radius:10px;border:1px solid #EF9F27;background:#1a2535;color:#EF9F27;font-weight:700;font-size:15px;cursor:pointer">✏️ Corregir nombre, teléfono o direcciones</button>
         <div id="campo-vj-botones"></div>
         <div style="margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">📅 Fecha:</span> <span id="campo-fecha"></span> &nbsp;<span style="font-weight:700;color:#7ab8d8">⏰</span> <span id="campo-hora"></span></div>
+        <div id="campo-recogida" style="display:none;margin-bottom:8px;background:#1D9E7518;border:1px solid #1D9E75;border-radius:10px;padding:10px;font-size:14px;line-height:1.6"></div>
         <div id="campo-monto-wrap" style="display:none;margin-bottom:8px;background:#143F7415;border-radius:10px;padding:10px">
           <div style="font-size:12px;color:#7ab8d8;font-weight:700;margin-bottom:2px">💵 Total a cobrar</div>
           <div id="campo-monto-display" style="font-size:22px;font-weight:900;color:#7ab8d8"></div>
@@ -10382,6 +10388,7 @@ function renderListaTrabajos(trabajos) {
         <div>
           <div style="font-weight:700;color:#7ab8d8;font-size:14px">${t.nombre || 'Cliente'}</div>
           <div style="font-size:12px;color:#b0c4d8;margin-top:2px">📅 ${fechaHoraTexto(t)}</div>
+          ${rsCampoHtml(t, true) ? '<div style="font-size:12.5px;color:#1D9E75;font-weight:700;margin-top:2px">' + rsCampoHtml(t, true) + '</div>' : ''}
           <div style="font-size:12px;color:#b0c4d8;margin-top:2px">🏠 ${t.destino || '—'}</div>
         </div>
         <div style="font-size:18px;color:#ccc">›</div>
@@ -10438,6 +10445,7 @@ function mostrarTrabajo(t, pendientes) {
   }
   document.getElementById('campo-fecha').textContent = t.fecha || '—';
   document.getElementById('campo-hora').textContent = horaTexto || '—';
+  try { rsPintarCampo(t); } catch(e) {}
 
   if(t.notas) {
     document.getElementById('campo-notas-wrap').style.display = '';
@@ -12483,6 +12491,147 @@ function tpRegistrarPago() {
   renderTarjetasPersonales(); try { toastV('✅ Pago a la tarjeta guardado (no cuenta como gasto ni retiro)'); } catch(e) {}
 }
 function tpBorrarPago(id) { if(!confirm('¿Borrar este pago a la tarjeta?')) return; const d = getData(); d.pagosTarjeta = (d.pagosTarjeta || []).filter(p => p.id !== id); saveData(d); renderTarjetasPersonales(); }
+</script>
+<script>
+// ===================== v13.41: HORA DE SALIDA (pasando por el ayudante) =====================
+// Se calcula en la compu con el tráfico previsto para ese día y hora; se guarda en el trabajo (cot.recogida)
+// y viaja a la app de campo: el chofer ve a qué hora salir y el ayudante ve a qué hora pasan por él.
+function rsCfg() { const c = getCfg(); return Object.assign({ base: c.dirBase || c.dirCasa || '', nombre: 'GELACIO', dir: '', tel: '', espera: 5, antes: 10, pasar: true }, c.recogidaCfg || {}); }
+function rsMin(hhmm) { const p = String(hhmm || '').split(':').map(Number); return (p[0] || 0) * 60 + (p[1] || 0); }
+function rsHHMM(min) { min = ((Math.round(min) % 1440) + 1440) % 1440; return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); }
+function rsFecha(fecha, min) { const p = String(fecha).slice(0, 10).split('-').map(Number); return new Date(p[0], p[1] - 1, p[2], 0, Math.round(min)); }
+function rsNorm(s) { return String(s || '').toUpperCase().normalize('NFD').replace(/[^A-Z ]/g, '').trim(); }
+function rsTramo(o, dst, salida) {
+  return new Promise((res, rej) => {
+    if(typeof google === 'undefined' || !google.maps || !google.maps.DistanceMatrixService) return rej(new Error('Google Maps no cargó. Recarga la página.'));
+    const q = { origins: [o], destinations: [dst], travelMode: google.maps.TravelMode.DRIVING, unitSystem: google.maps.UnitSystem.IMPERIAL };
+    const conTrafico = salida && salida.getTime() > Date.now() + 60000;
+    if(conTrafico) q.drivingOptions = { departureTime: salida, trafficModel: google.maps.TrafficModel.BEST_GUESS };
+    new google.maps.DistanceMatrixService().getDistanceMatrix(q, (r, st) => {
+      try {
+        const e = r.rows[0].elements[0];
+        if(st !== 'OK' || e.status !== 'OK') return rej(new Error('No encontré la ruta de "' + o + '" a "' + dst + '".'));
+        const seg = (e.duration_in_traffic || e.duration).value;
+        res({ min: seg / 60, mi: e.distance.value / 1609.344, trafico: !!(conTrafico && e.duration_in_traffic) });
+      } catch(x) { rej(new Error('No se pudo calcular la ruta.')); }
+    });
+  });
+}
+// Cuánto tarda un tramo para LLEGAR a cierta hora (minutos del día); ajusta 2 veces con el tráfico de esa hora
+async function rsTramoLlegando(o, dst, fecha, llegarMin) {
+  let r = await rsTramo(o, dst, rsFecha(fecha, llegarMin - 30));
+  r = await rsTramo(o, dst, rsFecha(fecha, llegarMin - r.min));
+  return r;
+}
+async function rsCalcular(c, cfg) {
+  const fecha = c.fechaAgendada, hora = c.horaAgendada;
+  if(!fecha || !hora) throw new Error('El trabajo no tiene fecha y hora.');
+  if(!c.origen) throw new Error('El trabajo no tiene dirección de origen.');
+  if(!cfg.base) throw new Error('Escribe la dirección de tu base.');
+  if(cfg.pasar && !cfg.dir) throw new Error('Escribe la dirección de ' + (cfg.nombre || 'tu ayudante') + '.');
+  const llegar = rsMin(hora) - (+cfg.antes || 0);
+  const r = { fecha: String(fecha).slice(0, 10), hora, llegar: rsHHMM(llegar), pasar: !!cfg.pasar, nombre: cfg.nombre || 'AYUDANTE', antes: +cfg.antes || 0, espera: +cfg.espera || 0, calc: new Date().toISOString() };
+  const piso5 = m => Math.floor(m / 5) * 5;
+  if(cfg.pasar) {
+    const t2 = await rsTramoLlegando(cfg.dir, c.origen, fecha, llegar);
+    const recoger = piso5(llegar - t2.min);
+    const t1 = await rsTramoLlegando(cfg.base, cfg.dir, fecha, recoger - r.espera);
+    const salida = piso5(recoger - r.espera - t1.min);
+    Object.assign(r, { salida: rsHHMM(salida), recoger: rsHHMM(recoger), min1: Math.round(t1.min), min2: Math.round(t2.min), mi: +(t1.mi + t2.mi).toFixed(1), trafico: t1.trafico || t2.trafico });
+  } else {
+    const t = await rsTramoLlegando(cfg.base, c.origen, fecha, llegar);
+    Object.assign(r, { salida: rsHHMM(piso5(llegar - t.min)), recoger: '', min1: Math.round(t.min), min2: 0, mi: +t.mi.toFixed(1), trafico: t.trafico });
+  }
+  return r;
+}
+function rsVigente(r, fecha, hora) { return !!(r && r.salida && (!fecha || r.fecha === String(fecha).slice(0, 10)) && (!hora || r.hora === hora)); }
+function rsLinea(c) {
+  const r = c.recogida; if(!r) return '';
+  if(!rsVigente(r, c.fechaAgendada, c.horaAgendada)) return '<div class="list-item-detail" style="color:#EF9F27">🕐 Cambió la fecha u hora — vuelve a calcular la hora de salida</div>';
+  return '<div class="list-item-detail" style="color:#1D9E75;font-weight:700">🕐 Salir de la base ' + hora12(r.salida) + (r.pasar ? ' · 🧑 Pasar por ' + escH(r.nombre) + ' ' + hora12(r.recoger) : '') + '</div>';
+}
+function rsFechaTxt(f) { const p = String(f).slice(0, 10).split('-').map(Number); const d = new Date(p[0], p[1] - 1, p[2]); const hoy = new Date(); hoy.setHours(0, 0, 0, 0); const dif = Math.round((d - hoy) / 86400000); const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']; return (dif === 0 ? 'hoy ' : dif === 1 ? 'mañana ' : 'el ') + dias[d.getDay()] + ' ' + p[2] + ' de ' + ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][p[1] - 1]; }
+function rsCiudad(dir) { const p = String(dir || '').split(','); return (p.length >= 3 ? p[p.length - 3] : p.length === 2 ? p[1] : '').trim().replace(/\s+[A-Z]{2}\s*\d*$/, ''); }
+function rsMensaje(c, r) {
+  const ciudad = rsCiudad(c.origen);
+  const nom = String(r.nombre || '').split(' ')[0]; const Nom = nom.charAt(0) + nom.slice(1).toLowerCase();
+  return 'Hola ' + Nom + ' 👋 ' + rsFechaTxt(r.fecha).replace(/^./, x => x.toUpperCase()) + ' paso por ti a las ' + hora12(r.recoger) + '.' + (ciudad ? ' El trabajo es en ' + ciudad + '.' : '') + ' Por favor está listo afuera 🙏';
+}
+function rsAbrir(cotId) {
+  const d = getData(); const c = d.cots.find(x => x.id === cotId); if(!c) return;
+  const cfg = rsCfg();
+  if(!cfg.tel) { const m = (d.equipo || []).find(e => rsNorm(e.nombre).split(' ')[0] === rsNorm(cfg.nombre).split(' ')[0]); if(m && m.tel) cfg.tel = m.tel; }
+  const inp = 'width:100%;padding:9px;border-radius:8px;font-size:14px;margin-top:3px';
+  const prev = document.getElementById('rs-ov'); if(prev) prev.remove();
+  const m = document.createElement('div'); m.id = 'rs-ov';
+  m.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:100005;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto';
+  m.innerHTML = '<div class="card" style="width:100%;max-width:480px;margin-top:24px"><div class="card-title">🕐 ¿A qué hora salgo?</div>'
+    + '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px">' + escH(c.id + ' — ' + ((c.cliente || {}).nombre || '')) + '<br>📅 ' + escH(c.fechaAgendada || '—') + ' ⏰ ' + escH(hora12(c.horaAgendada) || '—') + '<br>📦 ' + escH(c.origen || '—') + '</div>'
+    + '<label style="font-size:12px">🅿️ Salgo de (mi base)</label><input id="rs-base" style="' + inp + '" value="' + escH(cfg.base) + '" placeholder="Dirección de la base">'
+    + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px"><input type="checkbox" id="rs-pasar" style="width:auto"' + (cfg.pasar ? ' checked' : '') + '> Paso por mi ayudante</label>'
+    + '<div id="rs-ay" style="' + (cfg.pasar ? '' : 'display:none') + '">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label style="font-size:12px">🧑 Nombre</label><input id="rs-nombre" style="' + inp + '" value="' + escH(cfg.nombre) + '"></div><div><label style="font-size:12px">📱 WhatsApp</label><input id="rs-tel" style="' + inp + '" value="' + escH(cfg.tel) + '" placeholder="323..."></div></div>'
+    + '<label style="font-size:12px">🏠 Dirección del ayudante</label><input id="rs-dir" style="' + inp + '" value="' + escH(cfg.dir) + '" placeholder="Calle, ciudad">'
+    + '<label style="font-size:12px">Minutos esperándolo</label><input id="rs-espera" type="number" min="0" style="' + inp + '" value="' + cfg.espera + '"></div>'
+    + '<label style="font-size:12px">Llegar con el cliente estos minutos antes</label><input id="rs-antes" type="number" min="0" style="' + inp + '" value="' + cfg.antes + '">'
+    + '<div id="rs-res" style="margin-top:12px"></div>'
+    + '<div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" id="rs-calc">🕐 Calcular con tráfico</button><button class="btn btn-sm" id="rs-wa" style="display:none;background:#25D366;color:#fff">📲 Mandarle la hora por WhatsApp</button><button class="btn btn-sm" onclick="document.getElementById(\'rs-ov\').remove()">Cerrar</button></div></div>';
+  document.body.appendChild(m);
+  const $ = id => document.getElementById(id);
+  $('rs-pasar').onchange = () => { $('rs-ay').style.display = $('rs-pasar').checked ? '' : 'none'; };
+  const mostrar = r => {
+    const p = '<div style="background:var(--bg);border:1px solid #1D9E75;border-radius:12px;padding:12px;font-size:14px;line-height:1.7">'
+      + '<div style="font-size:12px;color:var(--ink-soft)">' + escH(rsFechaTxt(r.fecha)) + '</div>'
+      + '<div>🅿️ Sal de la base: <b style="font-size:20px;color:#1D9E75">' + hora12(r.salida) + '</b>' + (r.pasar ? ' <span style="font-size:11px;color:var(--ink-faint)">(' + r.min1 + ' min de camino + ' + r.espera + ' de espera)</span>' : '') + '</div>'
+      + (r.pasar ? '<div>🧑 Pasa por ' + escH(r.nombre) + ': <b style="font-size:18px">' + hora12(r.recoger) + '</b></div>' : '')
+      + '<div>📦 Llegas con el cliente: <b>' + hora12(r.llegar) + '</b> <span style="font-size:11px;color:var(--ink-faint)">(' + (r.pasar ? r.min2 : r.min1) + ' min · el trabajo es a las ' + hora12(r.hora) + ')</span></div>'
+      + '<div style="font-size:11px;color:var(--ink-faint);margin-top:4px">' + (r.trafico ? '🚦 Con el tráfico que Google calcula para ese día y hora.' : '⚠️ Sin tráfico (la hora ya pasó o Google no lo dio). Sal un poco antes.') + ' ' + r.mi + ' millas hasta el cliente.</div></div>';
+    $('rs-res').innerHTML = p;
+    $('rs-wa').style.display = r.pasar ? '' : 'none';
+  };
+  if(rsVigente(c.recogida, c.fechaAgendada, c.horaAgendada)) mostrar(c.recogida);
+  $('rs-calc').onclick = async () => {
+    const nc = { base: $('rs-base').value.trim(), pasar: $('rs-pasar').checked, nombre: rsNorm($('rs-nombre').value) || 'AYUDANTE', tel: $('rs-tel').value.trim(), dir: $('rs-dir').value.trim(), espera: Math.max(0, +$('rs-espera').value || 0), antes: Math.max(0, +$('rs-antes').value || 0) };
+    const C = getCfg(); C.recogidaCfg = nc; saveCfg();
+    const b = $('rs-calc'); b.disabled = true; b.textContent = '⏳ Calculando...';
+    try {
+      const r = await rsCalcular(c, nc);
+      const dx = getData(); const cx = dx.cots.find(x => x.id === cotId);
+      if(cx) { cx.recogida = r; saveData(dx); }
+      mostrar(r);
+      try { renderAgenda(); } catch(e) {} try { renderTrabajos(); } catch(e) {}
+      if(cx && cx.enviadoCampo) { try { enviarTrabajoCampoDesdeTrabajos(cotId, true); } catch(e) {} }
+      $('rs-res').insertAdjacentHTML('beforeend', '<div style="font-size:11.5px;color:var(--ink-soft);margin-top:6px">' + (cx && cx.enviadoCampo ? '✅ Guardado y actualizado en la app de campo.' : '✅ Guardado. Se verá en la app de campo cuando le des "📲 Enviar a app de campo" o "Iniciar trabajo".') + '</div>');
+    } catch(e) { $('rs-res').innerHTML = '<div style="color:#E24B4A;font-size:13px">⚠️ ' + escH(e.message) + '</div>'; }
+    b.disabled = false; b.textContent = '🕐 Calcular con tráfico';
+  };
+  $('rs-wa').onclick = () => {
+    const cx = getData().cots.find(x => x.id === cotId); const r = cx && cx.recogida;
+    if(!rsVigente(r, cx.fechaAgendada, cx.horaAgendada) || !r.pasar) { alert('Primero calcula la hora.'); return; }
+    const tel = telWa($('rs-tel').value);
+    window.open('https://wa.me/' + (tel || '') + '?text=' + encodeURIComponent(rsMensaje(cx, r)), '_blank');
+  };
+}
+// En la app de campo
+function rsCampoHtml(t, corto) {
+  const r = t && t.recogida; if(!rsVigente(r, t.fecha, t.hora)) return '';
+  let dueno = false, u = null; try { dueno = esModoDueno(); u = campoUsuario(); } catch(e) {}
+  const esAyudante = !dueno && (!u || u.rol !== 'chofer');
+  if(esAyudante && r.pasar) {
+    const yo = u && rsNorm(u.nombre).split(' ')[0] === rsNorm(r.nombre).split(' ')[0];
+    return corto ? '🚚 Pasan por ' + (yo ? 'ti' : escH(r.nombre)) + ': ' + hora12(r.recoger) : '<div style="font-size:16px">🚚 Pasan por ' + (yo ? 'ti' : escH(r.nombre)) + ' a las <b style="font-size:22px;color:#1D9E75">' + hora12(r.recoger) + '</b></div><div style="font-size:11.5px;color:#b0c4d8">Por favor está listo afuera unos minutos antes.</div>';
+  }
+  if(esAyudante) return '';
+  if(corto) return '🕐 Salir ' + hora12(r.salida) + (r.pasar ? ' · 🧑 ' + escH(r.nombre) + ' ' + hora12(r.recoger) : '');
+  return '<div>🅿️ Sal de la base: <b style="font-size:20px;color:#1D9E75">' + hora12(r.salida) + '</b></div>'
+    + (r.pasar ? '<div>🧑 Pasa por ' + escH(r.nombre) + ': <b style="font-size:17px">' + hora12(r.recoger) + '</b></div>' : '')
+    + '<div>📦 Llegas con el cliente: <b>' + hora12(r.llegar) + '</b></div>'
+    + '<div style="font-size:11px;color:#b0c4d8">' + (r.trafico ? '🚦 Calculado con tráfico.' : '⚠️ Calculado sin tráfico; sal un poco antes.') + '</div>';
+}
+function rsPintarCampo(t) {
+  const el = document.getElementById('campo-recogida'); if(!el) return;
+  const h = rsCampoHtml(t, false); el.innerHTML = h; el.style.display = h ? '' : 'none';
+}
 </script>
 </body>
 </html>
