@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.46</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.47</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -4647,10 +4647,11 @@ function renderGastos() {
       <div class="card">
         <div style="font-weight:700;color:#2F74C0;margin-bottom:10px">Total retirado (propietario/empleados fijos): $${tot.toFixed(2)}</div>
         <table class="data-table">
-          <thead><tr><th>Fecha</th><th>Quién</th><th>Monto</th><th>Forma de pago</th><th>Notas</th></tr></thead>
-          <tbody>${sl.slice().reverse().map(s=>`<tr>
-            <td>${s.fecha}</td><td><strong>${s.quien}${s.nombre ? ' — '+s.nombre : ''}</strong></td>
-            <td><strong style="color:#2F74C0">$${s.monto.toFixed(2)}</strong></td><td>${s.pago}</td><td>${s.notas||'—'}</td>
+          <thead><tr><th>Fecha</th><th>Quién</th><th>Monto</th><th>Forma de pago</th><th>Notas</th><th></th></tr></thead>
+          <tbody>${sl.slice().reverse().map((s,i)=>`<tr>
+            <td>${s.fecha}${(s.fecha||'') < '2026-06-01' ? ' <span title="Fecha antes de que empezara el negocio" style="color:#EF9F27">⚠️</span>' : ''}</td><td><strong>${s.quien}${s.nombre ? ' — '+s.nombre : ''}</strong></td>
+            <td><strong style="color:#2F74C0">$${(+s.monto||0).toFixed(2)}</strong></td><td>${s.pago}</td><td>${s.notas||'—'}</td>
+            <td style="white-space:nowrap"><button class="btn btn-sm" onclick="editarSueldo(${i})" title="Corregir">✏️</button> <button class="btn btn-sm" onclick="eliminarSueldo(${i})" title="Eliminar">🗑️</button></td>
           </tr>`).join('')}</tbody>
         </table>
       </div>` : '<div class="empty-state" style="padding:20px"><p>Sin retiros del propietario registrados</p></div>');
@@ -6278,6 +6279,39 @@ function guardarAy() {
   renderAyPendientes();
 }
 
+// v13.47: corregir o borrar un retiro (el índice es el de la lista que se ve, de más nuevo a más viejo)
+function editarSueldo(idx) {
+  const d = getData(); const r = (d.sl||[]).slice().reverse()[idx]; if(!r) return;
+  const prev = document.getElementById('sl-edit-ov'); if(prev) prev.remove();
+  const m = document.createElement('div'); m.id = 'sl-edit-ov';
+  m.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:100002;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto';
+  const inp = 'width:100%;padding:10px;border-radius:8px;font-size:15px;margin-top:4px';
+  const opc = (lista, val) => lista.concat(lista.indexOf(val) < 0 && val ? [val] : []).map(o => '<option' + (o === val ? ' selected' : '') + '>' + escH(o) + '</option>').join('');
+  m.innerHTML = '<div class="card" style="width:100%;max-width:480px;margin-top:30px"><div class="card-title">✏️ Corregir retiro</div>'
+    + '<label>Fecha</label><input type="date" id="sle-fecha" value="' + escH(r.fecha||'') + '" style="' + inp + '">'
+    + '<label>¿Quién retira?</label><select id="sle-quien" style="' + inp + '">' + opc(['Propietario','Empleado fijo'], r.quien||'Propietario') + '</select>'
+    + '<label>Nombre (si es empleado fijo)</label><input id="sle-nombre" value="' + escH(r.nombre||'') + '" style="' + inp + '">'
+    + '<label>Monto ($)</label><input type="number" step="0.01" id="sle-monto" value="' + (+r.monto||0) + '" style="' + inp + '">'
+    + '<label>Forma de pago</label><select id="sle-pago" style="' + inp + '">' + opc(['Zelle','Efectivo','Transferencia','Cheque'], r.pago||'Zelle') + '</select>'
+    + '<label>Notas</label><input id="sle-notas" value="' + escH(r.notas||'') + '" style="' + inp + '">'
+    + '<div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" id="sle-ok">💾 Guardar</button><button class="btn" onclick="document.getElementById(\'sl-edit-ov\').remove()">Cancelar</button></div></div>';
+  document.body.appendChild(m);
+  document.getElementById('sle-ok').onclick = () => {
+    const monto = parseFloat(document.getElementById('sle-monto').value);
+    const fecha = document.getElementById('sle-fecha').value;
+    if(!(monto > 0) || !fecha) { alert('Revisa la fecha y el monto.'); return; }
+    r.fecha = fecha; r.monto = Math.round(monto * 100) / 100;
+    r.quien = document.getElementById('sle-quien').value; r.nombre = document.getElementById('sle-nombre').value.trim();
+    r.pago = document.getElementById('sle-pago').value; r.notas = document.getElementById('sle-notas').value;
+    saveData(d); m.remove(); try { renderGastos(); } catch(e) {}
+  };
+}
+function eliminarSueldo(idx) {
+  const d = getData(); const r = (d.sl||[]).slice().reverse()[idx]; if(!r) return;
+  if(!confirm('¿Eliminar el retiro del ' + r.fecha + ' por $' + (+r.monto||0).toFixed(2) + '?')) return;
+  const i = d.sl.indexOf(r); if(i >= 0) d.sl.splice(i, 1);
+  saveData(d); try { renderGastos(); } catch(e) {}
+}
 function guardarSueldo() {
   const monto = parseFloat(document.getElementById('sl-monto').value);
   const fecha = document.getElementById('sl-fecha').value;
