@@ -203,7 +203,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
   <div class="logo">ME</div>
   <div>
     <div class="app-title">Mudanzas Express LA</div>
-    <div class="app-subtitle">Sistema de Gestión Profesional · v13.43</div>
+    <div class="app-subtitle">Sistema de Gestión Profesional · v13.46</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
     <button onclick="toggleDarkMode()" id="btn-dark" title="Modo oscuro" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px">🌙</button>
@@ -399,8 +399,13 @@ table.data-table tr:hover td{background:#1A2A42!important}
       <div><label>Horas estimadas</label><input id="c-horas" type="number" value="3" step="0.5" min="1" oninput="calcTotal()"></div>
       <div><label>Descuento ($)</label><input id="c-descuento" type="number" value="0" min="0" oninput="calcTotal()"></div>
       <div><label>Forma de pago aceptada</label>
-        <select id="c-pago"><option>Efectivo</option><option>Zelle</option><option>Tarjeta de crédito/débito</option><option>Cheque</option><option>Efectivo o Zelle</option></select>
+        <select id="c-pago"><option>Efectivo o Zelle</option><option>Efectivo</option><option>Zelle</option><option>Tarjeta de crédito/débito</option><option>Cheque</option></select>
       </div>
+    </div>
+    <!-- v13.44: hora extra por escrito en cada cotización -->
+    <div class="form-row" style="grid-template-columns:1fr 2fr;margin-bottom:10px">
+      <div><label>⏱️ Hora extra ($ por hora)</label><input id="c-hora-extra" type="number" step="5" min="0" placeholder="60"></div>
+      <div style="font-size:12px;color:#b0c4d8;align-self:end;padding-bottom:8px">Sale en la cotización: "El precio cubre hasta X horas; cada hora adicional $__ (cobro por 30 min)". Déjalo vacío para usar el de Configuración ($60 si no hay).</div>
     </div>
 
     <!-- v13.8: Labor Only por hora -->
@@ -539,7 +544,7 @@ table.data-table tr:hover td{background:#1A2A42!important}
     </div></div>
     <div class="form-row full"><div>
       <label>Términos y condiciones (se incluyen en la cotización)</label>
-      <textarea id="c-terminos" style="min-height:90px">1. El pago completo debe realizarse ANTES de iniciar la descarga en destino. 2. Mudanzas Express LA no se responsabiliza por artículos frágiles no declarados ni empacados por el cliente. 3. Cancelación con menos de 24 horas de anticipación: se cobra depósito del 20% del total. 4. Todos los pagos por Zelle generan confirmación automática que sirve como comprobante de pago. 5. Cualquier reclamo por daños debe notificarse el mismo día del servicio antes de que nos retiremos. 6. Cargo por espera: después de 15 minutos de espera (cliente que no llega, llaves, elevador o acceso no listo) se cobran $40 por cada 30 minutos. 7. Viaje adicional fuera del área de Los Ángeles: si las pertenencias no caben en un solo viaje, cada viaje adicional tiene un cargo de $250. 8. El cliente declara conocer y aceptar estas condiciones al contratar el servicio.</textarea>
+      <textarea id="c-terminos" style="min-height:90px">1. El pago completo debe realizarse ANTES de iniciar la descarga en destino. 2. Mudanzas Express LA no se responsabiliza por artículos frágiles no declarados ni empacados por el cliente. 3. Cancelación con menos de 24 horas de anticipación: se cobra depósito del 20% del total. 4. Todos los pagos por Zelle generan confirmación automática que sirve como comprobante de pago. 5. Cualquier reclamo por daños debe notificarse el mismo día del servicio antes de que nos retiremos. 6. Cargo por espera: después de 15 minutos de espera (cliente que no llega, llaves, elevador o acceso no listo) se cobran $40 por cada 30 minutos. 7. Viajes y direcciones: el precio cubre un solo viaje entre las direcciones de esta cotización. Si las pertenencias no caben en un viaje, o si se agrega otra dirección o parada, el costo extra se acuerda por escrito ANTES de hacerlo (fuera del área de Los Ángeles: $250 por viaje adicional). 8. Tiempo adicional: si el trabajo tarda más de las horas estimadas, el tiempo extra se cobra según la tarifa por hora indicada en esta cotización. 9. El cliente declara conocer y aceptar estas condiciones al contratar el servicio.</textarea>
     </div></div>
   </div>
 
@@ -1855,7 +1860,8 @@ function limpiarForm(silencioso) {
   document.getElementById('c-descuento').value = '0';
   document.getElementById('c-fecha-pref').value = '';
   document.getElementById('c-hora').value = '';
-  document.getElementById('c-pago').value = 'Efectivo';
+  document.getElementById('c-pago').value = 'Efectivo o Zelle';
+  { const he = document.getElementById('c-hora-extra'); if(he) he.value = ''; }
   const canalEl = document.getElementById('c-canal'); if(canalEl) canalEl.value = '';
   const canalNEl = document.getElementById('c-canal-nombre'); if(canalNEl) canalNEl.value = '';
   const canalWrap = document.getElementById('c-canal-nombre-wrap'); if(canalWrap) canalWrap.style.display = 'none';
@@ -2018,6 +2024,7 @@ function guardarCotizacion() {
     descuento: desc, descuentoFrecuentePct: descuentoFrecuente,
     calcCosto: (function(){ try { const r = calcCostoDatos(); delete r._F; delete r._k; return r; } catch(e) { return null; } })(),
     pago: document.getElementById('c-pago').value,
+    horaExtra: parseFloat((document.getElementById('c-hora-extra')||{}).value) || 0,
     canal: document.getElementById('c-canal').value || '',
     canalNombre: (document.getElementById('c-canal') .value === 'fb_ads' ? document.getElementById('c-canal-nombre').value.trim().replace(/\s+/g,' ').toUpperCase() : document.getElementById('c-canal-nombre').value.trim()) || '',
     notas: document.getElementById('c-notas').value,
@@ -2084,7 +2091,8 @@ function editarCot(id) {
   document.getElementById('c-base').value = cot.base || 150;
   document.getElementById('c-horas').value = cot.horas || 3;
   document.getElementById('c-descuento').value = cot.descuento || 0;
-  document.getElementById('c-pago').value = cot.pago || 'Efectivo';
+  document.getElementById('c-pago').value = cot.pago || 'Efectivo o Zelle';
+  { const he = document.getElementById('c-hora-extra'); if(he) he.value = cot.horaExtra || ''; }
   const cEd = document.getElementById('c-canal'); if(cEd) { if(cot.canal && ![...cEd.options].some(o => o.value === cot.canal)) { const op = document.createElement('option'); op.value = cot.canal; op.textContent = canalLabel(cot.canal); cEd.appendChild(op); } cEd.value = cot.canal || ''; }
   const cnEd = document.getElementById('c-canal-nombre'); if(cnEd) cnEd.value = cot.canalNombre || '';
   toggleCanalNombre();
@@ -2680,10 +2688,31 @@ function verViajeDia(id) {
   m.style.cssText = 'position:fixed;inset:0;background:#000b;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
   m.innerHTML = '<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:640px;width:100%;max-height:90vh;overflow:auto;padding:18px">'
     + '<div style="font-size:16px;font-weight:800;margin-bottom:10px">🚗 Viajes del ' + v.fecha + '</div>'
+    + '<div style="font-size:12px;color:#b0c4d8;margin-bottom:8px">¿Escogiste el vehículo equivocado? Cámbialo en cada viaje, o todos de una vez: '
+    + vjSelVeh('vj-veh-todos', '', true) + '</div>'
     + '<table class="data-table"><thead><tr><th>Salida</th><th>Llegada</th><th>Vehículo</th><th>A dónde</th><th>Millas</th></tr></thead><tbody>'
-    + (v.tramos || []).map(t => '<tr><td>' + hora12(horaLocal(t.inicio)) + '</td><td>' + hora12(horaLocal(t.fin)) + '</td><td>' + (GAS_VEH[t.vehiculo] || t.vehiculo) + '</td><td>' + escH(t.hacia && t.hacia.etiqueta || '') + '</td><td>' + (+t.millas || 0).toFixed(1) + (t.fuente === 'aprox' ? ' ~' : '') + '</td></tr>').join('')
-    + '</tbody></table>' + ((v.cancelados || []).length ? '<div style="font-size:12px;color:#b0c4d8;margin-top:10px"><b>✖️ Viajes cancelados:</b><br>' + v.cancelados.map(c => hora12(horaLocal(c.inicio)) + ' · ' + escH(c.hacia) + (c.motivo ? ' — ' + escH(c.motivo) : '')).join('<br>') + '</div>' : '') + '<div class="btn-row" style="margin-top:12px"><button class="btn" onclick="this.closest(\'div[style*=fixed]\').remove()">Cerrar</button></div></div>';
+    + (v.tramos || []).map((t, i) => '<tr><td>' + hora12(horaLocal(t.inicio)) + '</td><td>' + hora12(horaLocal(t.fin)) + '</td><td>' + vjSelVeh('vj-veh-' + i, t.vehiculo) + '</td><td>' + escH(t.hacia && t.hacia.etiqueta || '') + '</td><td>' + (+t.millas || 0).toFixed(1) + (t.fuente === 'aprox' ? ' ~' : '') + '</td></tr>').join('')
+    + '</tbody></table>' + ((v.cancelados || []).length ? '<div style="font-size:12px;color:#b0c4d8;margin-top:10px"><b>✖️ Viajes cancelados:</b><br>' + v.cancelados.map(c => hora12(horaLocal(c.inicio)) + ' · ' + escH(c.hacia) + (c.motivo ? ' — ' + escH(c.motivo) : '')).join('<br>') + '</div>' : '') + '<div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" onclick="vjGuardarVehiculos(\'' + v.id + '\', this)">💾 Guardar cambios</button><button class="btn" onclick="this.closest(\'div[style*=fixed]\').remove()">Cerrar</button></div></div>';
   document.body.appendChild(m);
+  const todos = document.getElementById('vj-veh-todos');
+  if(todos) todos.onchange = () => { if(!todos.value) return; (v.tramos || []).forEach((t, i) => { const s = document.getElementById('vj-veh-' + i); if(s) s.value = todos.value; }); };
+}
+// v13.45: corregir el vehículo de los viajes de un día (ej. se escogió U-Haul y era la Ford)
+function vjSelVeh(id, val, vacio) {
+  return '<select id="' + id + '" style="padding:4px 6px;font-size:12px">' + (vacio ? '<option value="">— elegir —</option>' : '')
+    + ['tacoma', 'ford', 'uhaul', 'otro'].map(k => '<option value="' + k + '"' + (k === val ? ' selected' : '') + '>' + GAS_VEH[k] + '</option>').join('') + '</select>';
+}
+function vjGuardarVehiculos(id, btn) {
+  const d = getData(); const v = (d.viajes || []).find(x => x.id === id); if(!v) return;
+  let cambios = 0;
+  (v.tramos || []).forEach((t, i) => { const s = document.getElementById('vj-veh-' + i); if(s && s.value && s.value !== t.vehiculo) { t.vehiculo = s.value; cambios++; } });
+  if(!cambios) { alert('No cambiaste ningún vehículo.'); return; }
+  v.resumen = vjResumen({ tramos: v.tramos });
+  v.editadoVeh = new Date().toISOString();
+  saveData(d);
+  alert('✅ Listo: ' + cambios + ' viaje(s) cambiados. Las millas ya cuentan para el vehículo correcto (pestaña Vehículos y hoja "Millas" del Excel).\n\nSi el odómetro de ese vehículo quedó corto, corrígelo en 🚗 Vehículos.');
+  btn.closest('div[style*=fixed]').remove();
+  try { renderVehiculos(); } catch(e) {}
 }
 
 // ===================== v13.15: CELULAR — GASTO RÁPIDO (FASE 1) =====================
@@ -2891,11 +2920,43 @@ function vjCerrarMarca(a) {
   const ls = a.locks && a.locks.length ? a.locks : [{ key: a.lockKey, ts: a.lockTs }];
   ls.forEach((l, i) => vjPostMarca('VJDONE-' + hoyLocal().replace(/-/g, '') + '-' + l.key + '-' + vjQuien() + '-' + (Date.now() + i) + '-' + l.ts + '-' + (a.destKey || l.key)));
 }
-// Abrir Google Maps sin perder la app (Android abre la navegación directo)
-function vjAbrirMaps(txt) {
-  const q = encodeURIComponent(txt || '');
-  if(/Android/i.test(navigator.userAgent)) { location.href = 'google.navigation:q=' + q + '&mode=d'; return; }
-  location.href = vjMapsUrl(txt);
+// v13.46: llegar a la puerta correcta.
+// Antes se mandaba el texto de la dirección a Maps como "búsqueda" y a veces caía una cuadra antes.
+// Ahora se busca la ubicación exacta de la dirección (Google la da "ROOFTOP" = el techo de la casa) y se navega a ese punto.
+function vjDirLimpia(t) { return String(t || '').replace(/,?\s*(EE\.?\s*UU\.?|USA|United States|Estados Unidos)\s*$/i, '').replace(/\s+/g, ' ').trim(); }
+function vjGeoCache() { try { return JSON.parse(localStorage.getItem('vj_geo_cache') || '{}'); } catch(e) { return {}; } }
+function vjGeoBuscar(txt, ms) {
+  const limpio = vjDirLimpia(txt), k = limpio.toUpperCase();
+  if(!k) return Promise.resolve(null);
+  const c = vjGeoCache(); if(c[k]) return Promise.resolve(c[k]);
+  return new Promise(res => {
+    let listo = false; const fin = v => { if(!listo) { listo = true; res(v); } };
+    setTimeout(() => fin(null), ms || 2500);
+    try {
+      if(typeof google === 'undefined' || !google.maps || !google.maps.Geocoder) return fin(null);
+      new google.maps.Geocoder().geocode({ address: limpio, region: 'us' }, (r, st) => {
+        if(st !== 'OK' || !r || !r[0]) return fin(null);
+        const g = { lat: r[0].geometry.location.lat(), lng: r[0].geometry.location.lng(), pid: r[0].place_id || '', tipo: r[0].geometry.location_type || '' };
+        const c2 = vjGeoCache(); c2[k] = g; const ks = Object.keys(c2); if(ks.length > 150) delete c2[ks[0]];
+        try { localStorage.setItem('vj_geo_cache', JSON.stringify(c2)); } catch(e) {}
+        fin(g);
+      });
+    } catch(e) { fin(null); }
+  });
+}
+// Busca de antemano las direcciones de los trabajos (así al tocar "Abrir en Maps" ya está lista)
+function vjPrecargarGeo(trabajos) {
+  const dirs = [];
+  (trabajos || []).forEach(t => [t.origen].concat(t.paradas || []).concat([t.destino]).forEach(x => { if(x && dirs.indexOf(x) < 0) dirs.push(x); }));
+  let i = 0; const sig = () => { if(i >= dirs.length || i >= 16) return; vjGeoBuscar(dirs[i++], 4000).then(() => setTimeout(sig, 300)); };
+  setTimeout(sig, 1500);
+}
+async function vjAbrirMaps(txt) {
+  const limpio = vjDirLimpia(txt);
+  const g = await vjGeoBuscar(txt, 2500);
+  const exacto = g && g.tipo === 'ROOFTOP';   // si Google solo la calcula aproximada, se deja que Maps la busque
+  if(/Android/i.test(navigator.userAgent)) { location.href = 'google.navigation:q=' + (exacto ? g.lat + ',' + g.lng : encodeURIComponent(limpio)) + '&mode=d'; return; }
+  location.href = vjMapsUrl(limpio, g && g.pid);
 }
 
 // v13.15c: botones de viaje dentro de cada trabajo (pestaña Trabajo)
@@ -3022,7 +3083,7 @@ function vjRender() {
   el.innerHTML = h;
   vjVigilarLlegada();
 }
-function vjMapsUrl(txt) { return 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' + encodeURIComponent(txt || ''); }
+function vjMapsUrl(txt, pid) { return 'https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=' + encodeURIComponent(vjDirLimpia(txt)) + (pid ? '&destination_place_id=' + encodeURIComponent(pid) : ''); }
 async function vjIniciar(opDirecta) {
   const veh = localStorage.getItem('vj_ultimo_veh') || '';
   if(!veh) { alert('⚠️ Elige el vehículo'); return; }
@@ -3123,7 +3184,7 @@ function vjVigilarLlegada() {
   const s = vjEstado();
   if(!s.activo || !navigator.geolocation) { vjDetenerVigilancia(); return; }
   if(!vjDestGeo && typeof google !== 'undefined' && google.maps && google.maps.Geocoder) {
-    try { new google.maps.Geocoder().geocode({ address: s.activo.hacia.txt }, (r, st) => { if(st === 'OK' && r[0]) vjDestGeo = { lat: r[0].geometry.location.lat(), lng: r[0].geometry.location.lng() }; }); } catch(e) {}
+    try { vjGeoBuscar(s.activo.hacia.txt, 8000).then(g => { if(g && !vjDestGeo) vjDestGeo = { lat: g.lat, lng: g.lng }; }); } catch(e) {}
   }
   if(vjWatch != null) return;
   vjWatch = navigator.geolocation.watchPosition(p => {
@@ -3745,7 +3806,8 @@ function renderCots() {
   lista = filtrarPorBusqueda(lista, 'buscar-cotizaciones');
   const el = document.getElementById('lista-cotizaciones');
   if(!lista.length) { el.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>No hay cotizaciones pendientes</p></div>'; return; }
-  el.innerHTML = cotsViejasBanner() + lista.reverse().map(c => `
+  lista = lista.slice().sort((a,b) => { const x = claveFechaOrden(a.fecha), y = claveFechaOrden(b.fecha); return x < y ? 1 : x > y ? -1 : numId(b.id) - numId(a.id); });
+  el.innerHTML = cotsViejasBanner() + lista.map(c => `
     <div class="list-item">
       <div class="list-item-header">
         <div>
@@ -3963,7 +4025,7 @@ function renderAgenda() {
 // ===================== RENDER TRABAJOS =====================
 function renderTrabajos() {
   const d = getData();
-  let lista = d.cots.filter(c => c.estatus === 'en_trabajo').sort((a,b)=>(b.fechaAgendada||'')>(a.fechaAgendada||'')?1:-1);
+  let lista = d.cots.filter(c => c.estatus === 'en_trabajo').sort((a,b)=>{ const x = (a.fechaAgendada||'') + ' ' + (a.hora||''), y = (b.fechaAgendada||'') + ' ' + (b.hora||''); return x < y ? 1 : x > y ? -1 : 0; });
   lista = filtrarPorBusqueda(lista, 'buscar-trabajos');
   const el = document.getElementById('lista-trabajos');
   if(!lista.length) { el.innerHTML = '<div class="empty-state"><div class="icon">🚛</div><p>No hay trabajos en proceso</p></div>'; return; }
@@ -4068,7 +4130,8 @@ function buscarTerminadosCambio() { terminadosMostrar = 15; renderTerminados(); 
 
 function renderTerminados() {
   const d = getData();
-  const listaCompleta = d.cots.filter(c => c.estatus === 'terminado').sort((a,b) => b.fechaTerminado > a.fechaTerminado ? 1:-1);
+  const _kT = c => claveFechaOrden(c.fechaTerminadoISO || c.fechaTerminado || c.fecha);
+  const listaCompleta = d.cots.filter(c => c.estatus === 'terminado').sort((a,b) => { const x = _kT(a), y = _kT(b); return x < y ? 1 : x > y ? -1 : numId(b.id) - numId(a.id); });
   const lista = filtrarPorBusqueda(listaCompleta, 'buscar-terminados');
   const el = document.getElementById('lista-terminados');
   const totalIngresos = listaCompleta.reduce((a,c) => a + (c.montoFinal||c.total||0) + (c.propina||0), 0);
@@ -4273,6 +4336,8 @@ function eliminarGastoGG(idx) {
 
 function renderGastos() {
   const d = getData();
+  // v13.46: gastos siempre en orden de fecha (aunque se registren después)
+  { const c1 = ordenarGuardado(d.gas), c2 = ordenarGuardado(d.gg), c3 = ordenarGuardado(d.sl); if(c1 || c2 || c3) saveData(d); }
   try { renderGastosPend(); poblarTarjetas(); } catch(e) {}
   // Gasolina
   const gasEl = document.getElementById('lista-gas');
@@ -4605,6 +4670,26 @@ function showGTab(t, btn) {
 
 // ===================== HISTORIAL ACUMULADO AYUDANTES =====================
 // ── Helpers de semana ───────────────────────────────────────────────────────
+// v13.46: llave de fecha para ordenar (acepta 2026-11-14, 14/11/2026 y fechas con hora)
+function claveFechaOrden(f, hora) {
+  if(!f) return '0000-00-00 00:00';
+  let s = String(f).trim();
+  let iso = '';
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) iso = s.slice(0, 10) + (s.length > 10 ? ' ' + s.slice(11, 16) : '');
+  else { const x = ayParseFecha(s.split(',')[0].trim()); iso = (x && !isNaN(x)) ? fechaLocal(x) : '0000-00-00'; const m = s.match(/(\d{1,2}):(\d{2})/); if(m && s.indexOf(',') > 0) iso += ' ' + m[1].padStart(2, '0') + ':' + m[2]; }
+  if(hora) iso = iso.slice(0, 10) + ' ' + String(hora).slice(0, 5);
+  return iso;
+}
+function numId(id) { const m = String(id || '').match(/(\d+)\D*$/); return m ? +m[1] : 0; }
+// Ordena el arreglo guardado de más viejo a más nuevo (así la vista "al revés" queda de más nuevo a más viejo). Devuelve true si cambió.
+function ordenarGuardado(arr) {
+  if(!Array.isArray(arr) || arr.length < 2) return false;
+  const k = arr.map((x, i) => ({ x, i, f: claveFechaOrden(x.fecha, x.hora) }));
+  const ord = k.slice().sort((a, b) => a.f < b.f ? -1 : a.f > b.f ? 1 : a.i - b.i);
+  if(ord.every((o, j) => o.i === j)) return false;
+  ord.forEach((o, j) => arr[j] = o.x);
+  return true;
+}
 function ayParseFecha(f) {
   if(!f) return null;
   if(/^\d{4}-\d{2}-\d{2}$/.test(f)) return new Date(f+'T12:00:00');
@@ -4867,7 +4952,7 @@ function renderAyHistorial() {
       porDia[k].push(r);
     });
 
-    const diasEntries = Object.entries(porDia).sort((a,b)=>a[0]>b[0]?1:-1);
+    const diasEntries = Object.entries(porDia).sort((a,b)=>{ const x = claveFechaOrden(a[0]), y = claveFechaOrden(b[0]); return x < y ? 1 : x > y ? -1 : 0; });
     const semTotalHoras = regsEstaSemana.reduce((s,r)=>s+(r.horas||0),0);
     const semTotalMonto = regsEstaSemana.reduce((s,r)=>s+(r.monto||0),0);
     const semTotalBono  = regsEstaSemana.reduce((s,r)=>s+(r.bono||0),0);
@@ -6237,7 +6322,7 @@ function guardarCapital() {
 
 function renderCapital() {
   const d = getData();
-  const lista = (d.capital||[]).slice().sort((a,b) => a.fecha < b.fecha ? 1 : -1);
+  const lista = (d.capital||[]).map((c, i) => Object.assign({}, c, { _i: i })).sort((a,b) => a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : b._i - a._i);
   const el = document.getElementById('lista-capital');
   if(!el) return;
   if(!lista.length) { el.innerHTML = '<div class="empty-state"><div class="icon">🏦</div><p>No hay aportaciones registradas</p></div>'; return; }
@@ -6254,7 +6339,7 @@ function renderCapital() {
         ${c.destino ? `<div style="font-size:12px;color:#b0c4d8;margin-top:2px">📌 ${c.destino}</div>` : ''}
         ${c.notas ? `<div style="font-size:11px;color:#b0c4d8;margin-top:4px;font-style:italic">${c.notas}</div>` : ''}
       </div>
-      <button onclick="eliminarCapital(${i})" style="background:none;border:none;color:#E24B4A;font-size:18px;cursor:pointer" title="Eliminar">🗑</button>
+      <button onclick="eliminarCapital(${c._i})" style="background:none;border:none;color:#E24B4A;font-size:18px;cursor:pointer" title="Eliminar">🗑</button>
     </div>
   </div>`).join('');
 }
@@ -6314,10 +6399,37 @@ function cambiarVehGas(idx, v) {
 }
 
 // ===================== v13.14: TÉRMINOS Y TRADUCCIÓN AL INGLÉS =====================
-const TERMINOS_DEF = "1. El pago completo debe realizarse ANTES de iniciar la descarga en destino. 2. Mudanzas Express LA no se responsabiliza por artículos frágiles no declarados ni empacados por el cliente. 3. Cancelación con menos de 24 horas de anticipación: se cobra depósito del 20% del total. 4. Todos los pagos por Zelle generan confirmación automática que sirve como comprobante de pago. 5. Cualquier reclamo por daños debe notificarse el mismo día del servicio antes de que nos retiremos. 6. Cargo por espera: después de 15 minutos de espera (cliente que no llega, llaves, elevador o acceso no listo) se cobran $40 por cada 30 minutos. 7. Viaje adicional fuera del área de Los Ángeles: si las pertenencias no caben en un solo viaje, cada viaje adicional tiene un cargo de $250. 8. El cliente declara conocer y aceptar estas condiciones al contratar el servicio.";
+const TERMINOS_DEF = "1. El pago completo debe realizarse ANTES de iniciar la descarga en destino. 2. Mudanzas Express LA no se responsabiliza por artículos frágiles no declarados ni empacados por el cliente. 3. Cancelación con menos de 24 horas de anticipación: se cobra depósito del 20% del total. 4. Todos los pagos por Zelle generan confirmación automática que sirve como comprobante de pago. 5. Cualquier reclamo por daños debe notificarse el mismo día del servicio antes de que nos retiremos. 6. Cargo por espera: después de 15 minutos de espera (cliente que no llega, llaves, elevador o acceso no listo) se cobran $40 por cada 30 minutos. 7. Viajes y direcciones: el precio cubre un solo viaje entre las direcciones de esta cotización. Si las pertenencias no caben en un viaje, o si se agrega otra dirección o parada, el costo extra se acuerda por escrito ANTES de hacerlo (fuera del área de Los Ángeles: $250 por viaje adicional). 8. Tiempo adicional: si el trabajo tarda más de las horas estimadas, el tiempo extra se cobra según la tarifa por hora indicada en esta cotización. 9. El cliente declara conocer y aceptar estas condiciones al contratar el servicio.";
+// v13.44: términos anteriores (para que las cotizaciones viejas sigan traduciéndose)
+const TERMINOS_DEF_1343 = "1. El pago completo debe realizarse ANTES de iniciar la descarga en destino. 2. Mudanzas Express LA no se responsabiliza por artículos frágiles no declarados ni empacados por el cliente. 3. Cancelación con menos de 24 horas de anticipación: se cobra depósito del 20% del total. 4. Todos los pagos por Zelle generan confirmación automática que sirve como comprobante de pago. 5. Cualquier reclamo por daños debe notificarse el mismo día del servicio antes de que nos retiremos. 6. Cargo por espera: después de 15 minutos de espera (cliente que no llega, llaves, elevador o acceso no listo) se cobran $40 por cada 30 minutos. 7. Viaje adicional fuera del área de Los Ángeles: si las pertenencias no caben en un solo viaje, cada viaje adicional tiene un cargo de $250. 8. El cliente declara conocer y aceptar estas condiciones al contratar el servicio.";
 const TERMINOS_EN_MAP = {};
-TERMINOS_EN_MAP[TERMINOS_DEF] = "1. Full payment must be made BEFORE unloading begins at the destination. 2. Mudanzas Express LA is not responsible for fragile items that were not declared or that were packed by the customer. 3. Cancellations with less than 24 hours' notice are charged a fee of 20% of the total. 4. All Zelle payments generate an automatic confirmation that serves as proof of payment. 5. Any damage claim must be reported on the day of service, before our crew leaves. 6. Waiting fee: after 15 minutes of waiting (customer not present, keys, elevator or access not ready), $40 is charged for every 30 minutes. 7. Additional trip outside the Los Angeles area: if the belongings do not fit in a single trip, each additional trip has a $250 fee. 8. The customer acknowledges and accepts these terms by hiring the service.";
+TERMINOS_EN_MAP[TERMINOS_DEF] = "1. Full payment must be made BEFORE unloading begins at the destination. 2. Mudanzas Express LA is not responsible for fragile items that were not declared or that were packed by the customer. 3. Cancellations with less than 24 hours' notice are charged a fee of 20% of the total. 4. All Zelle payments generate an automatic confirmation that serves as proof of payment. 5. Any damage claim must be reported on the day of service, before our crew leaves. 6. Waiting fee: after 15 minutes of waiting (customer not present, keys, elevator or access not ready), $40 is charged for every 30 minutes. 7. Trips and addresses: the price covers one trip between the addresses in this quote. If the belongings do not fit in one trip, or if another address or stop is added, the extra cost is agreed in writing BEFORE it is done (outside the Los Angeles area: $250 per additional trip). 8. Additional time: if the job takes longer than the estimated hours, the extra time is charged at the hourly rate shown in this quote. 9. The customer acknowledges and accepts these terms by hiring the service.";
+TERMINOS_EN_MAP[TERMINOS_DEF_1343] = "1. Full payment must be made BEFORE unloading begins at the destination. 2. Mudanzas Express LA is not responsible for fragile items that were not declared or that were packed by the customer. 3. Cancellations with less than 24 hours' notice are charged a fee of 20% of the total. 4. All Zelle payments generate an automatic confirmation that serves as proof of payment. 5. Any damage claim must be reported on the day of service, before our crew leaves. 6. Waiting fee: after 15 minutes of waiting (customer not present, keys, elevator or access not ready), $40 is charged for every 30 minutes. 7. Additional trip outside the Los Angeles area: if the belongings do not fit in a single trip, each additional trip has a $250 fee. 8. The customer acknowledges and accepts these terms by hiring the service.";
 TERMINOS_EN_MAP["1. El pago completo debe realizarse ANTES de iniciar la descarga en destino. 2. Mudanzas Express LA no se responsabiliza por artículos frágiles no declarados ni empacados por el cliente. 3. Cancelación con menos de 24 horas de anticipación: se cobra depósito del 20% del total. 4. Todos los pagos por Zelle generan confirmación automática que sirve como comprobante de pago. 5. Cualquier reclamo por daños debe notificarse el mismo día del servicio antes de que nos retiremos. 6. El cliente declara conocer y aceptar estas condiciones al contratar el servicio."] = "1. Full payment must be made BEFORE unloading begins at the destination. 2. Mudanzas Express LA is not responsible for fragile items that were not declared or that were packed by the customer. 3. Cancellations with less than 24 hours' notice are charged a fee of 20% of the total. 4. All Zelle payments generate an automatic confirmation that serves as proof of payment. 5. Any damage claim must be reported on the day of service, before our crew leaves. 6. The customer acknowledges and accepts these terms by hiring the service.";
+// ===================== v13.44: CONDICIONES DE ESTE SERVICIO (se arman solas con los datos de cada cotización) =====================
+function horaExtraDe(c) { const cfg = getCfg(); return +(c.horaExtra) || +(cfg.horaExtra) || 60; }
+function condicionesServicio(c, en) {
+  const fm = n => '$' + (Math.round((+n || 0) * 100) / 100).toFixed(2).replace(/\.00$/, '');
+  const hrs = +(c.horas) || 3;
+  const r = [];
+  if(c.laborOnly) {
+    const pm = +(c.precioMin) || 0, hm = +(c.horasMin) || 0, th = +(c.tarifaHora) || horaExtraDe(c);
+    r.push(en ? 'Labor Only (no truck): minimum ' + fm(pm) + ' includes ' + hm + ' hours; after that ' + fm(th) + ' per hour, charged in 30-minute blocks (' + fm(th / 2) + ').'
+              : 'Labor Only (sin camión): mínimo ' + fm(pm) + ' incluye ' + hm + ' horas; después ' + fm(th) + ' por hora, cobrado por bloques de 30 minutos (' + fm(th / 2) + ').');
+  } else {
+    const he = horaExtraDe(c);
+    r.push(en ? 'The price of ' + fm(c.total) + ' covers up to ' + hrs + ' hours of work. Each additional hour: ' + fm(he) + ', charged in 30-minute blocks (' + fm(he / 2) + ').'
+              : 'El precio de ' + fm(c.total) + ' cubre hasta ' + hrs + ' horas de trabajo. Cada hora adicional: ' + fm(he) + ', cobrada por bloques de 30 minutos (' + fm(he / 2) + ').');
+  }
+  const ruta = [c.origen].concat(c.paradas || []).concat([c.destino]).filter(Boolean).join('  >  ');
+  if(!c.laborOnly) r.push(en ? 'Includes ONE trip: ' + ruta + '. Any other address, stop or a second trip is quoted and agreed in writing before it is done.'
+                             : 'Incluye UN solo viaje: ' + ruta + '. Otra dirección, parada o un segundo viaje se cotiza y se acuerda por escrito antes de hacerlo.');
+  if((c.articulosDetalle || []).length) r.push(en ? 'The price is for the items listed in this quote. Large items not on the list may change the price.'
+                                                  : 'El precio es para los artículos de la lista de esta cotización. Artículos grandes que no estén en la lista pueden cambiar el precio.');
+  r.push(en ? 'Payment: ' + (c.pago || 'Cash or Zelle') + '. Full payment before unloading.'
+            : 'Forma de pago: ' + (c.pago || 'Efectivo o Zelle') + '. Pago completo antes de descargar.');
+  return r;
+}
 function terminosEN(t) { return TERMINOS_EN_MAP[String(t||'').trim()] || ''; }
 function arreglarIngles(t) {
   return String(t||'')
@@ -6580,6 +6692,7 @@ function generarPDF(id, idioma) {
       manejoPiano: 'Manejo de piano u objeto especial / muy pesado', almacTemp: 'Almacenaje temporal',
       articulos: 'ARTÍCULOS A MOVER', inventario: 'INVENTARIO / NOTAS DEL TRABAJO',
       pagos: 'Pagos: Efectivo · Zelle: (323) 946-2008',
+      condServ: 'CONDICIONES DE ESTE SERVICIO', hastaHoras: 'Precio para hasta', horaExtraLbl: 'Hora extra',
       terminos: 'TÉRMINOS Y CONDICIONES', resumenServ: 'RESUMEN DEL SERVICIO', folio: 'Folio',
       totalEst: 'Total estimado', cliente: 'Cliente', fechaServ: 'Fecha del servicio',
       declaracion: 'El cliente firmante declara haber leído, entendido y aceptado los términos y condiciones descritos en este documento, así como el detalle del servicio y el costo total estimado.',
@@ -6606,6 +6719,7 @@ function generarPDF(id, idioma) {
       manejoPiano: 'Piano or special / very heavy item handling', almacTemp: 'Temporary storage',
       articulos: 'ITEMS TO MOVE', inventario: 'INVENTORY / JOB NOTES',
       pagos: 'Payments: Cash · Zelle: (323) 946-2008',
+      condServ: 'CONDITIONS FOR THIS SERVICE', hastaHoras: 'Price for up to', horaExtraLbl: 'Additional hour',
       terminos: 'TERMS AND CONDITIONS', resumenServ: 'SERVICE SUMMARY', folio: 'Folio',
       totalEst: 'Total estimate', cliente: 'Customer', fechaServ: 'Service date',
       declaracion: 'The undersigned customer declares having read, understood, and accepted the terms and conditions described in this document, as well as the service details and total estimated cost.',
@@ -6716,7 +6830,12 @@ function generarPDF(id, idioma) {
   y+=16;
 
   doc.setTextColor(0,0,0); doc.setFontSize(9); doc.setFont('helvetica','normal');
-  doc.text(L.formaPago + ': ' + c.pago, 15, y); y+=8;
+  doc.text(L.formaPago + ': ' + c.pago, 15, y); y+=5;
+  // v13.44: hora extra por escrito
+  doc.setFont('helvetica','bold'); doc.setTextColor(20,63,116);
+  if(c.laborOnly) doc.text((idioma==='en' ? 'Labor Only: minimum $' : 'Labor Only: mínimo $') + (c.precioMin||0) + (idioma==='en' ? ' includes ' : ' incluye ') + (c.horasMin||0) + ' h  ·  ' + L.horaExtraLbl + ': $' + (c.tarifaHora || horaExtraDe(c)) + (idioma==='en' ? '/hour' : '/hora'), 15, y);
+  else doc.text(L.hastaHoras + ' ' + (c.horas||3) + ' h  ·  ' + L.horaExtraLbl + ': $' + horaExtraDe(c) + (idioma==='en' ? '/hour' : '/hora'), 15, y);
+  doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0); y+=8;
 
   if(y > 240) { doc.addPage(); y = 15; }
 
@@ -6806,6 +6925,15 @@ function generarPDF(id, idioma) {
   doc.text('Tel/WhatsApp/Zelle: (323) 946-2008  |  mudanzasexpressla@gmail.com', 15, 21);
   y2 = 38;
 
+  // v13.44: condiciones propias de esta cotización
+  doc.setTextColor(20,63,116); doc.setFontSize(12); doc.setFont('helvetica','bold');
+  doc.text(L.condServ + ' — ' + c.id, 15, y2); y2 += 7;
+  doc.setFont('helvetica','normal'); doc.setTextColor(25,30,38); doc.setFontSize(9.5);
+  condicionesServicio(c, idioma==='en').forEach((t, i) => {
+    const w = doc.splitTextToSize((i+1) + '. ' + t, 178);
+    doc.text(w, 15, y2); y2 += w.length*5 + 1.5;
+  });
+  y2 += 6;
   doc.setTextColor(0,0,0); doc.setFontSize(13); doc.setFont('helvetica','bold');
   doc.text(L.terminos, 15, y2); y2 += 8;
 
@@ -9399,6 +9527,11 @@ initDarkMode();
           <div id="campo-monto-display" style="font-size:22px;font-weight:900;color:#7ab8d8"></div>
         </div>
         <div id="campo-notas-wrap" style="display:none;margin-bottom:8px"><span style="font-weight:700;color:#7ab8d8">📝 Notas:</span><div id="campo-notas" style="background:#1a2535;border-radius:8px;padding:8px;margin-top:4px;font-size:13px;white-space:pre-wrap"></div></div>
+        <!-- v13.46: muebles del trabajo (se abre y se cierra) -->
+        <div id="campo-muebles-wrap" style="display:none;margin-bottom:8px">
+          <button id="campo-muebles-btn" type="button" onclick="campoToggleMuebles()" style="width:100%;text-align:left;padding:10px 12px;border:1px solid #2a3a4a;border-radius:10px;background:#1a2535;color:#e8edf2;font-size:14px;font-weight:700;cursor:pointer">🛋️ Ver muebles</button>
+          <div id="campo-muebles-lista" style="display:none;background:#1a2535;border-radius:0 0 10px 10px;padding:8px 12px;margin-top:-4px;border:1px solid #2a3a4a;border-top:none"></div>
+        </div>
       </div>
       <div id="campo-fotos-card" class="card" style="display:none">
         <div class="card-title">📸 Fotos del inventario enviadas</div>
@@ -10146,7 +10279,7 @@ async function eqGuardiaReal(){
     else { eqPantallaPin(u, srv.estado === 'crearPin', (srv.usados || 0) > 0); return false; }
   }
   if(r.rev[u.id]) {
-    localStorage.removeItem('campo_usuario'); localStorage.removeItem('trabajoActivoCampo'); localStorage.removeItem('eq_pin_ok'); localStorage.removeItem('campo_token');
+    localStorage.removeItem('campo_usuario'); localStorage.removeItem('trabajoActivoCampo'); localStorage.removeItem('eq_pin_ok'); localStorage.removeItem('campo_token'); localStorage.removeItem('campo_trabajos_cache_v1');
     trabajosCola = []; trabajoActivo = null;
     eqOverlay('<div style="font-size:48px">🚫</div><div style="font-size:18px;font-weight:800;margin:8px 0">Enlace no válido</div>'
       + '<div style="font-size:13px;color:#b0c4d8;margin-bottom:16px">Este acceso ya no funciona. Si trabajas con Mudanzas Express LA, pide tu enlace nuevo al administrador.</div>'
@@ -10304,9 +10437,60 @@ function trabajoYaTerminado(cotId) {
   } catch(e) { return false; }
 }
 
+// v13.46: la app de campo abre al instante con los trabajos guardados y luego se actualiza sola
+const CAMPO_CACHE_KEY = 'campo_trabajos_cache_v1';
+function campoCacheQuien() { const u = campoUsuario(); return u ? 'u:' + u.id : (esModoDueno() ? 'dueno' : 'anon'); }
+function campoCacheGuardar(trabajos) {
+  try {
+    const lig = (trabajos || []).map(t => Object.assign({}, t, { fotos: (t.fotos || []).filter(f => String(f).indexOf('data:') !== 0), _fotosPend: (t.fotos || []).some(f => String(f).indexOf('data:') === 0) }));
+    localStorage.setItem(CAMPO_CACHE_KEY, JSON.stringify({ q: campoCacheQuien(), ts: Date.now(), trabajos: lig }));
+  } catch(e) {}
+}
+function campoCacheLeer() {
+  try {
+    const c = JSON.parse(localStorage.getItem(CAMPO_CACHE_KEY) || 'null');
+    if(!c || c.q !== campoCacheQuien() || Date.now() - c.ts > 3 * 86400000) return null;
+    return (c.trabajos || []).filter(t => !trabajoYaTerminado(t.cotId) && !trabajoCerradoEnCompu(t) && trabajoEsMio(t)).map(aplicarDirOverride);
+  } catch(e) { return null; }
+}
+function campoAviso(txt) {
+  let el = document.getElementById('campo-sync');
+  const ref = document.getElementById('sin-trabajo');
+  if(!el && ref && ref.parentNode) { el = document.createElement('div'); el.id = 'campo-sync'; el.style.cssText = 'font-size:12px;color:#b0c4d8;text-align:center;margin:0 0 8px'; ref.parentNode.insertBefore(el, ref); }
+  if(el) { el.textContent = txt || ''; el.style.display = txt ? '' : 'none'; }
+}
+function campoPintarFotos(t) {
+  const fotosCard = document.getElementById('campo-fotos-card'), fotosGrid = document.getElementById('campo-fotos-grid');
+  if(!fotosCard || !fotosGrid) return;
+  if(t.fotos && t.fotos.length > 0) {
+    fotosCard.style.display = '';
+    fotosGrid.innerHTML = t.fotos.map(f => `<img src="${f}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:2px solid #1F5EA8;cursor:pointer" onclick="verFotoCompleta('${f}')">`).join('');
+  } else fotosCard.style.display = 'none';
+}
+function campoMostrarLista(trabajos) {
+  trabajosCola = trabajos;
+  trabajoActivo = trabajos[0];
+  localStorage.setItem('trabajoActivoCampo', JSON.stringify(trabajos[0]));
+  if(trabajos.length > 1) renderListaTrabajos(trabajos);
+  else mostrarTrabajo(trabajos[0], 0);
+}
+function campoSinTrabajo() {
+  document.getElementById('sin-trabajo').style.display = '';
+  document.getElementById('campo-lista-trabajos').style.display = 'none';
+  document.getElementById('con-trabajo').style.display = 'none';
+  document.getElementById('sin-trabajo').innerHTML = `
+    <div style="font-size:40px;margin-bottom:10px">📭</div>
+    <div style="font-weight:600;margin-bottom:6px">No hay trabajo asignado</div>
+    <div style="font-size:12px">Cuando la administración asigne un trabajo, aparecerá aquí.</div>
+    <button class="btn btn-primary" style="margin-top:16px" onclick="cargarTrabajoCampo()">🔄 Verificar ahora</button>`;
+}
 async function cargarTrabajoCampo() {
+  // Pedir los trabajos desde ya, al mismo tiempo que se revisa el acceso (antes era uno después del otro)
+  const usaServidor = !!(CAMPO_APPS_URL && !CAMPO_APPS_URL.includes('PEGA_AQUI'));
+  const pTrabajos = usaServidor ? fetch(campoTrabajoUrl()).then(r => r.json()) : null;
+  if(pTrabajos) pTrabajos.catch(() => {});
   if(!(await eqGuardia())) { document.getElementById('sin-trabajo').style.display = ''; document.getElementById('campo-lista-trabajos').style.display = 'none'; document.getElementById('con-trabajo').style.display = 'none'; return; }
-  if(!CAMPO_APPS_URL || CAMPO_APPS_URL.includes('PEGA_AQUI')) {
+  if(!usaServidor) {
     // Fallback: leer de localStorage (si el jefe está en el mismo dispositivo)
     try {
       const raw = localStorage.getItem('trabajoActivoCampo');
@@ -10327,32 +10511,47 @@ async function cargarTrabajoCampo() {
     return;
   }
 
-  document.getElementById('sin-trabajo').style.display = '';
-  document.getElementById('sin-trabajo').innerHTML = '<div style="font-size:40px;margin-bottom:10px">⏳</div><div style="font-weight:600">Verificando trabajo asignado...</div>';
-  document.getElementById('campo-lista-trabajos').style.display = 'none';
-  document.getElementById('con-trabajo').style.display = 'none';
+  // 1) Mostrar al instante lo que ya estaba guardado en el celular
+  const cache = campoCacheLeer();
+  const dentroDeTrabajo = () => document.getElementById('con-trabajo').style.display !== 'none';
+  let usoCache = false;
+  if(cache && cache.length) {
+    usoCache = true;
+    if(!(dentroDeTrabajo() && trabajoActivo)) campoMostrarLista(cache);
+    campoAviso('🔄 Actualizando...');
+  } else {
+    document.getElementById('sin-trabajo').style.display = '';
+    document.getElementById('sin-trabajo').innerHTML = '<div style="font-size:40px;margin-bottom:10px">⏳</div><div style="font-weight:600">Verificando trabajo asignado...</div>';
+    document.getElementById('campo-lista-trabajos').style.display = 'none';
+    document.getElementById('con-trabajo').style.display = 'none';
+  }
 
+  // 2) Traer lo más nuevo del servidor
   try {
-    const res = await fetch(campoTrabajoUrl());
-    const data = await res.json();
-    if(data && data.acceso === 'denegado') { localStorage.removeItem('campo_token'); eqGuardiaOkHasta = 0; eqGuardia(true); }
+    const data = await pTrabajos;
+    if(data && data.acceso === 'denegado') { localStorage.removeItem('campo_token'); localStorage.removeItem(CAMPO_CACHE_KEY); eqGuardiaOkHasta = 0; eqGuardia(true); }
     const trabajosRaw = (data.ok && data.trabajos) ? data.trabajos : (data.ok && data.trabajo ? [data.trabajo] : []);
     // BUG 3 FIX: Exclude jobs already marked as terminado in the main app
     const trabajos = trabajosRaw.filter(t => !trabajoYaTerminado(t.cotId) && !trabajoCerradoEnCompu(t) && trabajoEsMio(t)).map(aplicarDirOverride);
-    if(trabajos.length > 0) {
+    campoCacheGuardar(trabajos);
+    campoAviso('');
+    try { vjPrecargarGeo(trabajos); } catch(e) {}
+    if(!trabajos.length) { trabajosCola = []; if(!(usoCache && dentroDeTrabajo())) { trabajoActivo = null; campoSinTrabajo(); } return; }
+    if(usoCache && dentroDeTrabajo() && trabajoActivo) {
+      // Ya estás viendo un trabajo: se actualiza por dentro sin sacarte ni borrar lo que escribiste
       trabajosCola = trabajos;
-      trabajoActivo = trabajos[0];
-      localStorage.setItem('trabajoActivoCampo', JSON.stringify(trabajos[0]));
-      if(trabajos.length > 1) renderListaTrabajos(trabajos);
-      else mostrarTrabajo(trabajos[0], 0);
-    } else {
-      document.getElementById('sin-trabajo').innerHTML = `
-        <div style="font-size:40px;margin-bottom:10px">📭</div>
-        <div style="font-weight:600;margin-bottom:6px">No hay trabajo asignado</div>
-        <div style="font-size:12px">Cuando la administración asigne un trabajo, aparecerá aquí.</div>
-        <button class="btn btn-primary" style="margin-top:16px" onclick="cargarTrabajoCampo()">🔄 Verificar ahora</button>`;
+      const nuevo = trabajos.find(x => x.cotId === trabajoActivo.cotId);
+      if(nuevo) {
+        Object.assign(trabajoActivo, nuevo); campoPintarFotos(trabajoActivo); try { campoPintarMuebles(trabajoActivo); } catch(e) {}
+        localStorage.setItem('trabajoActivoCampo', JSON.stringify(trabajoActivo));
+        const bv = document.getElementById('btn-volver-lista'); if(bv) bv.style.display = trabajos.length > 1 ? '' : 'none';
+        return;
+      }
+      // el trabajo que estabas viendo ya no está asignado: se muestra la lista nueva
     }
+    campoMostrarLista(trabajos);
   } catch(e) {
+    if(usoCache) { campoAviso('📴 Sin internet: mostrando lo último que se descargó'); return; }
     // Intentar localStorage como fallback
     try {
       const raw = localStorage.getItem('trabajoActivoCampo');
@@ -10447,6 +10646,7 @@ function mostrarTrabajo(t, pendientes) {
   document.getElementById('campo-hora').textContent = horaTexto || '—';
   try { rsPintarCampo(t); } catch(e) {}
 
+  try { campoPintarMuebles(t); } catch(e) {}
   if(t.notas) {
     document.getElementById('campo-notas-wrap').style.display = '';
     document.getElementById('campo-notas').textContent = t.notas;
@@ -10454,16 +10654,7 @@ function mostrarTrabajo(t, pendientes) {
     document.getElementById('campo-notas-wrap').style.display = 'none';
   }
 
-  const fotosCard = document.getElementById('campo-fotos-card');
-  const fotosGrid = document.getElementById('campo-fotos-grid');
-  if(t.fotos && t.fotos.length > 0) {
-    fotosCard.style.display = '';
-    fotosGrid.innerHTML = t.fotos.map(f =>
-      `<img src="${f}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:2px solid #1F5EA8;cursor:pointer" onclick="verFotoCompleta('${f}')">`
-    ).join('');
-  } else {
-    fotosCard.style.display = 'none';
-  }
+  campoPintarFotos(t);
 
   if(t.enviado) {
     document.getElementById('campo-enviado').textContent = 'Enviado: ' + new Date(t.enviado).toLocaleString('es-US');
@@ -10487,6 +10678,30 @@ function mostrarTrabajo(t, pendientes) {
   try { aplicarRolCampo(); renderChecklistSalida(); } catch(e) {}
 }
 
+// v13.46: lista de muebles en la app de campo (botón que abre y cierra)
+function campoArticulos(t) {
+  let a = (t && t.articulosDetalle && t.articulosDetalle.length) ? t.articulosDetalle : (t && t.articulos) || [];
+  if(typeof a === 'string') a = a.split(/\n|,/).map(x => x.trim()).filter(Boolean).map(x => ({ articulo: x }));
+  return (a || []).map(x => typeof x === 'string' ? { cantidad: 1, articulo: x } : x).filter(x => x && x.articulo);
+}
+function campoPintarMuebles(t) {
+  const w = document.getElementById('campo-muebles-wrap'), l = document.getElementById('campo-muebles-lista'), b = document.getElementById('campo-muebles-btn');
+  if(!w || !l || !b) return;
+  const arts = campoArticulos(t);
+  if(!arts.length) { w.style.display = 'none'; return; }
+  const total = arts.reduce((s, x) => s + (+x.cantidad || 1), 0);
+  w.style.display = '';
+  l.style.display = 'none';
+  b.dataset.txt = '🛋️ Muebles (' + total + ')';
+  b.textContent = b.dataset.txt + '  ▸';
+  l.innerHTML = arts.map(x => '<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #2a3a4a;font-size:14px"><b style="min-width:30px;color:#7ab8d8">' + (+x.cantidad || 1) + '×</b><span>' + escH(x.articulo) + (x.nota ? ' <span style="color:#b0c4d8;font-size:12px">· ' + escH(x.nota) + '</span>' : '') + '</span></div>').join('');
+}
+function campoToggleMuebles() {
+  const l = document.getElementById('campo-muebles-lista'), b = document.getElementById('campo-muebles-btn'); if(!l || !b) return;
+  const abrir = l.style.display === 'none';
+  l.style.display = abrir ? '' : 'none';
+  b.textContent = (b.dataset.txt || '🛋️ Muebles') + (abrir ? '  ▾' : '  ▸');
+}
 function verFotoCompleta(src) {
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center';
